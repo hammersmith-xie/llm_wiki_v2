@@ -34,6 +34,8 @@ const CATEGORY_OPTIONS: Array<AuditEventCategory | "all"> = [
   "review",
   "crystallize",
   "lifecycle",
+  "schema",
+  "quality",
   "other",
 ]
 

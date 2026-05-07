@@ -224,6 +224,7 @@
         "workbenchTabs": {
           "label": "维护工作台分区",
           "patrol": "巡检",
+          "schema": "Schema 与质量",
           "timeline": "时间线",
           "policy": "策略",
           "search": "搜索健康度"
@@ -257,6 +258,8 @@
             "relation": "关系",
             "contradiction": "冲突",
             "retention": "保留与归档",
+            "schema": "Schema",
+            "quality": "质量",
             "search-health": "搜索健康度",
             "other": "其他"
           },
@@ -296,6 +299,28 @@
           "rollbackRestored": "已恢复到变更前内容。",
           "rollbackAuditFailed": "回滚审计写入失败：{{error}}"
         },
+        "schemaQuality": {
+          "title": "Schema 与质量扫描",
+          "description": "按机器可读 schema contract 和确定性质量规则检查 wiki 页面。扫描只生成建议；metadata 修复仍需要 preview/apply。",
+          "run": "运行 schema 扫描",
+          "running": "扫描中…",
+          "notRun": "本会话尚未运行 Schema 与质量扫描。",
+          "contract": "Contract",
+          "contractFound": "已找到机器可读 contract。",
+          "contractFallback": "正在使用默认 contract fallback。",
+          "pages": "已扫描页面",
+          "averageQuality": "平均质量分 {{score}}",
+          "findings": "Schema findings",
+          "findingSplit": "{{warnings}} 个 warning，{{info}} 个 info",
+          "lowQuality": "低质量页面",
+          "qualityBucket": "{{label}}：{{n}}",
+          "warnings": "警告",
+          "auditError": "扫描已完成，但审计写入失败：{{error}}",
+          "topFindings": "主要 findings",
+          "batchResult": "最近 schema 批量结果",
+          "suggestions": "Schema 与质量建议",
+          "noSuggestions": "未发现 schema 或质量建议。"
+        },
         "auditTimeline": {
           "title": "审计时间线",
           "description": "查看本地审计事件，覆盖搜索、问答、导入、审阅、生命周期更新和 Memory Ops 变更。",
@@ -329,6 +354,8 @@
             "review": "审阅",
             "crystallize": "晶化",
             "lifecycle": "生命周期",
+            "schema": "Schema",
+            "quality": "质量",
             "other": "其他"
           },
           "scopes": {

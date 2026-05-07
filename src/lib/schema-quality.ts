@@ -113,7 +113,7 @@ export function buildSchemaQualityScanAuditEvent(
   report: SchemaQualityScanReport,
 ): AuditEvent {
   return {
-    action: "memory_ops.schema_quality",
+    action: "schema.scan",
     actor: "system",
     targetPath: ".llm-wiki/audit.jsonl",
     after: {

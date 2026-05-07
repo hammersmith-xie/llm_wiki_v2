@@ -224,6 +224,7 @@
         "workbenchTabs": {
           "label": "Maintenance workbench sections",
           "patrol": "Patrol",
+          "schema": "Schema & Quality",
           "timeline": "Timeline",
           "policy": "Policy",
           "search": "Search Health"
@@ -257,6 +258,8 @@
             "relation": "Relations",
             "contradiction": "Contradictions",
             "retention": "Retention",
+            "schema": "Schema",
+            "quality": "Quality",
             "search-health": "Search health",
             "other": "Other"
           },
@@ -296,6 +299,28 @@
           "rollbackRestored": "Rollback restored the previous content.",
           "rollbackAuditFailed": "Rollback audit failed: {{error}}"
         },
+        "schemaQuality": {
+          "title": "Schema & Quality scan",
+          "description": "Checks wiki pages against the machine-readable schema contract and deterministic quality rules. The scan only creates suggestions; metadata fixes still require preview/apply.",
+          "run": "Run schema scan",
+          "running": "Scanning…",
+          "notRun": "No Schema & Quality scan in this session.",
+          "contract": "Contract",
+          "contractFound": "Machine-readable contract found.",
+          "contractFallback": "Using default contract fallback.",
+          "pages": "Pages scanned",
+          "averageQuality": "Average quality {{score}}",
+          "findings": "Schema findings",
+          "findingSplit": "{{warnings}} warning, {{info}} info",
+          "lowQuality": "Low-quality pages",
+          "qualityBucket": "{{label}}: {{n}}",
+          "warnings": "Warnings",
+          "auditError": "Scan completed, but audit failed: {{error}}",
+          "topFindings": "Top findings",
+          "batchResult": "Latest schema batch result",
+          "suggestions": "Schema & quality suggestions",
+          "noSuggestions": "No schema or quality suggestions found."
+        },
         "auditTimeline": {
           "title": "Audit timeline",
           "description": "Explore local audit events across search, queries, ingest, reviews, lifecycle updates, and Memory Ops changes.",
@@ -329,6 +354,8 @@
             "review": "Review",
             "crystallize": "Crystallize",
             "lifecycle": "Lifecycle",
+            "schema": "Schema",
+            "quality": "Quality",
             "other": "Other"
           },
           "scopes": {

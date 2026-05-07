@@ -110,7 +110,7 @@ SECRET_TOKEN=abc123
     const event = buildSchemaQualityScanAuditEvent(report)
 
     expect(event).toMatchObject({
-      action: "memory_ops.schema_quality",
+      action: "schema.scan",
       actor: "system",
       targetPath: ".llm-wiki/audit.jsonl",
     })
@@ -129,7 +129,7 @@ SECRET_TOKEN=abc123
     expect(result.auditError).toBeUndefined()
     expect(mockAppendAuditEvent).toHaveBeenCalledWith(
       "/project",
-      expect.objectContaining({ action: "memory_ops.schema_quality" }),
+      expect.objectContaining({ action: "schema.scan" }),
     )
   })
 

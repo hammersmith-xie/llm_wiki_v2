@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 11 / 17
+**总体进度**: 🚧 12 / 17
 
 ---
 
@@ -373,9 +373,9 @@ graph TD
 
 **目标**: 把 schema scan、quality、digest 和 coordination 做成 Settings -> Maintenance 中可操作的工作台能力，并更新文档。
 **依赖**: M2, M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ 增加 Schema & Quality scan 面板
+### Task 4.1 ✅ 增加 Schema & Quality scan 面板
 
 **描述**: 在 Maintenance 中加入 Schema & Quality scan UI，展示 contract summary、warnings、findings、quality distribution，并支持 preview/apply/ignore。
 
@@ -392,16 +392,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 支持 no project/running/empty/warnings/error 状态。
-- [ ] findings 可按 severity/category 过滤或分组。
-- [ ] metadata finding 可 preview/apply/ignore。
-- [ ] scan 后刷新 audit timeline。
+- [x] 支持 no project/running/empty/warnings/error 状态。
+- [x] findings 可按 severity/category 过滤或分组。
+- [x] metadata finding 可 preview/apply/ignore。
+- [x] scan 后刷新 audit timeline。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 接入时发现 `schema.scan`/`quality.scan` 需要成为 audit category，已扩展 timeline category 类型和过滤 UI；React 面板里 `result` nullable narrowing 需要单独缓存 `auditError`；finding 分组初版只平铺展示，后续改为按 severity 分组以满足验收。
+- 🔧 **最终实现逻辑**: 新增 `schema-quality-project.ts` 读取项目 `schema.md` 与 `wiki/**/*.md`，调用已有 `runSchemaQualityScan` 并产出 Memory Ops suggestions；新增 `SchemaQualityPanel`，在 Maintenance 加入 Schema & Quality tab，展示 contract summary、quality distribution、warnings、findings 分组和 suggestions；复用现有 Memory Ops preview/apply/ignore/batch 逻辑；补 i18n、audit category 和 smoke/unit tests。
+- 🎯 **关键决策**: Schema scan 是手动运行，不在 tab 打开或 query/search 高频路径自动跑；scan event 使用 `schema.scan`，建议处理继续走 `memory_ops.*` batch/audit contract。Schema 面板与 Patrol 共用 suggestion 状态管线，但 tab 内 selected suggestions 只来自当前 schema scan result，避免误批量处理 Patrol suggestions。
 
 ---
 

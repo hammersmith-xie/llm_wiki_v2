@@ -57,6 +57,10 @@ import {
   type SearchHealthRunResult,
 } from "@/lib/search-health"
 import {
+  runProjectSchemaQualityScan,
+  type ProjectSchemaQualityScanResult,
+} from "@/lib/schema-quality-project"
+import {
   getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
   type MemoryOpsMaintenanceStatus,
@@ -67,6 +71,7 @@ import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
 import { AuditTimelinePanel } from "./audit-timeline-panel"
 import { MemoryOpsPolicyPanel } from "./memory-ops-policy-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
+import { SchemaQualityPanel } from "./schema-quality-panel"
 import { SearchHealthPanel } from "./search-health-panel"
 import {
   enqueueMerge,
@@ -86,7 +91,7 @@ interface GroupUiEntry {
   skipped: boolean
 }
 
-type MaintenanceWorkbenchTab = "patrol" | "timeline" | "policy" | "search"
+type MaintenanceWorkbenchTab = "patrol" | "schema" | "timeline" | "policy" | "search"
 
 /** Match a card to its task in the queue (if any) by slug-set. */
 function findTaskForGroup(
@@ -129,6 +134,10 @@ export function MaintenanceSection() {
   const [searchHealthResult, setSearchHealthResult] =
     useState<SearchHealthRunResult | null>(null)
   const [searchHealthError, setSearchHealthError] = useState<string | null>(null)
+  const [schemaQualityRunning, setSchemaQualityRunning] = useState(false)
+  const [schemaQualityResult, setSchemaQualityResult] =
+    useState<ProjectSchemaQualityScanResult | null>(null)
+  const [schemaQualityError, setSchemaQualityError] = useState<string | null>(null)
   const [workbenchTab, setWorkbenchTab] = useState<MaintenanceWorkbenchTab>("patrol")
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
     () => new Set(),
@@ -431,11 +440,15 @@ export function MaintenanceSection() {
   )
 
   const selectedMemoryOpsSuggestions = useCallback((): MemoryOpsSuggestion[] => {
-    if (!patrolReport) return []
-    return patrolReport.suggestions.filter((suggestion) =>
+    const sourceSuggestions =
+      workbenchTab === "schema"
+        ? schemaQualityResult?.suggestions
+        : patrolReport?.suggestions
+    if (!sourceSuggestions) return []
+    return sourceSuggestions.filter((suggestion) =>
       selectedSuggestionIds.has(suggestion.id),
     )
-  }, [patrolReport, selectedSuggestionIds])
+  }, [workbenchTab, schemaQualityResult, patrolReport, selectedSuggestionIds])
 
   const handleToggleSuggestionSelection = useCallback((suggestion: MemoryOpsSuggestion) => {
     setSelectedSuggestionIds((prev) => {
@@ -687,6 +700,32 @@ export function MaintenanceSection() {
     }
   }, [project, refreshRecentAudit])
 
+  const handleRunSchemaQuality = useCallback(async () => {
+    if (!project) return
+    setSchemaQualityRunning(true)
+    setSchemaQualityError(null)
+    setSchemaQualityResult(null)
+    setIgnoredSuggestionIds(new Set())
+    setAppliedSuggestionIds(new Set())
+    setDryRunPlans({})
+    setSuggestionErrors({})
+    setSelectedSuggestionIds(new Set())
+    setLastBatchResult(null)
+    setRollbackPreviews({})
+    setRollbackResults({})
+    setRollbackErrors({})
+    setWorkingRollbackId(null)
+    try {
+      const result = await runProjectSchemaQualityScan(project.path)
+      setSchemaQualityResult(result)
+      await refreshRecentAudit()
+    } catch (err) {
+      setSchemaQualityError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSchemaQualityRunning(false)
+    }
+  }, [project, refreshRecentAudit])
+
   const handleScan = useCallback(async () => {
     if (!project) return
     setScanning(true)
@@ -833,7 +872,7 @@ export function MaintenanceSection() {
           aria-label={t("settings.sections.maintenance.workbenchTabs.label")}
           className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-2"
         >
-          {(["patrol", "timeline", "policy", "search"] as const).map((tab) => (
+          {(["patrol", "schema", "timeline", "policy", "search"] as const).map((tab) => (
             <Button
               key={tab}
               role="tab"
@@ -883,6 +922,40 @@ export function MaintenanceSection() {
               onPreviewRollback={(item) => void handlePreviewRollback(item)}
               onApplyRollback={(item) => void handleApplyRollback(item)}
               onRun={() => void handlePatrol()}
+              onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
+              onApply={(suggestion) => void handleApplySuggestion(suggestion)}
+              onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
+              onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "schema" && (
+          <div
+            id="maintenance-schema-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-schema-tab"
+          >
+            <SchemaQualityPanel
+              projectReady={projectReady}
+              running={schemaQualityRunning}
+              error={schemaQualityError}
+              result={schemaQualityResult}
+              ignoredSuggestionIds={ignoredSuggestionIds}
+              appliedSuggestionIds={appliedSuggestionIds}
+              dryRunPlans={dryRunPlans}
+              suggestionErrors={suggestionErrors}
+              workingSuggestionId={workingSuggestionId}
+              selectedSuggestionIds={selectedSuggestionIds}
+              batchWorking={batchWorking}
+              lastBatchResult={lastBatchResult}
+              onToggleSelection={handleToggleSuggestionSelection}
+              onSelectCategory={handleSelectSuggestionCategory}
+              onClearSelection={handleClearSuggestionSelection}
+              onBatchPreview={() => void handleBatchPreview()}
+              onBatchApply={() => void handleBatchApply()}
+              onBatchIgnore={() => void handleBatchIgnore()}
+              onRun={() => void handleRunSchemaQuality()}
               onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
               onApply={(suggestion) => void handleApplySuggestion(suggestion)}
               onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}

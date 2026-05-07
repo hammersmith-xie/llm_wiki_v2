@@ -12,6 +12,8 @@ export type AuditEventCategory =
   | "crystallize"
   | "memory_ops"
   | "lifecycle"
+  | "schema"
+  | "quality"
   | "other"
 
 export type AuditEventActor = "user" | "system" | "agent"
@@ -190,16 +192,15 @@ function eventPaths(event: AuditEvent): string[] {
 
 function categoryFromAction(action: string): AuditEventCategory {
   const prefix = action.split(".")[0]
-  if (
-    prefix === "query" ||
-    prefix === "search" ||
-    prefix === "ingest" ||
-    prefix === "review" ||
-    prefix === "crystallize" ||
-    prefix === "lifecycle"
-  ) {
-    return prefix
-  }
+  if (prefix === "query") return "query"
+  if (prefix === "search") return "search"
+  if (prefix === "ingest") return "ingest"
+  if (prefix === "review") return "review"
+  if (prefix === "crystallize") return "crystallize"
+  if (prefix === "lifecycle") return "lifecycle"
+  if (action === "schema.scan") return "schema"
+  if (action === "quality.scan") return "quality"
+  if (action === "digest.preview" || action === "digest.save") return "crystallize"
   if (prefix === "memory_ops") return "memory_ops"
   return "other"
 }

@@ -2,7 +2,9 @@ import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   Archive,
+  CheckCircle2,
   CircleDot,
+  ClipboardCheck,
   GitBranch,
   Loader2,
   RefreshCcw,
@@ -216,6 +218,8 @@ function SuggestionCategoryIcon({ category }: { category: MemoryOpsSuggestionCat
   if (category === "relation") return <GitBranch className={className} />
   if (category === "contradiction") return <AlertTriangle className={className} />
   if (category === "retention") return <Archive className={className} />
+  if (category === "schema") return <ClipboardCheck className={className} />
+  if (category === "quality") return <CheckCircle2 className={className} />
   if (category === "search-health") return <SearchCheck className={className} />
   return <CircleDot className={className} />
 }
