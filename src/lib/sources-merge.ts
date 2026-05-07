@@ -16,9 +16,9 @@
  * Two callers today:
  *   - sources-view.tsx — uses `parseSources` / `writeSources` for
  *     the source-delete flow (operates on the single sources field)
- *   - ingest.ts — uses `mergeArrayFieldsIntoContent` to union
- *     sources + tags + related when writing a content page that
- *     already exists on disk
+ *   - page-merge.ts / dedup.ts — use `mergeArrayFieldsIntoContent`
+ *     to union classic arrays plus v2 graph seed and relationship
+ *     arrays when consolidating wiki pages.
  */
 
 // ─── Generic helpers (the implementation core) ────────────────────
@@ -208,7 +208,7 @@ export function mergeSourcesLists(
  * `mergeArrayFieldsIntoContent(newContent, existingContent, ["sources"])`.
  * Kept for ingest-flow callers that pre-date the multi-field
  * generalization; new code should prefer the generic version which
- * also unions tags / related.
+ * also unions tags, related, and any caller-specified v2 arrays.
  */
 export function mergeSourcesIntoContent(
   newContent: string,

@@ -238,6 +238,9 @@ export function ChatPanel() {
         }
 
         // ── Phase 2: Graph 1-level expansion ───────────────────
+        // buildRetrievalGraph includes wikilinks plus explicit v2 typed
+        // relationship arrays, so chat context follows the same page-level
+        // graph signals as search and the visual graph.
         // Note: Vector search (if enabled) is already merged into searchResults
         // by searchWiki() in search.ts — no duplicate code needed here.
         const graph = await buildRetrievalGraph(pp, dataVersion)

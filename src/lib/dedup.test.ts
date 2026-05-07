@@ -239,6 +239,18 @@ describe("rewriteCrossReferences", () => {
     expect(out).toBe("See [[new-slug|the old display]] here.")
   })
 
+  it("rewrites body wikilinks using normalized title and alias variants", () => {
+    const out = rewriteCrossReferences(
+      "See [[Web_Search_API]] and [[tavily|Tavily Search]].",
+      new Map([
+        ["web search api", "search-api"],
+        ["tavily", "search-api"],
+      ]),
+    )
+
+    expect(out).toBe("See [[search-api]] and [[search-api|Tavily Search]].")
+  })
+
   it("does not touch wikilinks pointing at unrelated slugs", () => {
     const input = "Both [[paos]] and [[unrelated]] are mentioned."
     const out = rewriteCrossReferences(input, new Map([["paos", "phosphorus-accumulating-organisms"]]))
@@ -273,6 +285,52 @@ describe("rewriteCrossReferences", () => {
     )
     const out = rewriteCrossReferences(input, new Map([["old-slug", "new-slug"]]))
     expect(parseFrontmatterArray(out, "related")).toEqual(["new-slug", "kept"])
+  })
+
+  it("rewrites v2 typed relationship arrays when duplicate slugs are merged", () => {
+    const input = PAGE(
+      [
+        "type: concept",
+        "title: Foo",
+        "related: [old-slug, kept]",
+        "uses: [old-slug, tool]",
+        "depends_on: [old-slug, prereq]",
+        "contradicts: [claim]",
+        "supports: [old-slug, claim]",
+        "supersedes: [old-slug, older]",
+        "superseded_by: [future]",
+      ].join("\n"),
+      "body",
+    )
+
+    const out = rewriteCrossReferences(input, new Map([["old-slug", "new-slug"]]))
+
+    expect(parseFrontmatterArray(out, "related")).toEqual(["new-slug", "kept"])
+    expect(parseFrontmatterArray(out, "uses")).toEqual(["new-slug", "tool"])
+    expect(parseFrontmatterArray(out, "depends_on")).toEqual(["new-slug", "prereq"])
+    expect(parseFrontmatterArray(out, "contradicts")).toEqual(["claim"])
+    expect(parseFrontmatterArray(out, "supports")).toEqual(["new-slug", "claim"])
+    expect(parseFrontmatterArray(out, "supersedes")).toEqual(["new-slug", "older"])
+    expect(parseFrontmatterArray(out, "superseded_by")).toEqual(["future"])
+  })
+
+  it("rewrites frontmatter reference arrays using slug-normalized variants", () => {
+    const input = PAGE(
+      [
+        "type: concept",
+        "title: Foo",
+        "related: [old_slug, new-slug, kept]",
+        "uses: [Old Slug, tool]",
+        "supports: [old slug, claim]",
+      ].join("\n"),
+      "body",
+    )
+
+    const out = rewriteCrossReferences(input, new Map([["old-slug", "new-slug"]]))
+
+    expect(parseFrontmatterArray(out, "related")).toEqual(["new-slug", "kept"])
+    expect(parseFrontmatterArray(out, "uses")).toEqual(["new-slug", "tool"])
+    expect(parseFrontmatterArray(out, "supports")).toEqual(["new-slug", "claim"])
   })
 
   it("returns content unchanged when no redirects apply", () => {
@@ -449,6 +507,99 @@ describe("mergeDuplicateGroup", () => {
     ])
   })
 
+  it("unions v2 graph relationship and seed arrays during duplicate merges", async () => {
+    const pageA = PAGE(
+      [
+        "type: concept",
+        "title: Deep Research",
+        "created: 2026-04-09",
+        "alias: [deep-searcher]",
+        "aliases: [deep-search]",
+        "keywords: [research-agent]",
+        "related: [llm-wiki]",
+        "uses: [serp-api]",
+        "depends_on: [embedding]",
+        "contradicts: [old-rag]",
+        "supports: [wiki-memory]",
+        "supersedes: [deep-research-v1]",
+        "superseded_by: [deep-research-v3]",
+      ].join("\n"),
+      "body a",
+    )
+    const pageB = PAGE(
+      [
+        "type: concept",
+        "title: Deep Research",
+        "created: 2026-04-12",
+        "alias: [query-rewriter]",
+        "aliases: [query-rewriting]",
+        "keywords: [retrieval]",
+        "related: [agent-search]",
+        "uses: [tavily]",
+        "depends_on: [vector-store]",
+        "contradicts: [static-index]",
+        "supports: [query-memory]",
+        "supersedes: [deep-research-v2]",
+        "superseded_by: [deep-research-v4]",
+      ].join("\n"),
+      "body b",
+    )
+    const llmMerged = PAGE(
+      [
+        "type: concept",
+        "title: Deep Research",
+        "created: 2026-04-09",
+        "related: [llm-wiki]",
+      ].join("\n"),
+      "merged body",
+    )
+    const llm = vi.fn().mockResolvedValue(llmMerged)
+
+    const result = await mergeDuplicateGroup(
+      {
+        group: [
+          { slug: "deep-research", path: "wiki/concepts/deep-research.md", content: pageA },
+          { slug: "query-rewriting", path: "wiki/concepts/query-rewriting.md", content: pageB },
+        ],
+        canonicalSlug: "deep-research",
+        otherWikiPages: [],
+      },
+      llm,
+      { today: FIXED_TODAY },
+    )
+
+    expect(parseFrontmatterArray(result.canonicalContent, "alias").sort()).toEqual(
+      ["deep-searcher", "query-rewriter"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "aliases").sort()).toEqual(
+      ["deep-search", "query-rewriting"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "keywords").sort()).toEqual(
+      ["research-agent", "retrieval"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "related").sort()).toEqual(
+      ["agent-search", "llm-wiki"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "uses").sort()).toEqual(
+      ["serp-api", "tavily"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "depends_on").sort()).toEqual(
+      ["embedding", "vector-store"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "contradicts").sort()).toEqual(
+      ["old-rag", "static-index"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "supports").sort()).toEqual(
+      ["query-memory", "wiki-memory"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "supersedes").sort()).toEqual(
+      ["deep-research-v1", "deep-research-v2"].sort(),
+    )
+    expect(parseFrontmatterArray(result.canonicalContent, "superseded_by").sort()).toEqual(
+      ["deep-research-v3", "deep-research-v4"].sort(),
+    )
+  })
+
   it("rewrites cross-references in other wiki pages", async () => {
     const pageA = PAGE("type: entity\ntitle: A\nrelated: [bar]", "body a")
     const pageB = PAGE("type: entity\ntitle: B\nrelated: [bar]", "body b")
@@ -482,6 +633,53 @@ describe("mergeDuplicateGroup", () => {
     expect(rewritten).not.toMatch(/\[\[b(\|[^\]]*)?\]\]/)
     // related field rewritten + deduped
     expect(parseFrontmatterArray(rewritten, "related")).toEqual(["a", "kept"])
+  })
+
+  it("rewrites title and alias refs for merged-away pages to the canonical slug", async () => {
+    const canonicalPage = PAGE("type: concept\ntitle: Search API", "body a")
+    const mergedAwayPage = PAGE(
+      [
+        "type: concept",
+        "title: Tavily API",
+        "alias: [tavily]",
+        "aliases: [web search api]",
+      ].join("\n"),
+      "body b",
+    )
+    const referencingPage = PAGE(
+      [
+        "type: concept",
+        "title: Agent Search",
+        "related: [Tavily API, kept]",
+        "uses: [tavily, runtime]",
+        "supports: [web_search_api, claim]",
+      ].join("\n"),
+      "See [[Tavily API]] and [[tavily|Tavily]].",
+    )
+    const llm = vi.fn().mockResolvedValue(PAGE("type: concept\ntitle: Search API\n", "merged body"))
+
+    const result = await mergeDuplicateGroup(
+      {
+        group: [
+          { slug: "search-api", path: "wiki/concepts/search-api.md", content: canonicalPage },
+          { slug: "tavily-api", path: "wiki/concepts/tavily-api.md", content: mergedAwayPage },
+        ],
+        canonicalSlug: "search-api",
+        otherWikiPages: [
+          { path: "wiki/concepts/agent-search.md", content: referencingPage },
+        ],
+      },
+      llm,
+      { today: FIXED_TODAY },
+    )
+
+    expect(result.rewrites).toHaveLength(1)
+    const rewritten = result.rewrites[0].newContent
+    expect(rewritten).toContain("[[search-api]]")
+    expect(rewritten).toContain("[[search-api|Tavily]]")
+    expect(parseFrontmatterArray(rewritten, "related")).toEqual(["search-api", "kept"])
+    expect(parseFrontmatterArray(rewritten, "uses")).toEqual(["search-api", "runtime"])
+    expect(parseFrontmatterArray(rewritten, "supports")).toEqual(["search-api", "claim"])
   })
 
   it("doesn't include unchanged pages in rewrites", async () => {

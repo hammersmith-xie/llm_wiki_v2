@@ -31,7 +31,15 @@ vi.mock("./embedding", () => ({
 }))
 
 const mockBuildTypedGraph = vi.fn<(...args: unknown[]) => Promise<unknown>>()
-const mockGraphRankPages = vi.fn<(...args: unknown[]) => Array<{ id: string; score: number; path: string[] }>>()
+const mockGraphRankPages = vi.fn<
+  (...args: unknown[]) => Array<{
+    id: string
+    score: number
+    path: string[]
+    pathTypes?: string[]
+    pathDirections?: string[]
+  }>
+>()
 vi.mock("@/lib/typed-graph", () => ({
   buildTypedGraph: (...args: unknown[]) => mockBuildTypedGraph(...args),
   graphRankPages: (...args: unknown[]) => mockGraphRankPages(...args),
@@ -315,7 +323,13 @@ describe("searchWiki — RRF fusion of token + vector lists", () => {
       dataVersion: 0,
     })
     mockGraphRankPages.mockReturnValueOnce([
-      { id: "io-kernel", score: 1, path: ["attention", "io-kernel"] },
+      {
+        id: "io-kernel",
+        score: 1,
+        path: ["attention", "io-kernel"],
+        pathTypes: ["uses"],
+        pathDirections: ["forward"],
+      },
     ])
 
     const out = await searchWiki(ctx.tmp.path, "attention")
@@ -324,5 +338,9 @@ describe("searchWiki — RRF fusion of token + vector lists", () => {
     const flash = out.find((r) => r.title === "IO Kernel")
     expect(flash?.score).toBeCloseTo(1 / 61, 6)
     expect(flash?.graphPath).toEqual(["attention", "io-kernel"])
+    expect((flash as unknown as { graphPathTypes?: string[] })?.graphPathTypes).toEqual(["uses"])
+    expect((flash as unknown as { graphPathDirections?: string[] })?.graphPathDirections).toEqual([
+      "forward",
+    ])
   })
 })

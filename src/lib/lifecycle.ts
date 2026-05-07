@@ -1,6 +1,7 @@
 import { createDirectory, readFile, writeFile } from "@/commands/fs"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { normalizePath } from "@/lib/path-utils"
+import { WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
 
 export type LifecycleTier = "working" | "episodic" | "semantic" | "procedural" | "archived"
 export type ReviewStatus = "ok" | "needs-review" | "stale" | "contradicted"
@@ -70,12 +71,7 @@ const SCOPE_VALUES = new Set<KnowledgeScope>(["private", "shared"])
 
 const ARRAY_FIELDS = new Set([
   "confidence_reasons",
-  "supersedes",
-  "superseded_by",
-  "uses",
-  "depends_on",
-  "contradicts",
-  "supports",
+  ...WIKI_TYPED_RELATION_ARRAY_FIELDS,
 ])
 
 export function lifecycleFromType(type?: string): LifecycleTier {

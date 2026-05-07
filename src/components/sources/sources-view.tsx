@@ -375,10 +375,11 @@ export function SourcesView() {
       // Pass 2: full cascade for every page whose sole source was
       // this file. The helper deletes the file + drops embeddings
       // + sweeps every other wiki .md to clean stale body
-      // wikilinks, index.md listings, AND `related:` frontmatter
-      // arrays. The previous inline cleanup loop did 1 and 2 but
-      // left `related:` slugs pointing at deleted pages, which
-      // FrontmatterPanel renders as a broken-ref warning icon.
+      // wikilinks, index.md listings, and frontmatter reference
+      // arrays (`related` plus v2 typed relationships). The previous
+      // inline cleanup loop did 1 and 2 but left frontmatter slugs
+      // pointing at deleted pages, which FrontmatterPanel renders as
+      // a broken-ref warning icon.
       const { cascadeDeleteWikiPagesWithRefs } = await import(
         "@/lib/wiki-page-delete"
       )
@@ -762,4 +763,3 @@ function DeleteButton({
     </Button>
   )
 }
-

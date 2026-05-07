@@ -20,8 +20,9 @@
  *     `[[Constitutional AI]]`, `[[AI Safety]]` — catastrophic.
  *
  * The fix: structural wikilink parsing + normalized-string comparison,
- * with title AND slug collected for every deleted page.
+ * with slug, title, and lightweight aliases collected for every deleted page.
  */
+import { parseFrontmatter } from "./frontmatter"
 
 /** Info about a page that was actually deleted (not just source-pruned). */
 export interface DeletedPageInfo {
@@ -29,6 +30,8 @@ export interface DeletedPageInfo {
   slug: string
   /** Frontmatter title, e.g. "KV Cache". Empty when unknown. */
   title: string
+  /** Frontmatter alias/aliases values that can also appear in relationship refs. */
+  aliases?: string[]
 }
 
 /**
@@ -49,14 +52,18 @@ function normalizeKey(s: string): string {
 
 /**
  * Build the lookup set of normalized keys for a batch of deletions. The
- * set contains BOTH the slug-form and title-form of each page, so a
- * wikilink written either way will match.
+ * set contains slug-form, title-form, and alias-form names for each
+ * page, so wikilinks/frontmatter references written in any supported
+ * shape will match.
  */
 export function buildDeletedKeys(infos: DeletedPageInfo[]): Set<string> {
   const keys = new Set<string>()
   for (const info of infos) {
     if (info.slug) keys.add(normalizeKey(info.slug))
     if (info.title) keys.add(normalizeKey(info.title))
+    for (const alias of info.aliases ?? []) {
+      if (alias) keys.add(normalizeKey(alias))
+    }
   }
   return keys
 }
@@ -74,6 +81,22 @@ export function buildDeletedKeys(infos: DeletedPageInfo[]): Set<string> {
 export function extractFrontmatterTitle(content: string): string {
   const m = content.match(/^title:\s*["']?(.+?)["']?\s*$/m)
   return m ? m[1].trim() : ""
+}
+
+export function extractFrontmatterAliases(content: string): string[] {
+  const parsed = parseFrontmatter(content)
+  const fm = parsed.frontmatter
+  if (!fm) return []
+  return [
+    ...arrayValue(fm.alias),
+    ...arrayValue(fm.aliases),
+  ].filter((value) => value.trim() !== "")
+}
+
+function arrayValue(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value
+  if (typeof value === "string") return [value]
+  return []
 }
 
 // Matches a markdown list item whose first wikilink is the logical

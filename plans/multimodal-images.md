@@ -1,6 +1,9 @@
 # Multimodal: image extraction + indexing for documents
 
-**Status:** Spec, not started. Branch will be cut from `main` at commit `63d8538`.
+**Status:** Implemented. This file is retained as the historical implementation
+plan; current code paths are `src-tauri/src/commands/extract_images.rs`,
+`src/lib/extract-source-images.ts`, `src/lib/image-caption-pipeline.ts`,
+`src/lib/vision-caption.ts`, and the Settings > Image Captioning UI.
 
 **Goal:** When a user ingests a PDF / PPTX / DOCX that contains images
 (charts, diagrams, photos, screenshots), the images become discoverable
@@ -17,7 +20,7 @@ via the existing wiki search + chat flow alongside the document's text.
 
 ---
 
-## Current state (audit, not assumption)
+## Original pre-implementation audit
 
 `src-tauri/src/commands/fs.rs::preprocess_file`:
 

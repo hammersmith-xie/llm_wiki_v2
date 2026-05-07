@@ -8,9 +8,10 @@
  * Production wires this up against `streamChat`; tests use mocks.
  *
  * Three layers of protection:
- *   1. Frontmatter array fields (sources / tags / related) — always
- *      union-merged at the application layer regardless of whether
- *      the LLM is involved. Zero-cost, deterministic.
+ *   1. Frontmatter array fields (sources / tags / related plus v2
+ *      typed/seed arrays) — always union-merged at the application
+ *      layer regardless of whether the LLM is involved. Zero-cost,
+ *      deterministic.
  *   2. Body — if old and new bodies differ, ask the LLM to produce
  *      a coherent merge. Sanity-checked on length and structure
  *      before accepting.
@@ -25,19 +26,7 @@
  */
 import { parseFrontmatter } from "./frontmatter"
 import { mergeArrayFieldsIntoContent } from "./sources-merge"
-
-/** Frontmatter array fields unioned across re-ingests. */
-const UNION_FIELDS = [
-  "sources",
-  "tags",
-  "related",
-  "uses",
-  "depends_on",
-  "contradicts",
-  "supports",
-  "supersedes",
-  "superseded_by",
-] as const
+import { WIKI_MERGE_ARRAY_FIELDS } from "./wiki-frontmatter-fields"
 
 /**
  * Frontmatter scalar fields whose existing value MUST survive an
@@ -113,7 +102,7 @@ export async function mergePageContent(
   const arrayMerged = mergeArrayFieldsIntoContent(
     newContent,
     existingContent,
-    [...UNION_FIELDS],
+    [...WIKI_MERGE_ARRAY_FIELDS],
   )
 
   // Fast path 3: bodies are identical (only frontmatter array-fields
@@ -182,7 +171,9 @@ export async function mergePageContent(
   // reference. The LLM may have output a subset of array values —
   // defensively re-union against BOTH sides so neither contributor
   // is dropped, regardless of which side the LLM chose to echo.
-  final = mergeArrayFieldsIntoContent(final, arrayMerged, [...UNION_FIELDS])
+  final = mergeArrayFieldsIntoContent(final, arrayMerged, [
+    ...WIKI_MERGE_ARRAY_FIELDS,
+  ])
   // Updated is always today on a successful merge.
   const todayFn = opts.today ?? defaultToday
   final = setFrontmatterScalar(final, "updated", todayFn())

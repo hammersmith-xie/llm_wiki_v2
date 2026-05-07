@@ -19,6 +19,10 @@ import { normalizePath } from "@/lib/path-utils"
 import { writeCrystallizedQueryPage } from "@/lib/crystallize"
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
+import {
+  buildReviewCreatedPageContent,
+  buildReviewCreatedPageTarget,
+} from "@/lib/review-page"
 
 const typeConfig: Record<ReviewItem["type"], { icon: typeof AlertTriangle; label: string; color: string }> = {
   contradiction: { icon: AlertTriangle, label: "Contradiction", color: "text-amber-500" },
@@ -189,25 +193,31 @@ export function ReviewView() {
       if (item) {
         try {
           const title = item.title.replace(/^(Create|Save|Add)[:\s]*/i, "").trim() || "Untitled"
-          const slug = title.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 50)
           const date = new Date().toISOString().slice(0, 10)
 
           // Determine page type from review type or action text
           const pageType = detectPageType(realAction, item.type)
-          const dir = pageType === "query" ? "queries" : pageType === "entity" ? "entities" : pageType === "concept" ? "concepts" : "queries"
-          const fileName = `${slug}-${date}.md`
-          const filePath = `${pp}/wiki/${dir}/${fileName}`
+          const { dir, fileName, filePath, linkTarget } = buildReviewCreatedPageTarget({
+            projectPath: pp,
+            pageType,
+            title,
+            date,
+          })
 
-          const frontmatter = `---\ntype: ${pageType}\ntitle: "${title.replace(/"/g, '\\"')}"\ncreated: ${date}\ntags: []\nrelated: []\n---\n\n`
-          const body = `# ${title}\n\n${item.description}\n`
-          await writeFile(filePath, frontmatter + body)
+          const content = buildReviewCreatedPageContent({
+            pageType,
+            title,
+            description: item.description,
+            date,
+          })
+          await writeFile(filePath, content)
 
           // Update index
           const indexPath = `${pp}/wiki/index.md`
           let indexContent = ""
           try { indexContent = await readFile(indexPath) } catch { indexContent = "# Wiki Index\n" }
           const sectionHeader = `## ${dir.charAt(0).toUpperCase() + dir.slice(1)}`
-          const entry = `- [[${dir}/${slug}-${date}|${title}]]`
+          const entry = `- [[${linkTarget}|${title}]]`
           if (indexContent.includes(sectionHeader)) {
             indexContent = indexContent.replace(new RegExp(`(${sectionHeader}\n)`), `$1${entry}\n`)
           } else {

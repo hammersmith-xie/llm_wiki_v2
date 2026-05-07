@@ -537,12 +537,34 @@ function SearchResultCard({
         <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
           <GitBranch className="h-3 w-3 shrink-0" />
           <span className="truncate">
-            {result.graphPath.join(" -> ")}
+            {formatGraphPath(result.graphPath, result.graphPathTypes, result.graphPathDirections)}
           </span>
         </div>
       )}
     </button>
   )
+}
+
+function formatGraphPath(
+  path: readonly string[],
+  pathTypes?: readonly string[],
+  pathDirections?: readonly string[],
+): string {
+  if (path.length <= 1) return path.join(" -> ")
+  const parts: string[] = []
+  for (let i = 0; i < path.length; i++) {
+    parts.push(path[i])
+    const type = pathTypes?.[i]
+    const direction = pathDirections?.[i]
+    if (i < path.length - 1) {
+      if (type) {
+        parts.push(direction === "reverse" ? `<-[${type}]-` : `-[${type}]->`)
+      } else {
+        parts.push(direction === "reverse" ? "<-" : "->")
+      }
+    }
+  }
+  return parts.join(" ")
 }
 
 function HighlightedText({ text, query }: { text: string; query: string }) {

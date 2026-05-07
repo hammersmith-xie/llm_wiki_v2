@@ -20,6 +20,7 @@ import {
   appendLifecycleAuditEvent,
   enrichLifecycleFrontmatter,
 } from "@/lib/lifecycle"
+import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
 
 /**
  * Resolve the LLM config that the caption pipeline should use.
@@ -632,22 +633,11 @@ async function autoIngestImpl(
   // task for retry rather than "success".
   if (!hasSourceSummary && !signal?.aborted) {
     const date = new Date().toISOString().slice(0, 10)
-    const fallbackContent = [
-      "---",
-      `type: source`,
-      `title: "Source: ${fileName}"`,
-      `created: ${date}`,
-      `updated: ${date}`,
-      `sources: ["${fileName}"]`,
-      `tags: []`,
-      `related: []`,
-      "---",
-      "",
-      `# Source: ${fileName}`,
-      "",
-      analysis ? analysis.slice(0, 3000) : "(Analysis not available)",
-      "",
-    ].join("\n")
+    const fallbackContent = buildFallbackSourceSummaryContent({
+      fileName,
+      date,
+      body: analysis ? analysis.slice(0, 3000) : "(Analysis not available)",
+    })
     try {
       await writeFile(sourceSummaryFullPath, fallbackContent)
       writtenPaths.push(sourceSummaryPath)
@@ -850,8 +840,9 @@ async function writeFileBlocks(
         // comparisons / sources summaries): if a page with this
         // path already exists on disk, merge old + new instead of
         // clobbering. The merge has three layers:
-        //   1. Frontmatter array fields (sources, tags, related)
-        //      are union-merged at the application layer.
+        //   1. Frontmatter array fields (sources, tags, related,
+        //      plus v2 graph seed/relationship arrays) are union-
+        //      merged at the application layer.
         //   2. If body content differs, an LLM call produces a
         //      coherent merged body — preserves contributions from
         //      every source document.
@@ -1086,8 +1077,11 @@ export function buildGenerationPrompt(schema: string, purpose: string, index: st
     "  • review_status         — ok | needs-review | stale | contradicted",
     "  • scope                 — private | shared; default to shared for local project knowledge",
     "",
+    "Graph seed arrays (bare strings; help alias/keyword query-time graph expansion):",
+    "  • alias, aliases, keywords",
+    "",
     "Typed relationship arrays (bare slugs only; use when the relationship is stronger than a generic wikilink):",
-    "  • uses, depends_on, contradicts, supports",
+    "  • uses, depends_on, contradicts, supports, supersedes, superseded_by",
     "Keep ordinary cross-references in the BODY as [[wikilink]] mentions.",
     "",
     "Concrete example of a complete, parseable page (everything between the two `---` lines",
@@ -1101,6 +1095,9 @@ export function buildGenerationPrompt(schema: string, purpose: string, index: st
     "    tags: [example, demo]",
     "    related: [related-slug-1, related-slug-2]",
     `    sources: ["${sourceFileName}"]`,
+    "    alias: [example]",
+    "    aliases: [example-entity]",
+    "    keywords: [demo-keyword]",
     "    lifecycle: semantic",
     "    confidence: \"0.72\"",
     "    confidence_reasons: [\"single source\", \"needs confirmation\"]",
@@ -1237,7 +1234,7 @@ function buildPageMerger(llmConfig: LlmConfig): MergeFn {
       "- The FIRST character of your response MUST be `-` (the opening of `---`)",
       "- Output the COMPLETE file: YAML frontmatter + body",
       "- No preamble (no \"Here is the merged version:\"), no analysis prose",
-      "- The caller will overwrite `sources`/`tags`/`related`/`updated` with",
+      "- The caller will overwrite array frontmatter fields and `updated` with",
       "  deterministic values — your job is the body and any other fields",
     ].join("\n")
 
@@ -1359,21 +1356,10 @@ async function injectImagesIntoSourceSummary(
       // reaps the media directory (cascadeDeleteWikiPage triggered by
       // a missing source page) — silent loss of extracted images.
       const date = new Date().toISOString().slice(0, 10)
-      const stubFrontmatter = [
-        "---",
-        "type: source",
-        `title: "Source: ${fileName}"`,
-        `created: ${date}`,
-        `updated: ${date}`,
-        `sources: ["${fileName}"]`,
-        "tags: []",
-        "related: []",
-        "---",
-        "",
-        `# Source: ${fileName}`,
-        "",
-      ].join("\n")
-      await writeFile(sourceSummaryFullPath, stubFrontmatter + wrapped)
+      await writeFile(
+        sourceSummaryFullPath,
+        buildFallbackSourceSummaryContent({ fileName, date }) + wrapped,
+      )
     }
     console.log(
       `[ingest:images] injected ${savedImages.length} image reference(s) into ${sourceSummaryPath}`,
@@ -1594,31 +1580,19 @@ export async function executeIngestWrites(
     signal,
   )
 
-  const writtenPaths: string[] = []
-  const matches = accumulated.matchAll(FILE_BLOCK_REGEX)
+  const sourceFileName = store.ingestSource ? getFileName(store.ingestSource) : "chat"
+  const {
+    writtenPaths: relativeWrittenPaths,
+    warnings: writeWarnings,
+    hardFailures,
+  } = await writeFileBlocks(pp, accumulated, llmConfig, sourceFileName, signal)
+  const writtenPaths = relativeWrittenPaths.map((relativePath) => `${pp}/${relativePath}`)
 
-  for (const match of matches) {
-    const relativePath = match[1].trim()
-    const content = match[2]
-
-    if (!relativePath) continue
-
-    const fullPath = `${pp}/${relativePath}`
-
-    try {
-      if (relativePath === "wiki/log.md" || relativePath.endsWith("/log.md")) {
-        const existing = await tryReadFile(fullPath)
-        const appended = existing
-          ? `${existing}\n\n${content.trim()}`
-          : content.trim()
-        await writeFile(fullPath, appended)
-      } else {
-        await writeFile(fullPath, content)
-      }
-      writtenPaths.push(fullPath)
-    } catch (err) {
-      console.error(`Failed to write ${fullPath}:`, err)
-    }
+  if (writeWarnings.length > 0 || hardFailures.length > 0) {
+    console.warn("[executeIngestWrites] write warnings:", [
+      ...writeWarnings,
+      ...hardFailures,
+    ])
   }
 
   if (writtenPaths.length > 0) {

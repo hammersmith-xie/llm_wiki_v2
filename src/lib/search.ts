@@ -1,6 +1,7 @@
 import { readFile, listDirectory } from "@/commands/fs"
 import type { FileNode } from "@/types/wiki"
 import { normalizePath, getFileStem } from "@/lib/path-utils"
+import type { GraphPathDirection } from "@/lib/typed-graph"
 
 /**
  * One image reference extracted from a matched page's markdown.
@@ -24,6 +25,8 @@ export interface SearchResult {
   titleMatch: boolean
   score: number
   graphPath?: string[]
+  graphPathTypes?: string[]
+  graphPathDirections?: GraphPathDirection[]
   /**
    * Image references found inside this result's markdown. Populated
    * even when the query doesn't match the alt text — the UI splits
@@ -343,6 +346,8 @@ export async function searchWiki(
   //    or fallback wikilinks.
   let graphRank = new Map<string, number>()
   let graphPaths = new Map<string, string[]>()
+  let graphPathTypes = new Map<string, string[]>()
+  let graphPathDirections = new Map<string, GraphPathDirection[]>()
   let graphCount = 0
   try {
     const { useWikiStore } = await import("@/stores/wiki-store")
@@ -354,6 +359,8 @@ export async function searchWiki(
     graphResults.forEach((gr, i) => {
       graphRank.set(gr.id, i + 1)
       graphPaths.set(gr.id, gr.path)
+      graphPathTypes.set(gr.id, gr.pathTypes)
+      graphPathDirections.set(gr.id, gr.pathDirections)
     })
 
     const knownIds = new Set(results.map((r) => getFileStem(r.path)))
@@ -371,6 +378,8 @@ export async function searchWiki(
           titleMatch: false,
           score: 0,
           graphPath: gr.path,
+          graphPathTypes: gr.pathTypes,
+          graphPathDirections: gr.pathDirections,
           images: extractImageRefs(content),
         })
         knownIds.add(gr.id)
@@ -386,6 +395,8 @@ export async function searchWiki(
     console.log(`[Graph Search] Skipped: ${err instanceof Error ? err.message : "not available"}`)
     graphRank = new Map()
     graphPaths = new Map()
+    graphPathTypes = new Map()
+    graphPathDirections = new Map()
   }
 
   // ── RRF fusion: replace each result's score with
@@ -404,6 +415,8 @@ export async function searchWiki(
     if (gRank !== undefined) {
       rrf += 1 / (RRF_K + gRank)
       r.graphPath = graphPaths.get(getFileStem(r.path))
+      r.graphPathTypes = graphPathTypes.get(getFileStem(r.path))
+      r.graphPathDirections = graphPathDirections.get(getFileStem(r.path))
     }
     r.score = rrf
   }

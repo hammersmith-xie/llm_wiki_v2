@@ -1,6 +1,7 @@
 import { readFile, listDirectory } from "@/commands/fs"
 import type { FileNode } from "@/types/wiki"
 import { buildRetrievalGraph, calculateRelevance } from "./graph-relevance"
+import { extractTypedGraphFromPages, type TypedEdgeType } from "./typed-graph"
 import { normalizePath } from "@/lib/path-utils"
 import Graph from "graphology"
 import louvain from "graphology-communities-louvain"
@@ -18,6 +19,7 @@ export interface GraphEdge {
   source: string
   target: string
   weight: number // relevance score between source and target
+  relationshipTypes?: TypedEdgeType[]
 }
 
 export interface CommunityInfo {
@@ -174,6 +176,7 @@ export async function buildWikiGraph(
   }
 
   // Build a map of id -> node data
+  const pages: Array<{ id: string; path: string; fileName: string; content: string }> = []
   const nodeMap = new Map<
     string,
     { id: string; label: string; type: string; path: string; links: string[] }
@@ -188,6 +191,7 @@ export async function buildWikiGraph(
       // Skip unreadable files
       continue
     }
+    pages.push({ id, path: file.path, fileName: file.name, content })
 
     nodeMap.set(id, {
       id,
@@ -223,22 +227,49 @@ export async function buildWikiGraph(
       if (targetId === null) continue
       if (targetId === sourceId) continue
 
-      rawEdges.push({ source: sourceId, target: targetId, weight: 1 })
+      rawEdges.push({ source: sourceId, target: targetId, weight: 1, relationshipTypes: ["mentions"] })
 
       linkCounts.set(sourceId, (linkCounts.get(sourceId) ?? 0) + 1)
       linkCounts.set(targetId, (linkCounts.get(targetId) ?? 0) + 1)
     }
   }
 
-  // Deduplicate edges
-  const seenEdges = new Set<string>()
-  const dedupedEdges: { source: string; target: string }[] = []
+  // Add explicit LLM Wiki v2 relationship arrays to the visual graph.
+  // `mentions` edges are already covered by the wikilink pass above, and
+  // `derived_from` can make the graph read as source-spider noise.
+  const typedGraph = extractTypedGraphFromPages(pages)
+  for (const edge of typedGraph.edges) {
+    if (!edge.explicit) continue
+    if (edge.type === "derived_from") continue
+    if (!nodeMap.has(edge.source) || !nodeMap.has(edge.target)) continue
+    if (edge.source === edge.target) continue
+
+    rawEdges.push({
+      source: edge.source,
+      target: edge.target,
+      weight: edge.weight,
+      relationshipTypes: [edge.type],
+    })
+
+    linkCounts.set(edge.source, (linkCounts.get(edge.source) ?? 0) + 1)
+    linkCounts.set(edge.target, (linkCounts.get(edge.target) ?? 0) + 1)
+  }
+
+  // Deduplicate edges while preserving which relationship types contributed.
+  const dedupedEdges = new Map<string, { source: string; target: string; relationshipTypes: Set<TypedEdgeType> }>()
   for (const edge of rawEdges) {
-    const key = `${edge.source}:::${edge.target}`
+    const forwardKey = `${edge.source}:::${edge.target}`
     const reverseKey = `${edge.target}:::${edge.source}`
-    if (!seenEdges.has(key) && !seenEdges.has(reverseKey)) {
-      seenEdges.add(key)
-      dedupedEdges.push(edge)
+    const key = dedupedEdges.has(reverseKey) ? reverseKey : forwardKey
+    const existing = dedupedEdges.get(key)
+    if (existing) {
+      for (const type of edge.relationshipTypes ?? []) existing.relationshipTypes.add(type)
+    } else {
+      dedupedEdges.set(key, {
+        source: edge.source,
+        target: edge.target,
+        relationshipTypes: new Set(edge.relationshipTypes ?? []),
+      })
     }
   }
 
@@ -252,7 +283,7 @@ export async function buildWikiGraph(
     // ignore — weights will default to 1
   }
 
-  const edges: GraphEdge[] = dedupedEdges.map((e) => {
+  const edges: GraphEdge[] = [...dedupedEdges.values()].map((e) => {
     let weight = 1
     if (retrievalGraph) {
       const nodeA = retrievalGraph.nodes.get(e.source)
@@ -261,7 +292,12 @@ export async function buildWikiGraph(
         weight = calculateRelevance(nodeA, nodeB, retrievalGraph)
       }
     }
-    return { source: e.source, target: e.target, weight }
+    return {
+      source: e.source,
+      target: e.target,
+      weight,
+      relationshipTypes: [...e.relationshipTypes].sort(),
+    }
   })
 
   // Build preliminary nodes for community detection

@@ -90,6 +90,15 @@ review_status: ok | needs-review | stale | contradicted
 scope: shared
 ```
 
+Graph seed arrays are lightweight aliases used by search and local graph
+expansion. They do not create edges by themselves:
+
+```yaml
+alias: []
+aliases: []
+keywords: []
+```
+
 Typed relationship arrays are bare page slugs and should be used only when the
 relationship is stronger than a generic wikilink:
 
@@ -98,6 +107,8 @@ uses: []
 depends_on: []
 contradicts: []
 supports: []
+supersedes: []
+superseded_by: []
 ```
 
 Source pages also include:
@@ -129,7 +140,8 @@ venue: ""
 - Use `[[page-slug]]` syntax to link between wiki pages
 - Every entity and concept should appear in `wiki/index.md`
 - Queries link to the sources and concepts they draw on
-- Synthesis pages cite all contributing sources via `related:`
+	- Synthesis pages cite contributing pages via `related:` and stronger support
+	  links via `supports:`
 
 ## Contradiction Handling
 
@@ -265,7 +277,10 @@ scope: shared
   "outgoing-link": true,
   "starred": true
 }"#;
-    write_file_inner(root.join(".obsidian/core-plugins.json"), obsidian_core_plugins)?;
+    write_file_inner(
+        root.join(".obsidian/core-plugins.json"),
+        obsidian_core_plugins,
+    )?;
 
     Ok(WikiProject {
         name,
@@ -317,9 +332,49 @@ pub fn open_project(path: String) -> Result<WikiProject, String> {
 
 fn write_file_inner(path: std::path::PathBuf, contents: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create parent dirs for '{}': {}", path.display(), e))?;
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create parent dirs for '{}': {}",
+                path.display(),
+                e
+            )
+        })?;
     }
     fs::write(&path, contents)
         .map_err(|e| format!("Failed to write file '{}': {}", path.display(), e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static NEXT_TEMP_ID: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn create_project_schema_documents_v2_seed_and_relationship_arrays() {
+        let parent = std::env::temp_dir().join(format!(
+            "llm-wiki-project-schema-test-{}-{}",
+            std::process::id(),
+            NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&parent).unwrap();
+
+        let project = create_project_impl(
+            "schema-check".to_string(),
+            parent.to_string_lossy().to_string(),
+        )
+        .unwrap();
+        let schema = fs::read_to_string(Path::new(&project.path).join("schema.md")).unwrap();
+
+        assert!(schema.contains("Graph seed arrays"));
+        assert!(schema.contains("alias: []"));
+        assert!(schema.contains("aliases: []"));
+        assert!(schema.contains("keywords: []"));
+        assert!(schema.contains("supersedes: []"));
+        assert!(schema.contains("superseded_by: []"));
+        assert!(schema.contains("depends_on: []"));
+
+        let _ = fs::remove_dir_all(parent);
+    }
 }

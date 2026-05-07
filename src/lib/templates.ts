@@ -51,6 +51,15 @@ review_status: ok | needs-review | stale | contradicted
 scope: shared
 \`\`\`
 
+Graph seed arrays are lightweight aliases used by search and local graph
+expansion. They do not create edges by themselves:
+
+\`\`\`yaml
+alias: []
+aliases: []
+keywords: []
+\`\`\`
+
 Typed relationship arrays are bare page slugs and should be used only when the
 relationship is stronger than a generic wikilink:
 
@@ -59,6 +68,8 @@ uses: []
 depends_on: []
 contradicts: []
 supports: []
+supersedes: []
+superseded_by: []
 \`\`\`
 
 Source pages also include:
@@ -84,7 +95,7 @@ const BASE_LOG_FORMAT = `\`wiki/log.md\` records activity in reverse chronologic
 const BASE_CROSSREF = `- Use \`[[page-slug]]\` syntax to link between wiki pages
 - Every entity and concept should appear in \`wiki/index.md\`
 - Queries link to the sources and concepts they draw on
-- Synthesis pages cite all contributing sources via \`related:\``
+- Synthesis pages cite contributing pages via \`related:\` and stronger support links via \`supports:\``
 
 const BASE_CONTRADICTION = `When sources contradict each other:
 1. Note the contradiction in the relevant concept or entity page

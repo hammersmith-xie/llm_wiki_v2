@@ -87,8 +87,7 @@ pub fn apply_proxy_env(config: &ProxyConfig) -> String {
     // through the now-removed proxy. The same applies to invalid
     // URLs and unsupported schemes (treat as disabled).
     let url = config.url.trim();
-    let invalid_scheme =
-        !url.starts_with("http://") && !url.starts_with("https://");
+    let invalid_scheme = !url.starts_with("http://") && !url.starts_with("https://");
 
     if !config.enabled || url.is_empty() || invalid_scheme {
         clear_proxy_env();
@@ -315,7 +314,7 @@ mod tests {
         // the URL to something we won't apply (socks5://) must clear
         // any previously-applied http(s) values, not silently keep
         // them.
-    isolated(|| {
+        isolated(|| {
             apply_proxy_env(&ProxyConfig {
                 enabled: true,
                 url: "http://127.0.0.1:7890".into(),
@@ -405,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_camelcase_bypassLocal_field() {
+    fn parses_camelcase_bypass_local_field() {
         // Frontend writes `bypassLocal` (camelCase). We must accept
         // that exact spelling — verify the serde rename works.
         let json = r#"{"enabled": true, "url": "http://x:1", "bypassLocal": false}"#;
@@ -416,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_proxyConfig_returns_none() {
+    fn missing_proxy_config_returns_none() {
         let dir = tempdir_for_test();
         let path = dir.join("missing.json");
         assert!(read_proxy_config_from_store(&path).is_none());

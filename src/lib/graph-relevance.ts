@@ -1,6 +1,7 @@
 import { readFile, listDirectory } from "@/commands/fs"
 import type { FileNode } from "@/types/wiki"
 import { normalizePath } from "@/lib/path-utils"
+import { extractTypedGraphFromPages } from "@/lib/typed-graph"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -192,6 +193,7 @@ export async function buildRetrievalGraph(
     sources: string[]
     rawLinks: string[]
     fileName: string
+    content: string
   }> = []
 
   for (const file of mdFiles) {
@@ -212,6 +214,7 @@ export async function buildRetrievalGraph(
       sources: fm.sources,
       rawLinks: extractWikilinks(content),
       fileName: file.name,
+      content,
     })
   }
 
@@ -233,6 +236,24 @@ export async function buildRetrievalGraph(
       outLinksMap.get(raw.id)!.add(resolvedId)
       inLinksMap.get(resolvedId)!.add(raw.id)
     }
+  }
+
+  const typedGraph = extractTypedGraphFromPages(
+    rawNodes.map((raw) => ({
+      id: raw.id,
+      path: raw.path,
+      fileName: raw.fileName,
+      content: raw.content,
+    })),
+    dataVersion,
+  )
+  for (const edge of typedGraph.edges) {
+    if (!edge.explicit) continue
+    if (edge.type === "derived_from") continue
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) continue
+    if (edge.source === edge.target) continue
+    outLinksMap.get(edge.source)!.add(edge.target)
+    inLinksMap.get(edge.target)!.add(edge.source)
   }
 
   // Build immutable nodes map

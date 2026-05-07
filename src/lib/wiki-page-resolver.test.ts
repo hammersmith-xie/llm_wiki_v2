@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import type { FileNode } from "@/types/wiki"
+import { buildWikiAliasIndexFromPages } from "./wiki-alias-index"
 import {
   findInTreeByName,
   resolveRelatedSlug,
@@ -23,7 +24,10 @@ function dir(path: string, children: FileNode[]): FileNode {
 const TREE: FileNode[] = [
   dir(`${PP}/wiki`, [
     dir(`${WIKI}/entities`, [file(`${WIKI}/entities/foo.md`)]),
-    dir(`${WIKI}/concepts`, [file(`${WIKI}/concepts/bar.md`)]),
+    dir(`${WIKI}/concepts`, [
+      file(`${WIKI}/concepts/bar.md`),
+      file(`${WIKI}/concepts/tavily-api.md`),
+    ]),
     dir(`${WIKI}/queries`, [file(`${WIKI}/queries/what-is-foo.md`)]),
     dir(`${WIKI}/sources`, [file(`${WIKI}/sources/paper.md`)]),
   ]),
@@ -112,6 +116,63 @@ describe("resolveRelatedSlug", () => {
     expect(resolveRelatedSlug(TREE, "what-is-foo", WIKI)).toBe(
       `${WIKI}/queries/what-is-foo.md`,
     )
+  })
+
+  it("resolves title-form and underscore-form refs to hyphenated wiki filenames", () => {
+    expect(resolveRelatedSlug(TREE, "What Is Foo", WIKI)).toBe(
+      `${WIKI}/queries/what-is-foo.md`,
+    )
+    expect(resolveRelatedSlug(TREE, "what_is_foo", WIKI)).toBe(
+      `${WIKI}/queries/what-is-foo.md`,
+    )
+  })
+
+  it("resolves refs through target page title and alias metadata when provided", () => {
+    const aliasIndex = buildWikiAliasIndexFromPages(
+      [
+        {
+          path: `${WIKI}/concepts/tavily-api.md`,
+          content: [
+            "---",
+            "title: Tavily API",
+            "alias: [tavily]",
+            "aliases: [web search api]",
+            "---",
+            "",
+            "# Tavily API",
+          ].join("\n"),
+        },
+      ],
+      WIKI,
+    )
+
+    expect(resolveRelatedSlug(TREE, "tavily", WIKI, aliasIndex)).toBe(
+      `${WIKI}/concepts/tavily-api.md`,
+    )
+    expect(resolveRelatedSlug(TREE, "web_search_api", WIKI, aliasIndex)).toBe(
+      `${WIKI}/concepts/tavily-api.md`,
+    )
+  })
+
+  it("prefers exact wiki filenames over alias metadata", () => {
+    const aliasIndex = buildWikiAliasIndexFromPages(
+      [
+        {
+          path: `${WIKI}/concepts/tavily-api.md`,
+          content: "---\nalias: [foo]\n---\n\n# Tavily API",
+        },
+      ],
+      WIKI,
+    )
+
+    expect(resolveRelatedSlug(TREE, "foo", WIKI, aliasIndex)).toBe(
+      `${WIKI}/entities/foo.md`,
+    )
+  })
+
+  it("ignores alias metadata pointing outside the visible wiki tree", () => {
+    const aliasIndex = new Map([["ghost", `${WIKI}/concepts/ghost.md`]])
+    expect(resolveRelatedSlug(TREE, "ghost", WIKI, aliasIndex)).toBeNull()
   })
 
   it("accepts bare filename with .md extension", () => {

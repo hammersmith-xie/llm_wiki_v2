@@ -20,8 +20,9 @@
  *   3. mergeDuplicateGroup: given a confirmed group + chosen
  *      canonical slug, merge bodies (LLM call), union frontmatter
  *      array fields (deterministic), rewrite every wikilink /
- *      `related:` reference / index.md entry across the wiki, and
- *      package up a result the caller writes to disk + backs up.
+ *      frontmatter reference-array entry / index.md entry across
+ *      the wiki, and package up a result the caller writes to disk
+ *      + backs up.
  *
  * The caller (UI) is responsible for filesystem reads/writes and
  * for showing the user the candidate groups. This module only
@@ -34,6 +35,14 @@ import {
   mergeArrayFieldsIntoContent,
   writeFrontmatterArray,
 } from "./sources-merge"
+import {
+  WIKI_MERGE_ARRAY_FIELDS,
+  WIKI_REFERENCE_ARRAY_FIELDS,
+} from "./wiki-frontmatter-fields"
+import {
+  extractFrontmatterAliases,
+  extractFrontmatterTitle,
+} from "./wiki-cleanup"
 
 // ──────────────────────────────────────────────────────────────────
 // Types
@@ -327,15 +336,13 @@ Rules:
 - Eliminate redundancy (don't say the same thing twice across sections).
 - Reorganize sections so the structure is logical for the unified topic, not a concatenation of inputs.
 - Use [[wikilink]] syntax in the body where the inputs did.
-- Frontmatter: keep the standard fields (type, title, created, updated, tags, related, sources). The caller will overwrite sources / tags / related / updated with deterministic unions afterward — your job is to produce a sensible body and reasonable frontmatter shape.
+- Frontmatter: keep the standard fields (type, title, created, updated, tags, related, sources). You may also keep v2 relationship and seed arrays such as alias, aliases, keywords, uses, depends_on, contradicts, supports, supersedes, and superseded_by. The caller will overwrite array fields and updated with deterministic unions afterward — your job is to produce a sensible body and reasonable frontmatter shape.
 - Pick the most descriptive title. If the inputs use different languages, prefer the language that matches the majority of the body content.`
-
-const FIELDS_TO_UNION = ["sources", "tags", "related"] as const
 
 /**
  * Compute everything needed to merge a confirmed duplicate group:
  *   - LLM call to produce the merged canonical body
- *   - Deterministic frontmatter union (sources, tags, related)
+ *   - Deterministic frontmatter union (sources, tags, related, plus v2 graph fields)
  *   - Canonical slug enforcement on title path
  *   - Cross-reference rewrites across every other wiki page
  *   - Backup snapshot of all touched files
@@ -369,7 +376,9 @@ export async function mergeDuplicateGroup(
   //    the LLM output via mergeArrayFieldsIntoContent.
   let merged = llmOutput
   for (const page of req.group) {
-    merged = mergeArrayFieldsIntoContent(merged, page.content, [...FIELDS_TO_UNION])
+    merged = mergeArrayFieldsIntoContent(merged, page.content, [
+      ...WIKI_MERGE_ARRAY_FIELDS,
+    ])
   }
 
   // 3. Stamp updated to today and force a sensible title.
@@ -385,6 +394,11 @@ export async function mergeDuplicateGroup(
   for (const page of req.group) {
     if (page.slug !== req.canonicalSlug) {
       slugRedirects.set(page.slug, req.canonicalSlug)
+      const title = extractFrontmatterTitle(page.content)
+      if (title) slugRedirects.set(title, req.canonicalSlug)
+      for (const alias of extractFrontmatterAliases(page.content)) {
+        if (alias) slugRedirects.set(alias, req.canonicalSlug)
+      }
     }
   }
   const rewrites: MergeResult["rewrites"] = []
@@ -446,9 +460,11 @@ function buildMergerUserMessage(
  *
  *   1. `[[old-slug]]` and `[[old-slug|alias]]` in the body
  *      — replace just the target portion, keep alias if present.
- *   2. `related: [..., old-slug, ...]` (inline form) — substitute
- *      old-slug with canonical inside the array, then dedup.
- *   3. `related:\n  - old-slug` (block form) — same substitution.
+ *   2. frontmatter reference arrays (`related:` plus v2 typed
+ *      relationship arrays like `uses:`/`supports:`) in inline form
+ *      — substitute old-slug with canonical inside the array, then dedup.
+ *   3. the same frontmatter reference arrays in block form — same
+ *      substitution.
  *
  * `wiki/index.md`-style listings of files are out of scope here —
  * the caller handles index regeneration separately.
@@ -458,36 +474,48 @@ export function rewriteCrossReferences(
   slugRedirects: Map<string, string>,
 ): string {
   let out = content
-
-  // 1. Wikilinks in the body — both [[slug]] and [[slug|alias]].
+  const normalizedRedirects = new Map<string, string>()
   for (const [oldSlug, newSlug] of slugRedirects) {
-    const escaped = escapeRegex(oldSlug)
-    const re = new RegExp(`\\[\\[${escaped}(\\|[^\\]]+)?\\]\\]`, "g")
-    out = out.replace(re, (_match, alias) => `[[${newSlug}${alias ?? ""}]]`)
+    normalizedRedirects.set(normalizeReferenceKey(oldSlug), newSlug)
   }
 
-  // 2. & 3. `related` field — re-parse and rewrite.
-  const existing = parseFrontmatterArray(out, "related")
-  if (existing.length > 0) {
-    const rewritten = existing.map((s) => slugRedirects.get(s) ?? s)
-    // Deduplicate (case-insensitive, first-seen casing wins)
-    const seen = new Set<string>()
-    const unique: string[] = []
-    for (const s of rewritten) {
-      const k = s.toLowerCase()
-      if (seen.has(k)) continue
-      seen.add(k)
-      unique.push(s)
-    }
-    if (
-      unique.length !== existing.length ||
-      unique.some((s, i) => s !== existing[i])
-    ) {
-      out = writeFrontmatterArray(out, "related", unique)
+  // 1. Wikilinks in the body — both [[slug]] and [[slug|alias]].
+  out = out.replace(/\[\[([^\]|]+?)(\|[^\]]+)?\]\]/g, (match, target: string, alias: string | undefined) => {
+    const replacement =
+      slugRedirects.get(target) ?? normalizedRedirects.get(normalizeReferenceKey(target))
+    return replacement ? `[[${replacement}${alias ?? ""}]]` : match
+  })
+
+  // 2. & 3. Frontmatter reference arrays — re-parse and rewrite.
+  for (const field of WIKI_REFERENCE_ARRAY_FIELDS) {
+    const existing = parseFrontmatterArray(out, field)
+    if (existing.length > 0) {
+      const rewritten = existing.map(
+        (s) => slugRedirects.get(s) ?? normalizedRedirects.get(normalizeReferenceKey(s)) ?? s,
+      )
+      // Deduplicate (case-insensitive, first-seen casing wins)
+      const seen = new Set<string>()
+      const unique: string[] = []
+      for (const s of rewritten) {
+        const k = normalizeReferenceKey(s)
+        if (seen.has(k)) continue
+        seen.add(k)
+        unique.push(s)
+      }
+      if (
+        unique.length !== existing.length ||
+        unique.some((s, i) => s !== existing[i])
+      ) {
+        out = writeFrontmatterArray(out, field, unique)
+      }
     }
   }
 
   return out
+}
+
+function normalizeReferenceKey(s: string): string {
+  return s.toLowerCase().replace(/[\s\-_]+/g, "")
 }
 
 function escapeRegex(s: string): string {

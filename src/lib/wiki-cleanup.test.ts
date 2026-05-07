@@ -69,6 +69,15 @@ describe("buildDeletedKeys", () => {
     expect(keys.size).toBe(1)
   })
 
+  it("includes alias-form keys for deleted pages", () => {
+    const keys = buildDeletedKeys([
+      { slug: "tavily-api", title: "Tavily API", aliases: ["tavily", "web search api"] },
+    ])
+    expect(keys.has("tavilyapi")).toBe(true)
+    expect(keys.has("tavily")).toBe(true)
+    expect(keys.has("websearchapi")).toBe(true)
+  })
+
   it("is empty when given no pages", () => {
     expect(buildDeletedKeys([]).size).toBe(0)
   })

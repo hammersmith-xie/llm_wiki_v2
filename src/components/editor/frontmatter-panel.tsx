@@ -24,8 +24,14 @@ import {
   resolveSourceName,
   unwrapWikilink,
 } from "@/lib/wiki-page-resolver"
+import { collectTypedRelationGroups } from "@/lib/frontmatter-relations"
 import { useWikiStore } from "@/stores/wiki-store"
 import { normalizePath } from "@/lib/path-utils"
+import { useWikiAliasIndex } from "@/components/editor/use-wiki-alias-index"
+import {
+  WIKI_GRAPH_SEED_ARRAY_FIELDS,
+  WIKI_REFERENCE_ARRAY_FIELDS,
+} from "@/lib/wiki-frontmatter-fields"
 
 interface FrontmatterPanelProps {
   data: Record<string, FrontmatterValue>
@@ -38,27 +44,23 @@ const TOP_LEVEL_KEYS = new Set([
   "created",
   "description",
   "sources",
-  "related",
+  ...WIKI_GRAPH_SEED_ARRAY_FIELDS,
+  ...WIKI_REFERENCE_ARRAY_FIELDS,
   "origin",
   "lifecycle",
   "confidence",
   "confidence_reasons",
   "last_confirmed",
   "reinforcement_count",
-  "supersedes",
-  "superseded_by",
   "quality_score",
   "review_status",
   "scope",
-  "uses",
-  "depends_on",
-  "contradicts",
-  "supports",
 ])
 
 export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
   const project = useWikiStore((s) => s.project)
   const fileTree = useWikiStore((s) => s.fileTree)
+  const dataVersion = useWikiStore((s) => s.dataVersion)
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
 
   const title = stringValue(data.title)
@@ -76,14 +78,11 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
   const scope = stringValue(data.scope)
   const lastConfirmed = stringValue(data.last_confirmed)
   const reinforcementCount = stringValue(data.reinforcement_count)
-  const typedRelations = [
-    ...arrayValue(data.uses),
-    ...arrayValue(data.depends_on),
-    ...arrayValue(data.contradicts),
-    ...arrayValue(data.supports),
-    ...arrayValue(data.supersedes),
-    ...arrayValue(data.superseded_by),
-  ]
+  const typedRelationGroups = collectTypedRelationGroups(data)
+  const typedRelationCount = typedRelationGroups.reduce(
+    (sum, group) => sum + group.values.length,
+    0,
+  )
 
   const extras = useMemo(
     () =>
@@ -99,12 +98,13 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
   const projectPath = project ? normalizePath(project.path) : null
   const wikiRoot = projectPath ? `${projectPath}/wiki` : null
   const sourcesRoot = projectPath ? `${projectPath}/raw/sources` : null
+  const aliasIndex = useWikiAliasIndex(fileTree, wikiRoot, dataVersion)
 
   const typeStyle = getWikiTypeStyle(type)
   const TypeIcon = typeStyle.icon
 
   const hasIdentity = title || type || tags.length > 0 || created
-  const hasRelations = sources.length > 0 || related.length > 0
+  const hasRelations = sources.length > 0 || related.length > 0 || typedRelationCount > 0
   const hasLifecycle =
     lifecycle ||
     confidence ||
@@ -113,7 +113,7 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
     scope ||
     lastConfirmed ||
     reinforcementCount ||
-    typedRelations.length > 0
+    typedRelationCount > 0
   const hasContent =
     hasIdentity || description || origin || hasRelations || hasLifecycle || extras.length > 0
   if (!hasContent) return null
@@ -237,10 +237,10 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
               title="Reinforcement count"
             />
           )}
-          {typedRelations.length > 0 && (
+          {typedRelationCount > 0 && (
             <MetaChip
               icon={<GitBranch className="h-3 w-3" />}
-              label={`${typedRelations.length} typed relation${typedRelations.length === 1 ? "" : "s"}`}
+              label={`${typedRelationCount} typed relation${typedRelationCount === 1 ? "" : "s"}`}
               tone="neutral"
               title="Typed relationship fields"
             />
@@ -287,7 +287,7 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
             {related.map((entry) => {
               const { slug, label } = unwrapWikilink(entry)
               const path = wikiRoot
-                ? resolveRelatedSlug(fileTree, slug, wikiRoot)
+                ? resolveRelatedSlug(fileTree, slug, wikiRoot, aliasIndex)
                 : null
               return (
                 <RelatedChip
@@ -298,6 +298,43 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
                 />
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Typed relationship chips ───────────────────────────────── */}
+      {typedRelationGroups.length > 0 && (
+        <div className="px-4 pt-4">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <GitBranch className="h-3.5 w-3.5" />
+            Typed Relations
+            <span className="text-muted-foreground/60">({typedRelationCount})</span>
+          </div>
+          <div className="space-y-2">
+            {typedRelationGroups.map((group) => (
+              <div key={group.field}>
+                <div className="mb-1 text-[11px] font-medium uppercase text-muted-foreground/70">
+                  {group.label}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.values.map((entry) => {
+                    const { slug, label } = unwrapWikilink(entry)
+                    const path = wikiRoot
+                      ? resolveRelatedSlug(fileTree, slug, wikiRoot, aliasIndex)
+                      : null
+                    return (
+                      <RelatedChip
+                        key={`${group.field}:${entry}`}
+                        slug={label}
+                        resolved={!!path}
+                        onClick={() => handleNavigate(path)}
+                        titleLabel={group.label}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -361,16 +398,18 @@ function RelatedChip({
   slug,
   resolved,
   onClick,
+  titleLabel = "Related page",
 }: {
   slug: string
   resolved: boolean
   onClick: () => void
+  titleLabel?: string
 }) {
   return (
     <button
       type="button"
       onClick={resolved ? onClick : undefined}
-      title={resolved ? `Open ${slug}` : `Related page not found: ${slug}`}
+      title={resolved ? `Open ${slug}` : `${titleLabel} not found: ${slug}`}
       className={`group inline-flex max-w-[260px] items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
         resolved
           ? "border-border/60 bg-background hover:border-primary/50 hover:bg-primary/10 cursor-pointer"
@@ -487,6 +526,7 @@ function stringValue(v: FrontmatterValue | undefined): string | null {
 }
 
 function arrayValue(v: FrontmatterValue | undefined): string[] {
+  if (typeof v === "string") return v.trim() === "" ? [] : [v.trim()]
   if (!Array.isArray(v)) return []
   return v.filter((x): x is string => typeof x === "string" && x.trim() !== "")
 }

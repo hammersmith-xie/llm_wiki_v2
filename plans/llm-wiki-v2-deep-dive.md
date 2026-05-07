@@ -31,16 +31,16 @@ retrieval signals, and review/audit mechanics around the existing markdown wiki.
 | Area | Current Code | Observed Capability |
 | --- | --- | --- |
 | Project scaffold | `src-tauri/src/commands/project.rs`, `src/lib/templates.ts` | Creates `raw/`, `wiki/`, schema, purpose, index, overview, log conventions; now includes the v2 lifecycle and typed relationship contract. |
-| Ingest | `src/lib/ingest.ts` | Two-stage LLM ingest, safe FILE parsing, page merging, review blocks, language guard, image captioning, embeddings; now prompts for v2 fields and enriches/audits deterministic metadata. |
+| Ingest | `src/lib/ingest.ts`, `src/lib/page-merge.ts` | Two-stage LLM ingest, safe FILE parsing, page merging, review blocks, language guard, image captioning, embeddings; now prompts for v2 fields, enriches/audits deterministic metadata, and preserves graph seed arrays across re-ingests. |
 | Frontmatter | `src/lib/frontmatter.ts` | Robust flat YAML parser with LLM corruption recovery; no v2 schema helpers. |
-| Search | `src/lib/search.ts` | Lexical token scoring + vector search + graph traversal + RRF; graph-only pages can materialize with path evidence. |
+| Search | `src/lib/search.ts` | Lexical token scoring + vector search + graph traversal + RRF; graph-only pages can materialize with typed path evidence that preserves edge direction. |
 | Embeddings | `src/lib/embedding.ts`, `src-tauri/src/commands/vectorstore.rs` | LanceDB chunk vectors with delete/count/search/upsert commands. |
-| Typed graph | `src/lib/typed-graph.ts` | Extracts typed edges from v2 frontmatter and fallback `[[wikilink]]` mentions, including source-derived and supersession edges. |
-| Graph view | `src/lib/wiki-graph.ts`, `src/lib/graph-relevance.ts` | Existing visual graph remains untyped; search uses typed graph helper as the v2 retrieval layer. |
+| Typed graph | `src/lib/typed-graph.ts` | Extracts typed edges from v2 frontmatter and fallback `[[wikilink]]` mentions, including source-derived and supersession edges; relationship targets and traversal seeds can also match lightweight frontmatter aliases/tags/summary text. |
+| Graph view / chat graph | `src/lib/wiki-graph.ts`, `src/lib/typed-graph.ts`, `src/lib/graph-relevance.ts`, `src/components/chat/chat-panel.tsx` | Visual graph and chat context expansion now include explicit v2 typed relationship arrays, while Louvain layout and relevance weighting still use the existing graph helpers. |
 | Quality/review | `src/lib/lint.ts`, `src/stores/review-store.ts` | Structural lint, LLM semantic lint, review queue, plus deterministic lifecycle lint warnings. |
-| Cleanup | `src/lib/wiki-page-delete.ts`, `src/lib/wiki-cleanup.ts`, `src/lib/sweep-reviews.ts` | Deletes pages/embeddings/media and resolves stale review items conservatively. |
+| Cleanup | `src/lib/wiki-page-delete.ts`, `src/lib/wiki-cleanup.ts`, `src/lib/dedup.ts`, `src/lib/sweep-reviews.ts` | Deletes pages/embeddings/media, rewrites wikilinks plus v2 typed relationship arrays, preserves graph seed/relationship arrays during duplicate merges, and resolves stale review items conservatively. |
 | Crystallization | `src/lib/crystallize.ts`, `src/components/chat/chat-message.tsx`, `src/lib/deep-research.ts`, `src/components/review/review-view.tsx` | Saved answers/research/review outputs become v2 query pages with lifecycle metadata, typed supports links, source refs, and audit events. |
-| UI evidence | `src/components/editor/frontmatter-panel.tsx`, `src/components/search/search-view.tsx` | Frontmatter shows lifecycle/confidence/review chips; search results show graph-path evidence. |
+| UI evidence | `src/components/editor/frontmatter-panel.tsx`, `src/components/search/search-view.tsx` | Frontmatter shows lifecycle/confidence/review chips plus resolved typed relationship groups; search results show typed graph-path evidence, including reverse-traversal direction, when available. |
 | Persistence | `src/lib/persist.ts`, `src/lib/lifecycle.ts` | `.llm-wiki/` review/chat persistence plus append-only `audit.jsonl` lifecycle/crystallization events. |
 
 ## Gap Matrix
@@ -48,7 +48,7 @@ retrieval signals, and review/audit mechanics around the existing markdown wiki.
 | v2 Capability | Current Support | Missing Piece | Risk | Priority |
 | --- | --- | --- | --- | --- |
 | Lifecycle metadata | Implemented page-level deterministic model | Claim/span-level provenance remains future work | Medium: score semantics can be over-interpreted | Done for page scope |
-| Typed graph | Implemented helper over frontmatter/wikilinks | Main graph visualization still uses existing untyped graph | Medium: parsing conventions must remain simple | Done for retrieval |
+| Typed graph | Implemented helper over frontmatter/wikilinks; explicit typed edges now appear in visual graph and chat context expansion; seed matching covers lightweight aliases/tags/summary text | Claim/span-level typed edges and a full graph pipeline rewrite remain future work | Medium: parsing conventions must remain simple | Done for page-level retrieval, graph view, and chat expansion |
 | Hybrid retrieval | Lexical + vector + graph RRF | Full BM25 remains future improvement | Medium: search latency | Done for v2 slice |
 | Event hooks | Ingest, explicit save/crystallization, lint | Scheduled background maintenance remains future work | Medium: avoid failing ingest due to metadata | Done for local hooks |
 | Quality/self-repair | Structural/semantic lint and deterministic lifecycle lint | Automatic safe repair not added | Low | Done for warning/audit |
@@ -86,7 +86,9 @@ multi-agent memory sync and autonomous background crystallization.
 - No real-LLM test requirement.
 - No autonomous background crystallization workflow in this pass.
 - No claim/span-level provenance in this pass.
-- No typed graph rewrite of the visual graph view in this pass.
+- No full typed graph rewrite of the visual graph/chat graph pipeline in this
+  pass; current graph consumers incorporate explicit page-level typed
+  relationship edges but still rely on existing relevance/layout helpers.
 
 ## Implementation Plan
 

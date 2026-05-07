@@ -189,6 +189,53 @@ describe("mergePageContent — LLM merge", () => {
     expect(out).toMatch(/supersedes:\s*\[\s*"old-page",\s*"older-page"\s*\]/)
     expect(out).toMatch(/superseded_by:\s*\[\s*"newer-page",\s*"future-page"\s*\]/)
   })
+
+  it("unions lightweight graph seed arrays across re-ingests", async () => {
+    const merger = vi.fn().mockResolvedValue(
+      PAGE(
+        [
+          "type: concept",
+          "title: Deep Research",
+          "created: 2026-04-09",
+          "alias: [query-rewriter]",
+          "aliases: [query-rewriting]",
+          "keywords: [retrieval]",
+        ].join("\n"),
+        "old body old body old body. new body new body new body.",
+      ),
+    )
+
+    const out = await mergePageContent(
+      PAGE(
+        [
+          "type: concept",
+          "title: Deep Research",
+          "created: 2026-04-09",
+          "alias: [query-rewriter]",
+          "aliases: [query-rewriting]",
+          "keywords: [retrieval]",
+        ].join("\n"),
+        "new body new body new body.",
+      ),
+      PAGE(
+        [
+          "type: concept",
+          "title: Deep Research",
+          "created: 2026-04-09",
+          "alias: [deep-searcher]",
+          "aliases: [deep-search]",
+          "keywords: [research-agent]",
+        ].join("\n"),
+        "old body old body old body.",
+      ),
+      merger,
+      baseOpts,
+    )
+
+    expect(out).toMatch(/alias:\s*\[\s*"deep-searcher",\s*"query-rewriter"\s*\]/)
+    expect(out).toMatch(/aliases:\s*\[\s*"deep-search",\s*"query-rewriting"\s*\]/)
+    expect(out).toMatch(/keywords:\s*\[\s*"research-agent",\s*"retrieval"\s*\]/)
+  })
 })
 
 // ──────────────────────────────────────────────────────────────────

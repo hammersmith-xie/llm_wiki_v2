@@ -116,6 +116,32 @@ describe("runSemanticLint — language directive", () => {
     expect(prompt).toContain("MANDATORY OUTPUT LANGUAGE: English")
     expect(prompt).not.toContain("MANDATORY OUTPUT LANGUAGE: Japanese")
   })
+
+  it("documents v2 lifecycle and typed relationship lint signals", async () => {
+    const page = makeFileNode("deep-research.md", [
+      "---",
+      "type: concept",
+      "title: Deep Research",
+      "lifecycle: semantic",
+      "review_status: needs-review",
+      "uses: [tavily]",
+      "---",
+      "",
+      "# Deep Research",
+    ].join("\n"))
+    mockListDirectory.mockResolvedValue([page.node])
+    mockReadFile.mockResolvedValue(page.content)
+    mockStreamChat.mockImplementation(async (_c, _m, cb) => {
+      cb.onDone()
+    })
+
+    await runSemanticLint("/project", fakeLlmConfig())
+
+    const prompt = mockStreamChat.mock.calls[0][1][0].content
+    expect(prompt).toContain("LLM Wiki v2 metadata")
+    expect(prompt).toContain("lifecycle, confidence, review_status")
+    expect(prompt).toContain("uses, depends_on, contradicts, supports, supersedes, superseded_by")
+  })
 })
 
 describe("runStructuralLint — lifecycle metadata", () => {
@@ -150,6 +176,83 @@ describe("runStructuralLint — lifecycle metadata", () => {
           page: "old.md",
           detail: expect.stringContaining("[superseded]"),
         }),
+      ]),
+    )
+  })
+})
+
+describe("runStructuralLint — v2 frontmatter relationships", () => {
+  it("treats typed relationship arrays as outbound and inbound links", async () => {
+    const source = makeFileNode("deep-research.md", [
+      "---",
+      "type: concept",
+      "title: Deep Research",
+      "uses: [tavily]",
+      "---",
+      "",
+      "# Deep Research",
+      "",
+      "No body wikilinks here.",
+    ].join("\n"))
+    const target = makeFileNode("tavily.md", [
+      "---",
+      "type: entity",
+      "title: Tavily",
+      "---",
+      "",
+      "# Tavily",
+      "",
+      "[[deep-research]]",
+    ].join("\n"))
+    mockListDirectory.mockResolvedValue([source.node, target.node])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === source.node.path) return source.content
+      if (path === target.node.path) return target.content
+      return ""
+    })
+
+    const out = await runStructuralLint("/project")
+
+    expect(out).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "no-outlinks", page: "deep-research.md" }),
+        expect.objectContaining({ type: "orphan", page: "tavily.md" }),
+      ]),
+    )
+  })
+
+  it("resolves frontmatter relationship refs through target title and alias metadata", async () => {
+    const source = makeFileNode("deep-research.md", [
+      "---",
+      "type: concept",
+      "title: Deep Research",
+      "uses: [tavily]",
+      "---",
+      "",
+      "# Deep Research",
+    ].join("\n"))
+    const target = makeFileNode("tavily-api.md", [
+      "---",
+      "type: entity",
+      "title: Tavily Search API",
+      "aliases: [tavily]",
+      "---",
+      "",
+      "# Tavily Search API",
+    ].join("\n"))
+    mockListDirectory.mockResolvedValue([source.node, target.node])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === source.node.path) return source.content
+      if (path === target.node.path) return target.content
+      return ""
+    })
+
+    const out = await runStructuralLint("/project")
+
+    expect(out).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "broken-link", page: "deep-research.md" }),
+        expect.objectContaining({ type: "orphan", page: "tavily-api.md" }),
       ]),
     )
   })

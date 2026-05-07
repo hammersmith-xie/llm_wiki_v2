@@ -135,6 +135,7 @@ function GraphLoader({ nodes, edges, colorMode }: { nodes: GraphNode[]; edges: G
             color,
             size,
             weight: edge.weight,
+            relationshipTypes: edge.relationshipTypes ?? [],
           })
         }
       }
@@ -696,9 +697,14 @@ export function GraphView() {
                 }
                 if (attrs.highlighted) {
                   const w = attrs.weight ?? 1
+                  const relationshipTypes = Array.isArray(attrs.relationshipTypes)
+                    ? attrs.relationshipTypes
+                    : []
                   result.color = "#1e293b"
                   result.size = Math.max(2, (attrs.size ?? 1) * 1.5)
-                  result.label = `relevance: ${w.toFixed(1)}`
+                  result.label = relationshipTypes.length > 0
+                    ? `${relationshipTypes.join(", ")} · relevance: ${w.toFixed(1)}`
+                    : `relevance: ${w.toFixed(1)}`
                   result.forceLabel = true
                 }
                 return result

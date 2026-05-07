@@ -12,6 +12,7 @@ import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { useWikiStore } from "@/stores/wiki-store"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
+import { useWikiAliasIndex } from "@/components/editor/use-wiki-alias-index"
 
 interface WikiReaderProps {
   body: string
@@ -32,6 +33,7 @@ interface WikiReaderProps {
 export function WikiReader({ body }: WikiReaderProps) {
   const project = useWikiStore((s) => s.project)
   const fileTree = useWikiStore((s) => s.fileTree)
+  const dataVersion = useWikiStore((s) => s.dataVersion)
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
 
   const transformed = useMemo(() => transformWikilinks(body), [body])
@@ -40,6 +42,7 @@ export function WikiReader({ body }: WikiReaderProps) {
   const htmlLang = getHtmlLang(renderLanguage)
   const projectPath = project ? normalizePath(project.path) : null
   const wikiRoot = projectPath ? `${projectPath}/wiki` : null
+  const aliasIndex = useWikiAliasIndex(fileTree, wikiRoot, dataVersion)
 
   function handleAnchorClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
     if (!href.startsWith("#")) return
@@ -52,7 +55,7 @@ export function WikiReader({ body }: WikiReaderProps) {
         return href.slice(1)
       }
     })()
-    const path = resolveRelatedSlug(fileTree, slug, wikiRoot)
+    const path = resolveRelatedSlug(fileTree, slug, wikiRoot, aliasIndex)
     if (path) setSelectedFile(path)
   }
 

@@ -32,8 +32,8 @@ import { chunkMarkdown, type Chunk } from "@/lib/text-chunker"
 
 /**
  * Most recent embedding failure description, so Settings → Embedding
- * can show the user WHY vector search fell back to BM25 instead of
- * silently dropping to keyword match. Cleared on any successful
+ * can show the user WHY vector search fell back to lexical token search
+ * instead of silently dropping to keyword match. Cleared on any successful
  * embed.
  */
 let lastEmbeddingError: string | null = null

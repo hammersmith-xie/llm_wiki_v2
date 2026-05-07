@@ -6,6 +6,13 @@ import { useActivityStore } from "@/stores/activity-store"
 import { getFileName, getRelativePath, normalizePath } from "@/lib/path-utils"
 import { buildLanguageDirective } from "@/lib/output-language"
 import { lifecycleLintIssues } from "@/lib/lifecycle"
+import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
+import { unwrapWikilink } from "@/lib/wiki-page-resolver"
+import { WIKI_REFERENCE_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
+import {
+  buildWikiAliasIndexFromPages,
+  normalizeWikiReferenceKey,
+} from "@/lib/wiki-alias-index"
 
 export interface LintResult {
   type: "orphan" | "broken-link" | "no-outlinks" | "semantic"
@@ -39,30 +46,106 @@ function extractWikilinks(content: string): string[] {
   return links
 }
 
+function extractFrontmatterReferences(content: string): string[] {
+  const frontmatter = parseFrontmatter(content).frontmatter
+  if (!frontmatter) return []
+  const refs: string[] = []
+  for (const field of WIKI_REFERENCE_ARRAY_FIELDS) {
+    for (const raw of frontmatterValues(frontmatter[field])) {
+      const ref = unwrapWikilink(raw).slug.trim()
+      if (ref) refs.push(ref)
+    }
+  }
+  return refs
+}
+
+function frontmatterValues(value: FrontmatterValue | undefined): string[] {
+  if (typeof value === "string") return value.trim() ? [value.trim()] : []
+  if (Array.isArray(value)) return value.map((v) => v.trim()).filter(Boolean)
+  return []
+}
+
+function extractWikiReferences(content: string): string[] {
+  return uniqueStrings([
+    ...extractWikilinks(content),
+    ...extractFrontmatterReferences(content),
+  ])
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(trimmed)
+  }
+  return out
+}
+
 function relativeToSlug(relativePath: string): string {
   // relativePath relative to wiki/ dir, e.g. "entities/foo-bar" or "queries/my-page-2024-01-01"
   return relativePath.replace(/\.md$/, "")
 }
 
-/**
- * Build a slug → absolute path map from wiki files. Keys are lowercased
- * so [[Transformer]] matches transformer.md — wikilink matching should
- * be case-insensitive (matching typical wiki conventions). Callers must
- * also lowercase their lookup keys.
- */
-function buildSlugMap(
-  wikiFiles: FileNode[],
+function buildReferenceMap(
+  pages: readonly { path: string; content: string }[],
   wikiRoot: string,
 ): Map<string, string> {
   const map = new Map<string, string>()
-  for (const f of wikiFiles) {
-    // e.g. /path/to/project/wiki/entities/foo.md → entities/foo
-    const rel = getRelativePath(f.path, wikiRoot).replace(/\.md$/, "")
-    map.set(rel.toLowerCase(), f.path)
-    // also index by basename without extension
-    map.set(f.name.replace(/\.md$/, "").toLowerCase(), f.path)
+  for (const page of pages) {
+    const rel = getRelativePath(page.path, wikiRoot).replace(/\.md$/, "")
+    const basename = getFileName(page.path).replace(/\.md$/, "")
+    addReferenceKey(map, rel, page.path)
+    addReferenceKey(map, `${rel}.md`, page.path)
+    addReferenceKey(map, `wiki/${rel}`, page.path)
+    addReferenceKey(map, `wiki/${rel}.md`, page.path)
+    addReferenceKey(map, basename, page.path)
+    addReferenceKey(map, `${basename}.md`, page.path)
   }
+
+  const aliases = buildWikiAliasIndexFromPages(
+    pages.map((page) => ({ path: page.path, content: page.content })),
+    wikiRoot,
+  )
+  for (const [key, path] of aliases) {
+    if (!map.has(key)) map.set(key, path)
+  }
+
   return map
+}
+
+function addReferenceKey(map: Map<string, string>, raw: string, path: string): void {
+  const lower = raw.toLowerCase()
+  if (!map.has(lower)) map.set(lower, path)
+  const normalized = normalizeWikiReferenceKey(raw.replace(/\.md$/, ""))
+  if (normalized && !map.has(normalized)) map.set(normalized, path)
+}
+
+function resolveReferencePath(
+  raw: string,
+  referenceMap: ReadonlyMap<string, string>,
+): string | null {
+  const trimmed = raw.trim()
+  const noMd = trimmed.replace(/\.md$/, "")
+  const basename = getFileName(trimmed).replace(/\.md$/, "")
+  const candidates = [
+    trimmed.toLowerCase(),
+    noMd.toLowerCase(),
+    basename.toLowerCase(),
+    `${basename}.md`.toLowerCase(),
+    normalizeWikiReferenceKey(noMd),
+    normalizeWikiReferenceKey(basename),
+  ].filter((candidate) => candidate.length > 0)
+
+  for (const candidate of candidates) {
+    const path = referenceMap.get(candidate)
+    if (path) return path
+  }
+  return null
 }
 
 // ── Structural lint ───────────────────────────────────────────────────────────
@@ -82,8 +165,6 @@ export async function runStructuralLint(projectPath: string): Promise<LintResult
     (f) => f.name !== "index.md" && f.name !== "log.md"
   )
 
-  const slugMap = buildSlugMap(contentFiles, wikiRoot)
-
   // Read all content files
   type PageData = { path: string; slug: string; content: string; outlinks: string[] }
   const pages: PageData[] = []
@@ -92,22 +173,25 @@ export async function runStructuralLint(projectPath: string): Promise<LintResult
     try {
       const content = await readFile(f.path)
       const slug = relativeToSlug(getRelativePath(f.path, wikiRoot))
-      const outlinks = extractWikilinks(content)
+      const outlinks = extractWikiReferences(content)
       pages.push({ path: f.path, slug, content, outlinks })
     } catch {
       // skip unreadable files
     }
   }
 
+  const referenceMap = buildReferenceMap(pages, wikiRoot)
+
   // Build inbound link count. Lookups are case-insensitive — [[Transformer]]
-  // should match transformer.md (slug "transformer").
+  // should match transformer.md (slug "transformer"), while v2 typed refs can
+  // also resolve through target title/alias metadata.
   const inboundCounts = new Map<string, number>()
   for (const p of pages) {
     for (const link of p.outlinks) {
-      const lookup = link.toLowerCase()
-      const target = slugMap.has(lookup)
-        ? relativeToSlug(getRelativePath(slugMap.get(lookup)!, wikiRoot)).toLowerCase()
-        : lookup
+      const targetPath = resolveReferencePath(link, referenceMap)
+      const target = targetPath
+        ? relativeToSlug(getRelativePath(targetPath, wikiRoot)).toLowerCase()
+        : link.toLowerCase()
       inboundCounts.set(target, (inboundCounts.get(target) ?? 0) + 1)
     }
   }
@@ -134,15 +218,13 @@ export async function runStructuralLint(projectPath: string): Promise<LintResult
         type: "no-outlinks",
         severity: "info",
         page: shortName,
-        detail: "This page has no [[wikilink]] references to other pages.",
+        detail: "This page has no body wikilinks or frontmatter relationship references to other pages.",
       })
     }
 
     // Broken links — case-insensitive matching.
     for (const link of p.outlinks) {
-      const lookup = link.toLowerCase()
-      const basename = getFileName(link).replace(/\.md$/, "").toLowerCase()
-      const exists = slugMap.has(lookup) || slugMap.has(basename)
+      const exists = resolveReferencePath(link, referenceMap) !== null
       if (!exists) {
         results.push({
           type: "broken-link",
@@ -239,6 +321,11 @@ export async function runSemanticLint(
     "- stale: information that appears outdated or superseded",
     "- missing-page: an important concept is heavily referenced but has no dedicated page",
     "- suggestion: a question or source worth adding to the wiki",
+    "",
+    "LLM Wiki v2 metadata:",
+    "- Treat lifecycle, confidence, review_status, last_confirmed, supersedes, and superseded_by as quality and freshness signals.",
+    "- Treat typed relationship arrays as explicit graph edges: uses, depends_on, contradicts, supports, supersedes, superseded_by.",
+    "- A low-confidence, stale, contradicted, or superseded page is only an issue when the metadata and page content make that concern actionable.",
     "",
     "Severities:",
     "- warning: should be addressed",

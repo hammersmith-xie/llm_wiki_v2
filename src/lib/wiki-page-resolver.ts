@@ -1,4 +1,8 @@
 import type { FileNode } from "@/types/wiki"
+import {
+  normalizeWikiReferenceKey,
+  type WikiAliasIndex,
+} from "./wiki-alias-index"
 
 /**
  * Strip Obsidian-style `[[target]]` or `[[target|alias]]` wrapping
@@ -68,6 +72,7 @@ export function resolveRelatedSlug(
   tree: FileNode[],
   ref: string,
   wikiRoot: string,
+  aliasIndex?: WikiAliasIndex,
 ): string | null {
   // Path-like → resolve relative to project root (one segment up
   // from wikiRoot).
@@ -79,7 +84,23 @@ export function resolveRelatedSlug(
   }
 
   const filename = ref.endsWith(".md") ? ref : `${ref}.md`
-  return findInTreeByName(tree, filename, `${wikiRoot}/`)
+  const exact = findInTreeByName(tree, filename, `${wikiRoot}/`)
+  if (exact) return exact
+
+  const normalizedStem = findInTreeByNormalizedStem(
+    tree,
+    ref.replace(/\.md$/, ""),
+    `${wikiRoot}/`,
+  )
+  if (normalizedStem) return normalizedStem
+
+  const aliasPath = aliasIndex?.get(normalizeWikiReferenceKey(ref.replace(/\.md$/, "")))
+  if (aliasPath) {
+    const found = findInTreeByPath(tree, aliasPath)
+    return found && found.includes(`${wikiRoot}/`) ? found : null
+  }
+
+  return null
 }
 
 /**
@@ -130,4 +151,34 @@ function findInTreeByPath(tree: FileNode[], targetPath: string): string | null {
     return null
   }
   return walk(tree)
+}
+
+function findInTreeByNormalizedStem(
+  tree: FileNode[],
+  targetStem: string,
+  pathContains: string,
+): string | null {
+  const targetKey = normalizeReferenceKey(targetStem)
+  function walk(nodes: FileNode[]): string | null {
+    for (const node of nodes) {
+      if (node.is_dir) {
+        if (node.children) {
+          const r = walk(node.children)
+          if (r) return r
+        }
+        continue
+      }
+      if (!node.name.endsWith(".md")) continue
+      const stem = node.name.replace(/\.md$/, "")
+      if (normalizeReferenceKey(stem) === targetKey && node.path.includes(pathContains)) {
+        return node.path
+      }
+    }
+    return null
+  }
+  return walk(tree)
+}
+
+function normalizeReferenceKey(s: string): string {
+  return normalizeWikiReferenceKey(s)
 }

@@ -95,6 +95,50 @@ describe("typed graph", () => {
     )
   })
 
+  it("resolves typed relationship targets through page aliases", () => {
+    const graph = extractTypedGraphFromPages([
+      {
+        id: "deep-research",
+        fileName: "deep-research.md",
+        path: "/p/wiki/concepts/deep-research.md",
+        content: [
+          "---",
+          "type: concept",
+          "title: Deep Research",
+          "uses: [tavily]",
+          "---",
+          "",
+          "# Deep Research",
+        ].join("\n"),
+      },
+      {
+        id: "tavily-api",
+        fileName: "tavily-api.md",
+        path: "/p/wiki/entities/tavily-api.md",
+        content: [
+          "---",
+          "type: entity",
+          "title: Tavily Search API",
+          "aliases: [tavily]",
+          "confidence: 0.8",
+          "---",
+          "",
+          "# Tavily Search API",
+        ].join("\n"),
+      },
+    ])
+
+    expect(graph.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "deep-research",
+          target: "tavily-api",
+          type: "uses",
+        }),
+      ]),
+    )
+  })
+
   it("graph traversal ranks connected pages from a query seed", () => {
     const graph = extractTypedGraphFromPages([
       {
@@ -122,6 +166,77 @@ describe("typed graph", () => {
     expect(ranks.find((r) => r.id === "flash-attention")?.path).toEqual([
       "attention",
       "flash-attention",
+    ])
+    expect(
+      (ranks.find((r) => r.id === "flash-attention") as unknown as { pathTypes?: string[] })
+        ?.pathTypes,
+    ).toEqual(["related_to"])
+    expect(
+      (ranks.find((r) => r.id === "flash-attention") as unknown as { pathDirections?: string[] })
+        ?.pathDirections,
+    ).toEqual(["forward"])
+  })
+
+  it("preserves original edge direction when traversal follows reverse adjacency", () => {
+    const graph = extractTypedGraphFromPages([
+      {
+        id: "deep-research",
+        fileName: "deep-research.md",
+        path: "/p/wiki/concepts/deep-research.md",
+        content: [
+          "---",
+          "type: concept",
+          "title: Deep Research",
+          "uses: [tavily]",
+          "confidence: 0.9",
+          "---",
+          "",
+          "# Deep Research",
+        ].join("\n"),
+      },
+      page("tavily", "Tavily"),
+    ])
+
+    const ranks = graphRankPages(graph, "tavily", { maxDepth: 1 })
+    const deepResearch = ranks.find((r) => r.id === "deep-research")
+
+    expect(deepResearch?.path).toEqual(["tavily", "deep-research"])
+    expect((deepResearch as unknown as { pathTypes?: string[] })?.pathTypes).toEqual(["uses"])
+    expect(
+      (deepResearch as unknown as { pathDirections?: string[] })?.pathDirections,
+    ).toEqual(["reverse"])
+  })
+
+  it("uses lightweight frontmatter seed text for graph traversal queries", () => {
+    const graph = extractTypedGraphFromPages([
+      {
+        id: "deep-research",
+        fileName: "deep-research.md",
+        path: "/p/wiki/concepts/deep-research.md",
+        content: [
+          "---",
+          "type: concept",
+          "title: Deep Research",
+          "aliases: [query rewriting]",
+          "tags: [retrieval]",
+          "summary: Breaks one question into multiple web searches.",
+          "uses: [tavily]",
+          "confidence: 0.8",
+          "---",
+          "",
+          "# Deep Research",
+        ].join("\n"),
+      },
+      page("tavily", "Tavily"),
+    ])
+
+    const ranks = graphRankPages(graph, "query rewriting", { maxDepth: 1 })
+
+    expect(ranks[0].id).toBe("deep-research")
+    expect(ranks.map((r) => r.id)).toContain("tavily")
+    expect(ranks.find((r) => r.id === "tavily")?.path).toEqual([
+      "deep-research",
+      "tavily",
     ])
   })
 

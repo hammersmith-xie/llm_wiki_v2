@@ -34,7 +34,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   // Disable embedding/vector search — we only want to exercise the
-  // BM25-style text search path.
+  // lexical token search path.
   useWikiStore.getState().setEmbeddingConfig({
     enabled: false,
     endpoint: "",

@@ -7,7 +7,7 @@ vi.mock("@/commands/fs", () => ({
 }))
 
 import { listDirectory, readFile } from "@/commands/fs"
-import { buildRetrievalGraph, clearGraphCache } from "./graph-relevance"
+import { buildRetrievalGraph, clearGraphCache, getRelatedNodes } from "./graph-relevance"
 
 const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
@@ -43,6 +43,41 @@ describe("retrieval graph", () => {
     expect(graphB.nodes.has("b")).toBe(true)
     expect(graphB.nodes.has("a")).toBe(false)
     expect(mockListDirectory).toHaveBeenCalledTimes(2)
+  })
+
+  it("treats v2 typed relationship arrays as direct graph links", async () => {
+    mockListDirectory.mockResolvedValue([
+      fileNode("rag.md", "/project/wiki/concepts/rag.md"),
+      fileNode("vector-search.md", "/project/wiki/concepts/vector-search.md"),
+    ])
+    mockReadFile.mockImplementation(async (filePath) => {
+      if (filePath.endsWith("/rag.md")) {
+        return [
+          "---",
+          "type: concept",
+          "title: RAG",
+          "uses: [vector-search]",
+          "---",
+          "",
+          "# RAG",
+          "",
+          "No wikilinks here.",
+        ].join("\n")
+      }
+      return page("Vector Search")
+    })
+
+    const graph = await buildRetrievalGraph("/project", 1)
+
+    expect(graph.nodes.get("rag")?.outLinks.has("vector-search")).toBe(true)
+    expect(graph.nodes.get("vector-search")?.inLinks.has("rag")).toBe(true)
+    expect(getRelatedNodes("rag", graph, 1)[0]).toEqual(
+      expect.objectContaining({
+        node: expect.objectContaining({ id: "vector-search" }),
+        relevance: expect.any(Number),
+      }),
+    )
+    expect(getRelatedNodes("rag", graph, 1)[0].relevance).toBeGreaterThanOrEqual(3)
   })
 })
 

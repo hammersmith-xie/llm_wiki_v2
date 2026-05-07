@@ -25,6 +25,7 @@ import { removePageEmbedding } from "@/lib/embedding"
 import {
   buildDeletedKeys,
   cleanIndexListing,
+  extractFrontmatterAliases,
   extractFrontmatterTitle,
   stripDeletedWikilinks,
   type DeletedPageInfo,
@@ -33,6 +34,7 @@ import {
   parseFrontmatterArray,
   writeFrontmatterArray,
 } from "@/lib/sources-merge"
+import { WIKI_REFERENCE_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
 import type { FileNode } from "@/types/wiki"
 
 /**
@@ -145,14 +147,15 @@ export interface CascadeDeleteResult {
  *   - any other wiki .md body containing `[[deleted]]` /
  *     `[[deleted|alias]]` → wikilink replaced with plain text
  *     (alias preserved when present)
- *   - any wiki .md whose frontmatter `related:` array lists a
- *     deleted slug (or its title-form variant) → that entry
- *     filtered out, array rewritten
+ *   - any wiki .md whose frontmatter reference arrays (`related:`
+ *     plus v2 typed relationship arrays like `uses:`/`supports:`)
+ *     list a deleted slug (or its title-form variant) → that entry
+ *     is filtered out and the array is rewritten
  *
  * Compared to the existing source-delete cascade in `sources-view`,
- * this also strips the `related:` frontmatter entries — that path
+ * this also strips frontmatter reference-array entries — that path
  * historically only touched body wikilinks + index.md and left
- * `related:` slugs pointing into the void. For a direct user-driven
+ * frontmatter slugs pointing into the void. For a direct user-driven
  * "delete this entity" action we want zero leftover dangling refs.
  *
  * Order of operations:
@@ -175,20 +178,22 @@ export async function cascadeDeleteWikiPagesWithRefs(
     rewrittenFiles: 0,
   }
 
-  // 1. Read each target's title so the cleanup keyset includes both
-  //    slug-form and title-form. Capture before delete.
+  // 1. Read each target's title/aliases so the cleanup keyset includes
+  //    slug-form, title-form, and alias-form references. Capture before delete.
   const infos: DeletedPageInfo[] = []
   for (const pagePath of pagePaths) {
     let title = ""
+    let aliases: string[] = []
     try {
       const content = await readFile(pagePath)
       title = extractFrontmatterTitle(content)
+      aliases = extractFrontmatterAliases(content)
     } catch {
       // file may have been deleted between selection + action; the
       // slug-form key alone will still work.
     }
     const slug = getFileStem(pagePath)
-    if (slug.length > 0) infos.push({ slug, title })
+    if (slug.length > 0) infos.push({ slug, title, aliases })
   }
 
   // 2. Delete the target files themselves.
@@ -205,7 +210,6 @@ export async function cascadeDeleteWikiPagesWithRefs(
 
   // 3. Sweep surviving wiki/*.md.
   const deletedKeys = buildDeletedKeys(infos)
-  const deletedSlugSet = new Set(infos.map((i) => normalizeKey(i.slug)))
   const wikiTree = await listDirectory(`${pp}/wiki`)
   const allMd = flattenMd(wikiTree)
   const indexAbs = `${pp}/wiki/index.md`
@@ -225,17 +229,19 @@ export async function cascadeDeleteWikiPagesWithRefs(
     }
     updated = stripDeletedWikilinks(updated, deletedKeys)
 
-    // `related:` frontmatter — drop entries that point at a deleted
-    // page. parseFrontmatterArray returns the parsed string list;
-    // writeFrontmatterArray rewrites only that field, preserving
-    // every other line.
-    const related = parseFrontmatterArray(updated, "related")
-    if (related.length > 0) {
-      const filtered = related.filter(
-        (s) => !deletedSlugSet.has(normalizeKey(s)),
-      )
-      if (filtered.length !== related.length) {
-        updated = writeFrontmatterArray(updated, "related", filtered)
+    // Frontmatter reference arrays — drop entries that point at a
+    // deleted page. parseFrontmatterArray returns the parsed string
+    // list; writeFrontmatterArray rewrites only that field,
+    // preserving every other line.
+    for (const field of WIKI_REFERENCE_ARRAY_FIELDS) {
+      const refs = parseFrontmatterArray(updated, field)
+      if (refs.length > 0) {
+        const filtered = refs.filter(
+          (s) => !deletedKeys.has(normalizeKey(s)),
+        )
+        if (filtered.length !== refs.length) {
+          updated = writeFrontmatterArray(updated, field, filtered)
+        }
       }
     }
 

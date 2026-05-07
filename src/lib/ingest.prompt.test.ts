@@ -70,8 +70,10 @@ describe("buildGenerationPrompt language directive", () => {
     expect(prompt).toContain("LLM Wiki v2 lifecycle fields")
     expect(prompt).toContain("confidence_reasons")
     expect(prompt).toContain("superseded_by")
+    expect(prompt).toContain("Graph seed arrays")
+    expect(prompt).toContain("alias, aliases, keywords")
     expect(prompt).toContain("Typed relationship arrays")
-    expect(prompt).toContain("uses, depends_on, contradicts, supports")
+    expect(prompt).toContain("uses, depends_on, contradicts, supports, supersedes, superseded_by")
   })
 
   it("respects user setting regardless of source content language", () => {

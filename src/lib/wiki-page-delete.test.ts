@@ -384,6 +384,140 @@ describe("cascadeDeleteWikiPagesWithRefs", () => {
     expect(written).toContain("carol")
   })
 
+  it("drops the deleted slug from v2 typed relationship frontmatter arrays", async () => {
+    const target = `${PROJECT}/wiki/entities/alice-chen.md`
+    mockReadFile.mockImplementation(async (p: string) => {
+      if (p === target) return `---\ntitle: "Alice Chen"\n---\nbody`
+      if (p === `${PROJECT}/wiki/projects/migration.md`) {
+        return [
+          "---",
+          "type: project",
+          "title: Migration",
+          "related: [alice-chen, bob]",
+          "uses: [alice-chen, cli-tool]",
+          "depends_on: [alice_chen, runtime]",
+          "contradicts: [old-claim]",
+          "supports: [alice chen, migration-plan]",
+          "supersedes: [alice-chen, legacy-plan]",
+          "superseded_by: [future-plan]",
+          "---",
+          "",
+          "Project body.",
+        ].join("\n")
+      }
+      throw new Error(`unexpected read ${p}`)
+    })
+    mockListDirectory.mockResolvedValueOnce([
+      dirNode("wiki", [
+        dirNode("wiki/entities", [fileNode("wiki/entities/alice-chen.md")]),
+        dirNode("wiki/projects", [fileNode("wiki/projects/migration.md")]),
+      ]),
+    ])
+
+    await cascadeDeleteWikiPagesWithRefs(PROJECT, [target])
+
+    const projWrite = mockWriteFile.mock.calls.find(
+      (c) => c[0] === `${PROJECT}/wiki/projects/migration.md`,
+    )!
+    const written = projWrite[1]
+    expect(written).not.toMatch(/\balice[-_ ]chen\b/i)
+    expect(written).toContain('related: ["bob"]')
+    expect(written).toContain('uses: ["cli-tool"]')
+    expect(written).toContain('depends_on: ["runtime"]')
+    expect(written).toContain("contradicts: [old-claim]")
+    expect(written).toContain('supports: ["migration-plan"]')
+    expect(written).toContain('supersedes: ["legacy-plan"]')
+    expect(written).toContain("superseded_by: [future-plan]")
+  })
+
+  it("drops deleted page title variants from v2 typed relationship frontmatter arrays", async () => {
+    const target = `${PROJECT}/wiki/concepts/paos.md`
+    mockReadFile.mockImplementation(async (p: string) => {
+      if (p === target) {
+        return `---\ntitle: "Phosphorus Accumulating Organisms"\n---\nbody`
+      }
+      if (p === `${PROJECT}/wiki/projects/ebpr.md`) {
+        return [
+          "---",
+          "type: project",
+          "title: EBPR",
+          "related: [phosphorus accumulating organisms, kept]",
+          "uses: [Phosphorus_Accumulating_Organisms, reactor]",
+          "supports: [phosphorus-accumulating-organisms, claim]",
+          "---",
+          "",
+          "Project body.",
+        ].join("\n")
+      }
+      throw new Error(`unexpected read ${p}`)
+    })
+    mockListDirectory.mockResolvedValueOnce([
+      dirNode("wiki", [
+        dirNode("wiki/concepts", [fileNode("wiki/concepts/paos.md")]),
+        dirNode("wiki/projects", [fileNode("wiki/projects/ebpr.md")]),
+      ]),
+    ])
+
+    await cascadeDeleteWikiPagesWithRefs(PROJECT, [target])
+
+    const projWrite = mockWriteFile.mock.calls.find(
+      (c) => c[0] === `${PROJECT}/wiki/projects/ebpr.md`,
+    )!
+    const written = projWrite[1]
+    expect(written).not.toMatch(/phosphorus[-_ ]accumulating[-_ ]organisms/i)
+    expect(written).toContain('related: ["kept"]')
+    expect(written).toContain('uses: ["reactor"]')
+    expect(written).toContain('supports: ["claim"]')
+  })
+
+  it("drops deleted page alias variants from v2 typed relationship frontmatter arrays", async () => {
+    const target = `${PROJECT}/wiki/concepts/tavily-api.md`
+    mockReadFile.mockImplementation(async (p: string) => {
+      if (p === target) {
+        return [
+          "---",
+          "title: Tavily API",
+          "alias: [tavily]",
+          "aliases: [web search api]",
+          "---",
+          "",
+          "body",
+        ].join("\n")
+      }
+      if (p === `${PROJECT}/wiki/projects/agent-search.md`) {
+        return [
+          "---",
+          "type: project",
+          "title: Agent Search",
+          "related: [tavily, kept]",
+          "uses: [web_search_api, runtime]",
+          "supports: [Tavily API, claim]",
+          "---",
+          "",
+          "Project body.",
+        ].join("\n")
+      }
+      throw new Error(`unexpected read ${p}`)
+    })
+    mockListDirectory.mockResolvedValueOnce([
+      dirNode("wiki", [
+        dirNode("wiki/concepts", [fileNode("wiki/concepts/tavily-api.md")]),
+        dirNode("wiki/projects", [fileNode("wiki/projects/agent-search.md")]),
+      ]),
+    ])
+
+    await cascadeDeleteWikiPagesWithRefs(PROJECT, [target])
+
+    const projWrite = mockWriteFile.mock.calls.find(
+      (c) => c[0] === `${PROJECT}/wiki/projects/agent-search.md`,
+    )!
+    const written = projWrite[1]
+    expect(written).not.toMatch(/tavily|web_search_api/i)
+    expect(written).toContain('related: ["kept"]')
+    expect(written).toContain('uses: ["runtime"]')
+    expect(written).toContain('supports: ["claim"]')
+  })
+
   it("does NOT touch a sibling whose slug merely contains the deleted slug as a substring", async () => {
     // Deleting "ai" must not corrupt [[OpenAI]] / [[AI Safety]] —
     // the bug class wiki-cleanup was originally written to prevent.

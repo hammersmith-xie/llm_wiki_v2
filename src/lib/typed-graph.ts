@@ -2,6 +2,10 @@ import { readFile, listDirectory } from "@/commands/fs"
 import type { FileNode } from "@/types/wiki"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { getFileStem, normalizePath } from "@/lib/path-utils"
+import {
+  WIKI_TYPED_RELATION_ARRAY_FIELDS,
+  type WikiTypedRelationArrayField,
+} from "@/lib/wiki-frontmatter-fields"
 
 export type TypedEdgeType =
   | "related_to"
@@ -13,6 +17,8 @@ export type TypedEdgeType =
   | "derived_from"
   | "mentions"
 
+export type GraphPathDirection = "forward" | "reverse"
+
 export interface TypedGraphNode {
   id: string
   title: string
@@ -21,6 +27,7 @@ export interface TypedGraphNode {
   sources: string[]
   confidence: number
   reviewStatus?: string
+  seedText: string
 }
 
 export interface TypedGraphEdge {
@@ -32,10 +39,14 @@ export interface TypedGraphEdge {
   explicit: boolean
 }
 
+export interface TypedGraphTraversalEdge extends TypedGraphEdge {
+  direction: GraphPathDirection
+}
+
 export interface TypedGraph {
   nodes: Map<string, TypedGraphNode>
   edges: TypedGraphEdge[]
-  adjacency: Map<string, TypedGraphEdge[]>
+  adjacency: Map<string, TypedGraphTraversalEdge[]>
   dataVersion: number
 }
 
@@ -43,18 +54,30 @@ export interface GraphRank {
   id: string
   score: number
   path: string[]
+  pathTypes: TypedEdgeType[]
+  pathDirections: GraphPathDirection[]
 }
 
 const WIKILINK_REGEX = /\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]/g
 
+const TYPED_EDGE_FIELD_CONFIG: Record<
+  WikiTypedRelationArrayField,
+  { type: TypedEdgeType; reverse?: boolean }
+> = {
+  uses: { type: "uses" },
+  depends_on: { type: "depends_on" },
+  contradicts: { type: "contradicts" },
+  supports: { type: "supports" },
+  supersedes: { type: "supersedes" },
+  superseded_by: { type: "supersedes", reverse: true },
+}
+
 const EDGE_FIELDS: Array<{ field: string; type: TypedEdgeType; reverse?: boolean }> = [
   { field: "related", type: "related_to" },
-  { field: "uses", type: "uses" },
-  { field: "depends_on", type: "depends_on" },
-  { field: "contradicts", type: "contradicts" },
-  { field: "supersedes", type: "supersedes" },
-  { field: "superseded_by", type: "supersedes", reverse: true },
-  { field: "supports", type: "supports" },
+  ...WIKI_TYPED_RELATION_ARRAY_FIELDS.map((field) => ({
+    field,
+    ...TYPED_EDGE_FIELD_CONFIG[field],
+  })),
   { field: "sources", type: "derived_from" },
 ]
 
@@ -89,6 +112,7 @@ export function extractTypedGraphFromPages(
       sources: arrayValue(parsed.frontmatter?.sources),
       confidence: parseScore(scalar(parsed.frontmatter?.confidence)),
       reviewStatus: scalar(parsed.frontmatter?.review_status),
+      seedText: buildSeedText(parsed.frontmatter),
     }
   })
 
@@ -97,6 +121,15 @@ export function extractTypedGraphFromPages(
     idAliases.set(normalizeSlug(page.id), page.id)
     idAliases.set(normalizeSlug(page.title), page.id)
     idAliases.set(normalizeSlug(page.fileName.replace(/\.md$/, "")), page.id)
+  }
+  for (const page of rawNodes) {
+    for (const alias of [
+      ...arrayValue(page.parsed.frontmatter?.aliases),
+      ...arrayValue(page.parsed.frontmatter?.alias),
+    ]) {
+      const key = normalizeSlug(alias)
+      if (!idAliases.has(key)) idAliases.set(key, page.id)
+    }
   }
 
   const nodes = new Map<string, TypedGraphNode>()
@@ -109,6 +142,7 @@ export function extractTypedGraphFromPages(
       sources: page.sources,
       confidence: page.confidence,
       reviewStatus: page.reviewStatus,
+      seedText: page.seedText,
     })
   }
 
@@ -154,11 +188,16 @@ export function extractTypedGraphFromPages(
     }
   }
 
-  const adjacency = new Map<string, TypedGraphEdge[]>()
+  const adjacency = new Map<string, TypedGraphTraversalEdge[]>()
   for (const nodeId of nodes.keys()) adjacency.set(nodeId, [])
   for (const edge of edges) {
-    adjacency.get(edge.source)?.push(edge)
-    adjacency.get(edge.target)?.push({ ...edge, source: edge.target, target: edge.source })
+    adjacency.get(edge.source)?.push({ ...edge, direction: "forward" })
+    adjacency.get(edge.target)?.push({
+      ...edge,
+      source: edge.target,
+      target: edge.source,
+      direction: "reverse",
+    })
   }
 
   return { nodes, edges, adjacency, dataVersion }
@@ -217,11 +256,38 @@ export function graphRankPages(
   const seeds = findSeedNodes(graph, query)
   if (seeds.length === 0) return []
 
-  const scores = new Map<string, { score: number; path: string[] }>()
-  const queue: Array<{ id: string; depth: number; score: number; path: string[] }> = []
+  const scores = new Map<
+    string,
+    {
+      score: number
+      path: string[]
+      pathTypes: TypedEdgeType[]
+      pathDirections: GraphPathDirection[]
+    }
+  >()
+  const queue: Array<{
+    id: string
+    depth: number
+    score: number
+    path: string[]
+    pathTypes: TypedEdgeType[]
+    pathDirections: GraphPathDirection[]
+  }> = []
   for (const seed of seeds) {
-    queue.push({ id: seed.id, depth: 0, score: seed.score, path: [seed.id] })
-    scores.set(seed.id, { score: seed.score, path: [seed.id] })
+    queue.push({
+      id: seed.id,
+      depth: 0,
+      score: seed.score,
+      path: [seed.id],
+      pathTypes: [],
+      pathDirections: [],
+    })
+    scores.set(seed.id, {
+      score: seed.score,
+      path: [seed.id],
+      pathTypes: [],
+      pathDirections: [],
+    })
   }
 
   while (queue.length > 0) {
@@ -233,16 +299,36 @@ export function graphRankPages(
       const nextScore = current.score * edge.weight * Math.pow(0.55, nextDepth)
       if (nextScore < 0.05) continue
       const nextPath = [...current.path, edge.target]
+      const nextPathTypes = [...current.pathTypes, edge.type]
+      const nextPathDirections = [...current.pathDirections, edge.direction]
       const existing = scores.get(edge.target)
       if (!existing || nextScore > existing.score) {
-        scores.set(edge.target, { score: nextScore, path: nextPath })
-        queue.push({ id: edge.target, depth: nextDepth, score: nextScore, path: nextPath })
+        scores.set(edge.target, {
+          score: nextScore,
+          path: nextPath,
+          pathTypes: nextPathTypes,
+          pathDirections: nextPathDirections,
+        })
+        queue.push({
+          id: edge.target,
+          depth: nextDepth,
+          score: nextScore,
+          path: nextPath,
+          pathTypes: nextPathTypes,
+          pathDirections: nextPathDirections,
+        })
       }
     }
   }
 
   return [...scores.entries()]
-    .map(([id, value]) => ({ id, score: value.score, path: value.path }))
+    .map(([id, value]) => ({
+      id,
+      score: value.score,
+      path: value.path,
+      pathTypes: value.pathTypes,
+      pathDirections: value.pathDirections,
+    }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score
       return a.id.localeCompare(b.id)
@@ -263,13 +349,16 @@ function findSeedNodes(graph: TypedGraph, query: string): Array<{ id: string; sc
   for (const node of graph.nodes.values()) {
     const idText = normalizeText(node.id)
     const titleText = normalizeText(node.title)
+    const seedText = normalizeText(node.seedText ?? "")
     let score = 0
     if (normalizedQuery && idText === normalizedQuery) score += 4
     if (normalizedQuery && titleText === normalizedQuery) score += 4
     if (normalizedQuery && titleText.includes(normalizedQuery)) score += 2
+    if (normalizedQuery && seedText.includes(normalizedQuery)) score += 2.5
     for (const token of tokens) {
       if (idText.includes(token)) score += 1.5
       if (titleText.includes(token)) score += 1.5
+      if (seedText.includes(token)) score += 1.2
     }
     if (score > 0) seeds.push({ id: node.id, score: score * (0.75 + node.confidence * 0.5) })
   }
@@ -350,6 +439,18 @@ function arrayValue(value: FrontmatterValue | undefined): string[] {
   if (Array.isArray(value)) return uniqueStrings(value)
   if (!value) return []
   return uniqueStrings([value])
+}
+
+function buildSeedText(frontmatter: Record<string, FrontmatterValue> | null | undefined): string {
+  if (!frontmatter) return ""
+  return [
+    ...arrayValue(frontmatter.aliases),
+    ...arrayValue(frontmatter.alias),
+    ...arrayValue(frontmatter.tags),
+    ...arrayValue(frontmatter.keywords),
+    ...arrayValue(frontmatter.summary),
+    ...arrayValue(frontmatter.description),
+  ].join(" ")
 }
 
 function parseScore(value: string | undefined): number {

@@ -183,10 +183,10 @@ export function LintView() {
     try {
       // Full cascade: file + embedding chunks + every reference to
       // the page across the wiki (body wikilinks, index.md listing,
-      // `related:` frontmatter arrays). Even though "orphan" by lint
-      // means no incoming wikilinks were detected, `related:` slugs
-      // and index.md entries can still point at it — the orphan
-      // detector only walks body refs.
+      // and frontmatter reference arrays such as `related`/typed
+      // relationships). Even though "orphan" by lint means no incoming
+      // wikilinks were detected, frontmatter slugs and index.md entries
+      // can still point at it — the orphan detector only walks body refs.
       const { cascadeDeleteWikiPagesWithRefs } = await import(
         "@/lib/wiki-page-delete"
       )
