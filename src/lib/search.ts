@@ -36,6 +36,50 @@ export interface SearchResult {
   images: ImageRef[]
 }
 
+export interface LexicalDocument {
+  path: string
+  fileName: string
+  content: string
+}
+
+export interface LexicalScoreBreakdown {
+  filenameExact: number
+  titlePhrase: number
+  contentPhrase: number
+  titleTokens: number
+  contentTokens: number
+}
+
+export interface LexicalMatchExplanation {
+  queryPhrase: string
+  tokens: string[]
+  filenameExact: boolean
+  titleHasPhrase: boolean
+  contentPhraseOccurrences: number
+  titleTokenMatches: string[]
+  contentTokenMatches: string[]
+  scoreBreakdown: LexicalScoreBreakdown
+}
+
+export interface LexicalRankedHit {
+  path: string
+  title: string
+  snippet: string
+  titleMatch: boolean
+  score: number
+  rank: number
+  images: ImageRef[]
+  explain: LexicalMatchExplanation
+}
+
+interface PreparedLexicalQuery {
+  query: string
+  queryPhrase: string
+  tokens: string[]
+}
+
+type LexicalScoredHit = Omit<LexicalRankedHit, "rank">
+
 const MAX_RESULTS = 20
 const SNIPPET_CONTEXT = 80
 
@@ -128,15 +172,6 @@ export function tokenizeQuery(query: string): string[] {
   return [...new Set(tokens)]
 }
 
-function tokenMatchScore(text: string, tokens: readonly string[]): number {
-  const lower = text.toLowerCase()
-  let score = 0
-  for (const token of tokens) {
-    if (lower.includes(token)) score += 1
-  }
-  return score
-}
-
 function countOccurrences(haystackLower: string, needleLower: string): number {
   if (!needleLower || needleLower.length === 0) return 0
   let count = 0
@@ -217,6 +252,22 @@ function buildSnippet(content: string, query: string): string {
   if (start > 0) snippet = "..." + snippet
   if (end < content.length) snippet = snippet + "..."
   return snippet
+}
+
+export function rankLexicalDocuments(
+  documents: readonly LexicalDocument[],
+  query: string,
+): LexicalRankedHit[] {
+  if (!query.trim()) return []
+  const preparedQuery = prepareLexicalQuery(query)
+  return documents
+    .map((document) => scoreLexicalDocument(document, preparedQuery))
+    .filter((hit): hit is LexicalScoredHit => hit !== null)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return a.path.localeCompare(b.path)
+    })
+    .map((hit, index) => ({ ...hit, rank: index + 1 }))
 }
 
 export async function searchWiki(
@@ -474,7 +525,7 @@ async function searchFiles(
   //
   // Internal punctuation is preserved on purpose: queries like
   // "2024-Q3" or domain names should still phrase-match exactly.
-  const queryPhrase = query.trim().toLowerCase().replace(TRIM_PUNCT_RE, "")
+  const preparedQuery = prepareLexicalQuery(query, tokens)
 
   // Process files in fixed-size concurrent batches. Promise.all over
   // the entire list would work but spawns N IPC calls simultaneously
@@ -489,7 +540,7 @@ async function searchFiles(
         } catch {
           return null
         }
-        return scoreFile(file, content, tokens, queryPhrase, query)
+        return scoreFile(file, content, preparedQuery)
       }),
     )
     for (const r of batchResults) {
@@ -506,15 +557,35 @@ async function searchFiles(
 function scoreFile(
   file: FileNode,
   content: string,
-  tokens: readonly string[],
-  queryPhrase: string,
-  query: string,
+  preparedQuery: PreparedLexicalQuery,
 ): SearchResult | null {
-  const title = extractTitle(content, file.name)
-  const titleText = `${title} ${file.name}`
+  const hit = scoreLexicalDocument({
+    path: file.path,
+    fileName: file.name,
+    content,
+  }, preparedQuery)
+  if (!hit) return null
+
+  return {
+    path: hit.path,
+    title: hit.title,
+    snippet: hit.snippet,
+    titleMatch: hit.titleMatch,
+    score: hit.score,
+    images: hit.images,
+  }
+}
+
+function scoreLexicalDocument(
+  document: LexicalDocument,
+  preparedQuery: PreparedLexicalQuery,
+): LexicalScoredHit | null {
+  const title = extractTitle(document.content, document.fileName)
+  const titleText = `${title} ${document.fileName}`
   const titleLower = titleText.toLowerCase()
-  const contentLower = content.toLowerCase()
-  const fileStem = file.name.replace(/\.md$/, "").toLowerCase()
+  const contentLower = document.content.toLowerCase()
+  const fileStem = document.fileName.replace(/\.md$/, "").toLowerCase()
+  const { query, queryPhrase, tokens } = preparedQuery
 
   // Exact-match signals (strongest)
   const filenameExact = fileStem === queryPhrase
@@ -526,27 +597,29 @@ function scoreFile(
   )
 
   // Token-level signals (fallback / density)
-  const titleTokenScore = tokenMatchScore(titleText, tokens)
-  const contentTokenScore = tokenMatchScore(content, tokens)
+  const titleTokenMatches = matchingTokens(titleText, tokens)
+  const contentTokenMatches = matchingTokens(document.content, tokens)
 
   if (
     !filenameExact &&
     !titleHasPhrase &&
     contentPhraseOcc === 0 &&
-    titleTokenScore === 0 &&
-    contentTokenScore === 0
+    titleTokenMatches.length === 0 &&
+    contentTokenMatches.length === 0
   ) {
     return null
   }
 
-  const score =
-    (filenameExact ? FILENAME_EXACT_BONUS : 0) +
-    (titleHasPhrase ? PHRASE_IN_TITLE_BONUS : 0) +
-    contentPhraseOcc * PHRASE_IN_CONTENT_PER_OCC +
-    titleTokenScore * TITLE_TOKEN_WEIGHT +
-    contentTokenScore * CONTENT_TOKEN_WEIGHT
+  const scoreBreakdown: LexicalScoreBreakdown = {
+    filenameExact: filenameExact ? FILENAME_EXACT_BONUS : 0,
+    titlePhrase: titleHasPhrase ? PHRASE_IN_TITLE_BONUS : 0,
+    contentPhrase: contentPhraseOcc * PHRASE_IN_CONTENT_PER_OCC,
+    titleTokens: titleTokenMatches.length * TITLE_TOKEN_WEIGHT,
+    contentTokens: contentTokenMatches.length * CONTENT_TOKEN_WEIGHT,
+  }
+  const score = Object.values(scoreBreakdown).reduce((sum, value) => sum + value, 0)
 
-  const isTitleMatch = titleTokenScore > 0 || titleHasPhrase
+  const isTitleMatch = titleTokenMatches.length > 0 || titleHasPhrase
 
   const snippetAnchor =
     contentPhraseOcc > 0
@@ -554,11 +627,39 @@ function scoreFile(
       : tokens.find((t) => contentLower.includes(t)) ?? query
 
   return {
-    path: file.path,
+    path: document.path,
     title,
-    snippet: buildSnippet(content, snippetAnchor),
+    snippet: buildSnippet(document.content, snippetAnchor),
     titleMatch: isTitleMatch,
     score,
-    images: extractImageRefs(content),
+    images: extractImageRefs(document.content),
+    explain: {
+      queryPhrase,
+      tokens,
+      filenameExact,
+      titleHasPhrase,
+      contentPhraseOccurrences: contentPhraseOcc,
+      titleTokenMatches,
+      contentTokenMatches,
+      scoreBreakdown,
+    },
   }
+}
+
+function prepareLexicalQuery(
+  query: string,
+  tokensOverride?: readonly string[],
+): PreparedLexicalQuery {
+  const rawTokens = tokensOverride ?? tokenizeQuery(query)
+  const tokens = rawTokens.length > 0 ? [...rawTokens] : [query.trim().toLowerCase()]
+  return {
+    query,
+    queryPhrase: query.trim().toLowerCase().replace(TRIM_PUNCT_RE, ""),
+    tokens,
+  }
+}
+
+function matchingTokens(text: string, tokens: readonly string[]): string[] {
+  const lower = text.toLowerCase()
+  return tokens.filter((token) => lower.includes(token))
 }

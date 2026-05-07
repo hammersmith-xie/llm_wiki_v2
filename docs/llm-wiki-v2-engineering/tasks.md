@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 7 / 16
+**总体进度**: 🚧 8 / 16
 
 ---
 
@@ -243,9 +243,9 @@ graph TD
 
 **目标**: 把 search 从 substring/token score 升级为可评估、可解释、可回归的三流 retrieval。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ 抽象 lexical retriever adapter
+### Task 3.1 ✅ 抽象 lexical retriever adapter
 
 **描述**: 将现有 token scoring 从 `searchWiki` 主流程中拆出，形成可单测 adapter，便于切换 BM25。
 
@@ -260,15 +260,15 @@ graph TD
 - `src/lib/search-rrf.test.ts`
 
 **验收**:
-- [ ] 拆分后现有 search tests 保持通过。
-- [ ] filename exact、title phrase、CJK token 行为不退化。
-- [ ] adapter 返回 rank 和 explain metadata。
+- [x] 拆分后现有 search tests 保持通过。
+- [x] filename exact、title phrase、CJK token 行为不退化。
+- [x] adapter 返回 rank 和 explain metadata。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 旧 token scoring 藏在 `searchFiles` / `scoreFile` 内部，无法不 mock IO 地验证 filename exact、phrase、CJK token 的 breakdown，也不方便 T3.2 替换 BM25。
+- 🔧 **最终实现逻辑**: 新增 `rankLexicalDocuments` 纯 adapter 和 `LexicalMatchExplanation` / `LexicalScoreBreakdown`，`searchWiki` 继续通过同一 `scoreLexicalDocument` 路径产出 token results。
+- 🎯 **关键决策**: T3.1 不改变排序权重、不引入 BM25；只把现有 token scorer 抽象成可替换、可解释的 lexical stream，BM25 实现留给 T3.2。
 
 ---
 
@@ -514,10 +514,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
-| M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
+| M3 | Retrieval and Evaluation | 1 | 4 | 🚧 |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **7** | **16** | **🚧** |
+| **总计** | | **8** | **16** | **🚧** |
 
 ---
 
