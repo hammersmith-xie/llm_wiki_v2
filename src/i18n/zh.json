@@ -271,7 +271,14 @@
           "ignoreSelected": "忽略所选",
           "previewSelected": "预览所选",
           "applySelected": "应用所选",
-          "notBatchApplicable": "不支持批量"
+          "notBatchApplicable": "不支持批量",
+          "batchResultTitle": "最近批量结果",
+          "batchPlanned": "{{n}} 条已预览",
+          "batchApplied": "{{n}} 条已应用",
+          "batchUnchanged": "{{n}} 条无变化",
+          "batchIgnored": "{{n}} 条已忽略",
+          "batchErrors": "{{n}} 个错误",
+          "batchAuditFailed": "批量审计写入失败：{{error}}"
         },
         "dedup": {
           "title": "检测重复实体 / 概念",

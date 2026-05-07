@@ -33,6 +33,7 @@ import {
   applyMemoryOpsBatch,
   ignoreMemoryOpsBatch,
   previewMemoryOpsBatch,
+  type MemoryOpsBatchResult,
 } from "@/lib/memory-ops-batch"
 import {
   getMemoryOpsMaintenanceStatus,
@@ -103,6 +104,7 @@ export function MaintenanceSection() {
     () => new Set(),
   )
   const [batchWorking, setBatchWorking] = useState(false)
+  const [lastBatchResult, setLastBatchResult] = useState<MemoryOpsBatchResult | null>(null)
 
   // Poll the queue at 1Hz so the UI reflects pending → processing →
   // failed transitions and cross-window queue activity (e.g. a merge
@@ -153,6 +155,7 @@ export function MaintenanceSection() {
     setDryRunPlans({})
     setSuggestionErrors({})
     setSelectedSuggestionIds(new Set())
+    setLastBatchResult(null)
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
@@ -308,6 +311,7 @@ export function MaintenanceSection() {
     setSuggestionErrors({})
     try {
       const result = await previewMemoryOpsBatch(project.path, suggestions)
+      setLastBatchResult(result)
       const nextPlans: Record<string, MetadataPatchPlan> = {}
       const nextErrors: Record<string, string> = {}
       for (const item of result.items) {
@@ -330,6 +334,7 @@ export function MaintenanceSection() {
     setSuggestionErrors({})
     try {
       const result = await applyMemoryOpsBatch(project.path, suggestions)
+      setLastBatchResult(result)
       const nextErrors: Record<string, string> = {}
       const handledIds: string[] = []
       let wroteFiles = false
@@ -368,6 +373,7 @@ export function MaintenanceSection() {
     setSuggestionErrors({})
     try {
       const result = await ignoreMemoryOpsBatch(project.path, suggestions)
+      setLastBatchResult(result)
       const ignoredIds: string[] = []
       const nextErrors: Record<string, string> = {}
       for (const item of result.items) {
@@ -565,6 +571,7 @@ export function MaintenanceSection() {
         workingSuggestionId={workingSuggestionId}
         selectedSuggestionIds={selectedSuggestionIds}
         batchWorking={batchWorking}
+        lastBatchResult={lastBatchResult}
         onToggleSelection={handleToggleSuggestionSelection}
         onSelectCategory={handleSelectSuggestionCategory}
         onClearSelection={handleClearSuggestionSelection}

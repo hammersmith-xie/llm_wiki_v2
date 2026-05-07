@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 8 / 16
+**总体进度**: 🚧 9 / 16
 
 ---
 
@@ -282,7 +282,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ 显示 batch result 和失败隔离摘要
+### Task 3.2 ✅ 显示 batch result 和失败隔离摘要
 
 **描述**: 在 patrol block 中展示最近 batch 结果，包含 applied、unchanged、error、ignored 和可打开的错误详情。
 
@@ -297,15 +297,15 @@ graph TD
 - `src/lib/memory-ops-ui.test.ts`
 
 **验收**:
-- [ ] 部分失败不会把已成功项标回未处理。
-- [ ] 错误项可继续逐项处理或忽略。
-- [ ] UI 摘要不过度占用空间。
+- [x] 部分失败不会把已成功项标回未处理。
+- [x] 错误项可继续逐项处理或忽略。
+- [x] UI 摘要不过度占用空间。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: T3.1 已经把每项错误写入 `suggestionErrors`，但用户缺少批量层面的成功/失败总览。
+- 🔧 **最终实现逻辑**: `MaintenanceSection` 保存 `lastBatchResult`；`MemoryOpsPatrolBlock` 新增紧凑 batch summary block，展示 planned/applied/unchanged/ignored/error 和前 3 个错误项。
+- 🎯 **关键决策**: 摘要块只显示最近一次 batch，不做历史列表；历史追踪交给后续 Audit Timeline 面板。
 
 ---
 
@@ -535,10 +535,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
-| M3 | Maintenance Workbench UI | 1 | 6 | 🚧 |
+| M3 | Maintenance Workbench UI | 2 | 6 | 🚧 |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **8** | **16** | **🚧** |
+| **总计** | | **9** | **16** | **🚧** |
 
 ---
 

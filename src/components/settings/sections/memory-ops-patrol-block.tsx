@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button"
 import type { AuditEvent } from "@/lib/audit-timeline"
 import type { MetadataPatchPlan } from "@/lib/memory-ops-executor"
+import type { MemoryOpsBatchResult } from "@/lib/memory-ops-batch"
 import type { MemoryOpsMaintenanceStatus, MemoryOpsPatrolReport } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
@@ -33,6 +34,7 @@ interface MemoryOpsPatrolBlockProps {
   workingSuggestionId: string | null
   selectedSuggestionIds: ReadonlySet<string>
   batchWorking: boolean
+  lastBatchResult: MemoryOpsBatchResult | null
   onRun: () => void
   onToggleSelection: (suggestion: MemoryOpsSuggestion) => void
   onSelectCategory: (suggestions: MemoryOpsSuggestion[]) => void
@@ -60,6 +62,7 @@ export function MemoryOpsPatrolBlock({
   workingSuggestionId,
   selectedSuggestionIds,
   batchWorking,
+  lastBatchResult,
   onRun,
   onToggleSelection,
   onSelectCategory,
@@ -166,6 +169,7 @@ export function MemoryOpsPatrolBlock({
               <div className="text-xs font-medium">
                 {t("settings.sections.maintenance.memoryOps.suggestionPreview")}
               </div>
+              {lastBatchResult && <MemoryOpsBatchSummaryBlock result={lastBatchResult} />}
               <MemoryOpsSuggestionGroups
                 groups={suggestionGroups}
                 dryRunPlans={dryRunPlans}
@@ -231,6 +235,43 @@ export function MemoryOpsPatrolBlock({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function MemoryOpsBatchSummaryBlock({ result }: { result: MemoryOpsBatchResult }) {
+  const { t } = useTranslation()
+  const summary = result.summary
+  const errorItems = result.items.filter((item) => item.status === "error")
+
+  return (
+    <div className="space-y-1 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
+      <div className="font-medium">
+        {t("settings.sections.maintenance.memoryOps.batchResultTitle")}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+        <span>{t("settings.sections.maintenance.memoryOps.batchPlanned", { n: summary.plannedCount })}</span>
+        <span>{t("settings.sections.maintenance.memoryOps.batchApplied", { n: summary.appliedCount })}</span>
+        <span>{t("settings.sections.maintenance.memoryOps.batchUnchanged", { n: summary.unchangedCount })}</span>
+        <span>{t("settings.sections.maintenance.memoryOps.batchIgnored", { n: summary.ignoredCount })}</span>
+        <span>{t("settings.sections.maintenance.memoryOps.batchErrors", { n: summary.errorCount })}</span>
+      </div>
+      {result.auditError && (
+        <div className="text-amber-700 dark:text-amber-400">
+          {t("settings.sections.maintenance.memoryOps.batchAuditFailed", {
+            error: result.auditError,
+          })}
+        </div>
+      )}
+      {errorItems.length > 0 && (
+        <div className="space-y-0.5 text-rose-700 dark:text-rose-400">
+          {errorItems.slice(0, 3).map((item) => (
+            <div key={item.suggestionId} className="break-words">
+              <code className="font-mono">{item.targetPath}</code>: {item.error}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

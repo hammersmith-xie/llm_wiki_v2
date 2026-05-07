@@ -271,7 +271,14 @@
           "ignoreSelected": "Ignore selected",
           "previewSelected": "Preview selected",
           "applySelected": "Apply selected",
-          "notBatchApplicable": "not batch-applicable"
+          "notBatchApplicable": "not batch-applicable",
+          "batchResultTitle": "Latest batch result",
+          "batchPlanned": "{{n}} planned",
+          "batchApplied": "{{n}} applied",
+          "batchUnchanged": "{{n}} unchanged",
+          "batchIgnored": "{{n}} ignored",
+          "batchErrors": "{{n}} errors",
+          "batchAuditFailed": "Batch audit failed: {{error}}"
         },
         "dedup": {
           "title": "Detect duplicate entities / concepts",
