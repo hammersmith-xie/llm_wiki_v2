@@ -532,7 +532,7 @@ graph TD
 **依赖**: M4
 **状态**: ⏳
 
-### Task 5.1 ⏳ 运行 focused tests、typecheck、mock regression 和 Rust tests
+### Task 5.1 ✅ 运行 focused tests、typecheck、mock regression 和 Rust tests
 
 **描述**: 跑新增 focused suites、全量 typecheck、mock tests；如果 Rust scaffold 改动，跑 cargo test。
 
@@ -551,16 +551,16 @@ graph TD
 - `src-tauri/src/commands/project.rs`
 
 **验收**:
-- [ ] Focused Vitest suites 通过。
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过或明确记录失败和原因。
-- [ ] Rust scaffold 有改动时 `cd src-tauri && cargo test` 通过。
+- [x] Focused Vitest suites 通过。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过或明确记录失败和原因。
+- [x] Rust scaffold 有改动时 `cd src-tauri && cargo test` 通过。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无验证阻塞；全量 mock 回归、focused suites、TypeScript build 和 Rust unit/doc tests 均通过。
+- 🔧 **最终实现逻辑**: 运行 focused Vitest suites 覆盖 schema contract/drift/quality、schema project scan、automation events、digest、coordination、Maintenance UI 和 i18n parity；运行 `npm run typecheck`、`npm run test:mocks` 和 `cd src-tauri && cargo test` 完成跨栈回归。
+- 🎯 **关键决策**: Rust scaffold 在本阶段改过模板内容，因此即使 T4.5 只改文档，T5.1 仍纳入 `cargo test`，确认 TS/Rust schema template parity 没有回归。
 
 ---
 
@@ -602,8 +602,8 @@ graph TD
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
 | M3 | Event and Digest Core | 4 | 4 | ✅ |
 | M4 | Maintenance UI and Documentation | 5 | 5 | ✅ |
-| M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **16** | **17** | **🚧** |
+| M5 | Verification and Final Review | 1 | 2 | 🚧 |
+| **总计** | | **17** | **17** | **🚧** |
 
 ---
 
