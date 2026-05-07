@@ -6,9 +6,16 @@ import type { MetadataPatchOperation } from "@/lib/memory-ops-executor"
 import type { MemoryOpsProjectSnapshot, MemoryOpsWikiPage } from "@/lib/memory-ops"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { normalizePath } from "@/lib/path-utils"
+import { WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
 
-export type MemoryOpsSuggestionKind = "metadata-update"
+export type MemoryOpsSuggestionKind = "metadata-update" | "relation-cleanup"
 export type MemoryOpsSuggestionSeverity = "info" | "warning"
+
+export interface MemoryOpsRelationIssue {
+  field: string
+  target: string
+  candidateTarget?: string
+}
 
 export interface MemoryOpsSuggestion {
   id: string
@@ -18,7 +25,8 @@ export interface MemoryOpsSuggestion {
   title: string
   detail: string
   reasons: string[]
-  proposedOperation: MetadataPatchOperation
+  proposedOperation?: MetadataPatchOperation
+  relation?: MemoryOpsRelationIssue
 }
 
 const REINFORCING_ACTION_PREFIXES = [
@@ -47,6 +55,45 @@ export function evaluateLifecycleSuggestions(
 
     const promotionSuggestion = promotionSuggestionForPage(page, frontmatter)
     if (promotionSuggestion) suggestions.push(promotionSuggestion)
+  }
+
+  return suggestions
+}
+
+export function evaluateRelationCleanupSuggestions(
+  snapshot: MemoryOpsProjectSnapshot,
+): MemoryOpsSuggestion[] {
+  const suggestions: MemoryOpsSuggestion[] = []
+  const resolver = buildPageResolver(snapshot.pages)
+
+  for (const page of snapshot.pages) {
+    const frontmatter = page.frontmatter ?? parseFrontmatter(page.content).frontmatter
+    for (const field of WIKI_TYPED_RELATION_ARRAY_FIELDS) {
+      for (const target of arrayValue(frontmatter?.[field])) {
+        if (resolver.has(page.id, target)) continue
+        const candidate = resolver.findCandidate(page.id, target)
+        const supersession = field === "supersedes" || field === "superseded_by"
+        suggestions.push({
+          id: suggestionId("relation", page.path, field, target),
+          kind: "relation-cleanup",
+          severity: supersession ? "warning" : "info",
+          targetPath: page.path,
+          title: supersession ? "Review dangling supersession" : "Review unresolved typed relation",
+          detail: candidate
+            ? `Field ${field} points to "${target}", which does not resolve. Candidate page: ${candidate}.`
+            : `Field ${field} points to "${target}", which does not resolve to a wiki page.`,
+          reasons: [
+            `${field} is an explicit typed relationship field`,
+            candidate ? `candidate target ${candidate}` : "no matching page, title, or alias found",
+          ],
+          relation: {
+            field,
+            target,
+            candidateTarget: candidate,
+          },
+        })
+      }
+    }
   }
 
   return suggestions
@@ -182,4 +229,47 @@ function parseInteger(value: string | undefined): number {
   if (!value) return 0
   const parsed = Number.parseInt(value, 10)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function buildPageResolver(pages: readonly MemoryOpsWikiPage[]): {
+  has: (sourceId: string, target: string) => boolean
+  findCandidate: (sourceId: string, target: string) => string | undefined
+} {
+  const exact = new Map<string, string>()
+  for (const page of pages) {
+    const frontmatter = page.frontmatter ?? parseFrontmatter(page.content).frontmatter
+    const keys = [
+      page.id,
+      page.fileName.replace(/\.md$/, ""),
+      scalar(frontmatter?.title),
+      ...arrayValue(frontmatter?.alias),
+      ...arrayValue(frontmatter?.aliases),
+    ].filter((value): value is string => !!value)
+    for (const key of keys) {
+      const normalized = normalizeRelationKey(key)
+      if (!exact.has(normalized)) exact.set(normalized, page.id)
+    }
+  }
+
+  const entries = [...exact.entries()]
+  return {
+    has: (sourceId, target) => {
+      const resolved = exact.get(normalizeRelationKey(target))
+      return !!resolved && resolved !== sourceId
+    },
+    findCandidate: (sourceId, target) => {
+      const normalizedTarget = normalizeRelationKey(target)
+      const candidates = entries
+        .filter(([key, pageId]) => {
+          if (pageId === sourceId) return false
+          return key.includes(normalizedTarget) || normalizedTarget.includes(key)
+        })
+        .sort((a, b) => a[0].length - b[0].length)
+      return candidates[0]?.[1]
+    },
+  }
+}
+
+function normalizeRelationKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "")
 }

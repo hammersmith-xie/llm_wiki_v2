@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 6 / 18
+**总体进度**: 🚧 7 / 18
 
 ---
 
@@ -123,7 +123,7 @@ graph TD
 
 **目标**: 做出不依赖 LLM 的 Memory Ops 巡检核心，先生成建议，不直接改文件。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ Build project snapshot scanner
 
@@ -208,7 +208,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ Add relation cleanup suggestions
+### Task 2.4 ✅ Add relation cleanup suggestions
 
 **描述**: 基于 typed graph 和 alias resolver 识别 broken typed relation、dangling supersession、孤立但应连接页面，生成建议而非自动修复。
 
@@ -229,9 +229,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Typed graph 只保留已解析成功的关系边，因此 broken frontmatter target 必须单独扫描 frontmatter；普通正文 wikilink 则应继续交给 structural lint，避免重复噪声。
+- 🔧 **最终实现逻辑**: 新增 `evaluateRelationCleanupSuggestions`，扫描 `uses`/`supports`/`supersedes` 等 typed relation 字段，用 slug/title/alias resolver 判断是否能解析，并为近似匹配页面补 candidate。
+- 🎯 **关键决策**: T2.4 只生成 relation-cleanup suggestion，不自动删除或改写关系；`supersedes` / `superseded_by` 断链升为 warning，其余 typed relation 先作为 info。
 
 ---
 
@@ -567,11 +567,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
-| M2 | Patrol Runner + Lifecycle Rules | 3 | 4 | 🚧 |
+| M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **6** | **18** | **🚧** |
+| **总计** | | **7** | **18** | **🚧** |
 
 ---
 

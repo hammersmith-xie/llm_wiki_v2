@@ -5,7 +5,11 @@ import {
   type AuditTimelineResult,
 } from "@/lib/audit-timeline"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
-import { evaluateLifecycleSuggestions, type MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import {
+  evaluateLifecycleSuggestions,
+  evaluateRelationCleanupSuggestions,
+  type MemoryOpsSuggestion,
+} from "@/lib/memory-ops-rules"
 import { getFileStem, normalizePath } from "@/lib/path-utils"
 import {
   extractTypedGraphFromPages,
@@ -117,9 +121,10 @@ export async function runMemoryOpsPatrol(
     const snapshot = await scanMemoryOpsProject(projectPath, {
       dataVersion: options.dataVersion,
     })
-    const suggestions = evaluateLifecycleSuggestions(snapshot, {
-      today: options.today,
-    })
+    const suggestions = [
+      ...evaluateLifecycleSuggestions(snapshot, { today: options.today }),
+      ...evaluateRelationCleanupSuggestions(snapshot),
+    ]
     const report: MemoryOpsPatrolReport = {
       snapshot,
       suggestions,

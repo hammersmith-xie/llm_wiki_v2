@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { extractTypedGraphFromPages } from "@/lib/typed-graph"
 import type { MemoryOpsProjectSnapshot, MemoryOpsWikiPage } from "./memory-ops"
-import { evaluateLifecycleSuggestions } from "./memory-ops-rules"
+import {
+  evaluateLifecycleSuggestions,
+  evaluateRelationCleanupSuggestions,
+} from "./memory-ops-rules"
 
 describe("memory ops lifecycle rules", () => {
   it("suggests stale metadata for old low-confidence pages without rewriting content", () => {
@@ -110,6 +113,86 @@ describe("memory ops lifecycle rules", () => {
       }),
     ])
     expect(suggestions[0].reasons.join(" ")).toContain("reinforcement")
+  })
+})
+
+describe("memory ops relation cleanup rules", () => {
+  it("suggests cleanup for unresolved typed relation targets with candidate pages", () => {
+    const source = wikiPage("deep-research", [
+      "---",
+      "type: concept",
+      "title: Deep Research",
+      "uses: [tavily]",
+      "---",
+      "",
+      "# Deep Research",
+    ].join("\n"))
+    const candidate = wikiPage("tavily-api", [
+      "---",
+      "type: entity",
+      "title: Tavily API",
+      "---",
+      "",
+      "# Tavily API",
+    ].join("\n"))
+
+    const suggestions = evaluateRelationCleanupSuggestions(snapshot([source, candidate]))
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "relation-cleanup",
+        severity: "info",
+        targetPath: "/project/wiki/concepts/deep-research.md",
+        relation: expect.objectContaining({
+          field: "uses",
+          target: "tavily",
+          candidateTarget: "tavily-api",
+        }),
+      }),
+    ])
+    expect(suggestions[0].detail).toContain("uses")
+    expect(suggestions[0].detail).toContain("tavily-api")
+  })
+
+  it("reports dangling supersession fields as warnings", () => {
+    const old = wikiPage("old-claim", [
+      "---",
+      "type: concept",
+      "title: Old Claim",
+      "superseded_by: [new-claim]",
+      "---",
+      "",
+      "# Old Claim",
+    ].join("\n"))
+
+    const suggestions = evaluateRelationCleanupSuggestions(snapshot([old]))
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "relation-cleanup",
+        severity: "warning",
+        title: "Review dangling supersession",
+        relation: expect.objectContaining({
+          field: "superseded_by",
+          target: "new-claim",
+        }),
+      }),
+    ])
+  })
+
+  it("does not duplicate structural lint for ordinary body wikilinks", () => {
+    const page = wikiPage("attention", [
+      "---",
+      "type: concept",
+      "title: Attention",
+      "---",
+      "",
+      "# Attention",
+      "",
+      "See [[missing-page]].",
+    ].join("\n"))
+
+    expect(evaluateRelationCleanupSuggestions(snapshot([page]))).toEqual([])
   })
 })
 
