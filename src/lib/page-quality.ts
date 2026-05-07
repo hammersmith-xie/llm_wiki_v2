@@ -43,8 +43,9 @@ const DIMENSION_WEIGHTS: Record<PageQualityDimension, number> = {
 export function evaluatePageQuality(input: PageQualityInput): PageQualityScore {
   const contract = input.contract ?? DEFAULT_LLM_WIKI_SCHEMA_CONTRACT
   const parsed = parseFrontmatter(input.content)
+  const body = parsed.body
   const dimensions = {
-    structure: structureScore(input.content, parsed.frontmatter),
+    structure: structureScore(body, parsed.frontmatter),
     citation: citationScore(parsed.frontmatter),
     relation: relationScore(parsed.frontmatter, input.content, contract),
     retrieval: retrievalScore(parsed.frontmatter),
@@ -77,12 +78,11 @@ export function evaluatePagesQuality(
 }
 
 function structureScore(
-  content: string,
+  body: string,
   frontmatter: Record<string, FrontmatterValue> | null,
 ): PageQualityDimensionScore {
   let score = 0
   const reasons: string[] = []
-  const body = parseFrontmatter(content).body
   const headings = [...body.matchAll(/^#{1,3}\s+.+$/gm)]
   const bodyText = stripMarkdown(body)
 

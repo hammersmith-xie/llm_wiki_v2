@@ -80,21 +80,43 @@ async function readProjectWikiPages(projectPath: string): Promise<SchemaDriftPag
     return []
   }
 
-  const pages: SchemaDriftPageInput[] = []
-  for (const file of flattenMarkdownFiles(tree)) {
-    try {
-      const content = await readFile(file.path)
-      pages.push({
-        id: getFileStem(file.name),
-        path: projectRelativePath(projectPath, file.path),
-        fileName: file.name,
-        content,
-      })
-    } catch {
-      // Unreadable pages should not block a project-level health scan.
+  const pages = await mapWithConcurrency(
+    flattenMarkdownFiles(tree),
+    16,
+    async (file): Promise<SchemaDriftPageInput | null> => {
+      try {
+        const content = await readFile(file.path)
+        return {
+          id: getFileStem(file.name),
+          path: projectRelativePath(projectPath, file.path),
+          fileName: file.name,
+          content,
+        }
+      } catch {
+        // Unreadable pages should not block a project-level health scan.
+        return null
+      }
+    },
+  )
+  return pages.filter((page): page is SchemaDriftPageInput => page !== null)
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+  const workerCount = Math.min(Math.max(1, concurrency), items.length)
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index])
     }
-  }
-  return pages
+  }))
+  return results
 }
 
 function flattenMarkdownFiles(nodes: readonly FileNode[]): FileNode[] {
