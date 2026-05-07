@@ -19,6 +19,7 @@ export interface CrystallizeQueryInput {
   origin: string
   tags?: string[]
   references?: CrystallizeReference[]
+  candidate?: CrystallizeCandidateAuditMetadata
 }
 
 export interface CrystallizeQueryResult {
@@ -26,6 +27,14 @@ export interface CrystallizeQueryResult {
   relativePath: string
   supports: string[]
   sources: string[]
+}
+
+export interface CrystallizeCandidateAuditMetadata {
+  origin: string
+  sourceId: string
+  score: number
+  reasons: string[]
+  dedupeKey: string
 }
 
 export async function writeCrystallizedQueryPage(
@@ -45,6 +54,7 @@ export async function writeCrystallizedQueryPage(
   const sources = uniqueStrings(
     sourceValues.filter((source): source is string => source !== null),
   )
+  const candidate = input.candidate ? normalizeCandidateAudit(input.candidate) : undefined
 
   const frontmatter = [
     "---",
@@ -75,6 +85,7 @@ export async function writeCrystallizedQueryPage(
       reviewStatus: enriched.metadata.reviewStatus,
       supports,
       sources,
+      ...(candidate ? { candidate } : {}),
     },
     reasons: enriched.metadata.confidenceReasons,
   }).catch((err) => {
@@ -165,4 +176,16 @@ function uniqueStrings(values: readonly string[]): string[] {
     out.push(trimmed)
   }
   return out
+}
+
+function normalizeCandidateAudit(
+  candidate: CrystallizeCandidateAuditMetadata,
+): CrystallizeCandidateAuditMetadata {
+  return {
+    origin: candidate.origin,
+    sourceId: candidate.sourceId,
+    score: Math.max(0, Math.min(1, Number(candidate.score.toFixed(2)))),
+    reasons: uniqueStrings(candidate.reasons),
+    dedupeKey: candidate.dedupeKey,
+  }
 }

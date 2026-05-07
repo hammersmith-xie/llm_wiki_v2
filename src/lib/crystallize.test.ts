@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { writeCrystallizedQueryPage } from "./crystallize"
+import { writeConfirmedCrystallizationCandidate } from "./crystallize-candidates"
 
 vi.mock("@/commands/fs", () => ({
   readFile: vi.fn(async () => ""),
@@ -63,5 +64,71 @@ describe("writeCrystallizedQueryPage", () => {
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"crystallize.query\""),
     )
+  })
+
+  it("records candidate score and reasons in the crystallize audit event", async () => {
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      return ""
+    })
+
+    await writeCrystallizedQueryPage({
+      projectPath: "/project",
+      filePath: "/project/wiki/queries/candidate.md",
+      title: "Candidate",
+      body: "# Candidate\n\nContent with [[evidence]].",
+      date: "2026-05-07",
+      origin: "chat-save",
+      tags: [],
+      candidate: {
+        origin: "chat",
+        sourceId: "m-1",
+        score: 0.84,
+        reasons: ["2 explicit references", "contains conclusion signal"],
+        dedupeKey: "content:abc123",
+      },
+    })
+
+    const auditCall = mockWriteFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    expect(auditCall?.[1]).toContain('"candidate"')
+    expect(auditCall?.[1]).toContain('"score":0.84')
+    expect(auditCall?.[1]).toContain('"contains conclusion signal"')
+    expect(auditCall?.[1]).toContain('"dedupeKey":"content:abc123"')
+  })
+
+  it("writes a confirmed candidate through the existing crystallized query path", async () => {
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      return ""
+    })
+
+    const result = await writeConfirmedCrystallizationCandidate({
+      projectPath: "/project",
+      filePath: "/project/wiki/queries/retrieval-notes.md",
+      date: "2026-05-07",
+      candidate: {
+        id: "crystallize:chat:m-1",
+        origin: "chat",
+        sourceId: "m-1",
+        title: "Retrieval Notes",
+        content: "# Retrieval Notes\n\n## Conclusion\nSave this cited answer.",
+        score: 0.72,
+        reasons: ["1 explicit reference", "contains conclusion signal"],
+        references: [{ title: "Search", path: "/project/wiki/concepts/search.md" }],
+        tags: ["chat"],
+        dedupeKey: "content:retrieval",
+        timestamp: 1,
+      },
+    })
+
+    expect(result.relativePath).toBe("wiki/queries/retrieval-notes.md")
+    expect(result.supports).toEqual(["search"])
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "/project/wiki/queries/retrieval-notes.md",
+      expect.stringContaining('origin: "chat-candidate"'),
+    )
+    const auditCall = mockWriteFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    expect(auditCall?.[1]).toContain('"candidate"')
+    expect(auditCall?.[1]).toContain('"sourceId":"m-1"')
   })
 })

@@ -1,4 +1,8 @@
-import type { CrystallizeReference } from "@/lib/crystallize"
+import {
+  writeCrystallizedQueryPage,
+  type CrystallizeQueryResult,
+  type CrystallizeReference,
+} from "@/lib/crystallize"
 import type { DisplayMessage } from "@/stores/chat-store"
 import type { ResearchTask } from "@/stores/research-store"
 import type { ReviewItem } from "@/stores/review-store"
@@ -36,6 +40,15 @@ export interface CollectCrystallizationCandidatesInput {
   researchTasks?: readonly ResearchTask[]
   reviewItems?: readonly ReviewItem[]
   existingDedupeKeys?: Iterable<string>
+}
+
+export interface ConfirmedCrystallizationCandidateInput {
+  projectPath: string
+  filePath: string
+  date: string
+  candidate: CrystallizationCandidate
+  origin?: string
+  tags?: string[]
 }
 
 const DEFAULT_THRESHOLD = 0.55
@@ -168,6 +181,28 @@ export function collectCrystallizationCandidates(
   return candidates.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     return (b.timestamp ?? 0) - (a.timestamp ?? 0)
+  })
+}
+
+export async function writeConfirmedCrystallizationCandidate(
+  input: ConfirmedCrystallizationCandidateInput,
+): Promise<CrystallizeQueryResult> {
+  return writeCrystallizedQueryPage({
+    projectPath: input.projectPath,
+    filePath: input.filePath,
+    title: input.candidate.title,
+    body: input.candidate.content,
+    date: input.date,
+    origin: input.origin ?? `${input.candidate.origin}-candidate`,
+    tags: uniqueStrings([...input.candidate.tags, ...(input.tags ?? [])]),
+    references: input.candidate.references,
+    candidate: {
+      origin: input.candidate.origin,
+      sourceId: input.candidate.sourceId,
+      score: input.candidate.score,
+      reasons: input.candidate.reasons,
+      dedupeKey: input.candidate.dedupeKey,
+    },
   })
 }
 

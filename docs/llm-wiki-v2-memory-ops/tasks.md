@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 8 / 18
+**总体进度**: 🚧 9 / 18
 
 ---
 
@@ -270,7 +270,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ Reuse confirmed crystallization write path
+### Task 3.2 ✅ Reuse confirmed crystallization write path
 
 **描述**: 将用户确认后的 candidate 接到现有 `writeCrystallizedQueryPage`，记录 candidate score/reasons 到 audit。
 
@@ -291,9 +291,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 如果直接在 UI 里各自拼写入逻辑，容易绕过现有 query page metadata、filename/source/supports 处理和 audit 行为。
+- 🔧 **最终实现逻辑**: 扩展 `writeCrystallizedQueryPage` 的可选 candidate audit metadata，并新增 `writeConfirmedCrystallizationCandidate`，把确认后的 candidate 原样转交给现有 crystallized query 写入路径。
+- 🎯 **关键决策**: Candidate score/reasons/dedupeKey 记录在 `crystallize.query` audit 的 `after.candidate` 中；写入 origin 默认使用 `<source>-candidate`，不新增第二套 query page writer。
 
 ---
 
@@ -568,10 +568,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
-| M3 | Crystallization Candidates + Search Evaluation | 1 | 4 | 🚧 |
+| M3 | Crystallization Candidates + Search Evaluation | 2 | 4 | 🚧 |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **8** | **18** | **🚧** |
+| **总计** | | **9** | **18** | **🚧** |
 
 ---
 
