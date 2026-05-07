@@ -31,6 +31,7 @@ import { findRawSourceForImage, imageUrlToAbsolute } from "@/lib/raw-source-reso
 import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
+import { CrystallizationDigestPreview } from "@/components/crystallization-digest-preview"
 
 // Module-level cache of source file names
 let cachedSourceFiles: string[] = []
@@ -132,6 +133,11 @@ export function ChatMessage({ message, isLastAssistant, onRegenerate }: ChatMess
             {crystallizationCandidate && (
               <CrystallizationCandidateHint candidate={crystallizationCandidate} />
             )}
+            <CrystallizationDigestPreview
+              candidate={crystallizationCandidate}
+              compact
+              onSaved={setSavedCandidateKey}
+            />
             <div className="flex items-center gap-1">
             <CopyButton content={message.content} />
             <SaveToWikiButton

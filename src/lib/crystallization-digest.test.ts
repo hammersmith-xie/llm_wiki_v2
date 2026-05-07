@@ -4,7 +4,19 @@ import {
   buildCrystallizationDigestPlan,
   recordCrystallizationDigestPreview,
   recordCrystallizationDigestSave,
+  saveCrystallizationDigestPage,
 } from "./crystallization-digest"
+
+vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(async () => {}),
+  createDirectory: vi.fn(async () => {}),
+  readFile: vi.fn(async (path: string) => {
+    if (path.endsWith("index.md")) return "# Wiki Index\n\n## Queries\n\n## Synthesis\n"
+    if (path.endsWith("log.md")) return "# Wiki Log\n"
+    return ""
+  }),
+  writeFile: vi.fn(async () => {}),
+}))
 
 vi.mock("@/lib/wiki-automation-events", () => ({
   recordWikiAutomationEvent: vi.fn(async (input) => ({
@@ -13,11 +25,21 @@ vi.mock("@/lib/wiki-automation-events", () => ({
   })),
 }))
 
+import { readFile, writeFile } from "@/commands/fs"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 const mockRecordWikiAutomationEvent = vi.mocked(recordWikiAutomationEvent)
+const mockReadFile = vi.mocked(readFile)
+const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
+  mockReadFile.mockReset()
+  mockReadFile.mockImplementation(async (path: string) => {
+    if (path.endsWith("index.md")) return "# Wiki Index\n\n## Queries\n\n## Synthesis\n"
+    if (path.endsWith("log.md")) return "# Wiki Log\n"
+    return ""
+  })
+  mockWriteFile.mockReset()
   mockRecordWikiAutomationEvent.mockReset()
   mockRecordWikiAutomationEvent.mockImplementation(async (input) => ({
     action: input.type,
@@ -101,6 +123,8 @@ describe("crystallization digest planner", () => {
         summary: expect.objectContaining({
           dedupeKey: "digest:content:graph",
           sourceDedupeKey: "content:graph",
+          sourceScore: 0.78,
+          sourceReasons: ["2 explicit references", "contains decision signal"],
         }),
       }),
     )
@@ -134,6 +158,41 @@ describe("crystallization digest planner", () => {
           ],
           appliedOperationCount: 2,
           skippedOperationCount: 1,
+        }),
+      }),
+    )
+  })
+
+  it("saves a digest page through the crystallized page writer", async () => {
+    const plan = buildCrystallizationDigestPlan({ candidate: candidate() })
+    expect(plan).not.toBeNull()
+
+    const result = await saveCrystallizationDigestPage({
+      projectPath: "/project",
+      candidate: candidate(),
+      plan: plan!,
+      now: new Date("2026-05-07T12:34:56.000Z"),
+    })
+
+    expect(result.relativePath).toBe(
+      "wiki/synthesis/query-planner-tradeoffs-2026-05-07-123456.md",
+    )
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "/project/wiki/synthesis/query-planner-tradeoffs-2026-05-07-123456.md",
+      expect.stringContaining("type: synthesis"),
+    )
+    const pageWrite = mockWriteFile.mock.calls.find(([path]) =>
+      String(path).includes("/wiki/synthesis/query-planner-tradeoffs"),
+    )
+    expect(pageWrite?.[1]).toContain("## Decisions")
+    expect(pageWrite?.[1]).toContain("## Relation Candidates")
+    expect(mockRecordWikiAutomationEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "digest.save",
+        targetPath: "wiki/synthesis/query-planner-tradeoffs-2026-05-07-123456.md",
+        summary: expect.objectContaining({
+          appliedOperationCount: 1,
+          skippedOperationCount: 2,
         }),
       }),
     )

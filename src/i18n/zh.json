@@ -88,6 +88,20 @@
     "dismiss": "关闭审阅项",
     "saveSuggested": "建议保存"
   },
+  "digest": {
+    "preview": "Digest 预览",
+    "summary": "{{lessons}} 条经验，{{decisions}} 个决策，{{entities}} 个实体，{{relations}} 条关系",
+    "score": "分数 {{score}}",
+    "target": "{{type}} → {{path}}",
+    "decisions": "决策",
+    "lessons": "经验",
+    "entities": "实体",
+    "relations": "关系",
+    "save": "保存 digest 页面",
+    "saving": "保存 digest 中...",
+    "saved": "已保存 {{path}}",
+    "previewOnly": "该输出已保存；预览不会写入文件。"
+  },
   "settings": {
     "title": "设置",
     "llmProvider": "LLM 提供商",

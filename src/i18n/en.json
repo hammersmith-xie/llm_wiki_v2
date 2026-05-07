@@ -88,6 +88,20 @@
     "dismiss": "Dismiss review item",
     "saveSuggested": "Save suggested"
   },
+  "digest": {
+    "preview": "Digest preview",
+    "summary": "{{lessons}} lessons, {{decisions}} decisions, {{entities}} entities, {{relations}} relations",
+    "score": "score {{score}}",
+    "target": "{{type}} → {{path}}",
+    "decisions": "Decisions",
+    "lessons": "Lessons",
+    "entities": "Entities",
+    "relations": "Relations",
+    "save": "Save digest page",
+    "saving": "Saving digest...",
+    "saved": "Saved {{path}}",
+    "previewOnly": "This output is already saved; preview does not write files."
+  },
   "settings": {
     "title": "Settings",
     "llmProvider": "LLM Provider",

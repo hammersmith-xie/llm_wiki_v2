@@ -1,6 +1,12 @@
 import type { AuditEventActor } from "@/lib/audit-timeline"
+import { readFile, writeFile } from "@/commands/fs"
+import {
+  writeCrystallizedQueryPage,
+  type CrystallizeQueryResult,
+} from "@/lib/crystallize"
 import type { CrystallizationCandidate } from "@/lib/crystallize-candidates"
 import { normalizePath } from "@/lib/path-utils"
+import { makeQueryFileName } from "@/lib/wiki-filename"
 import {
   recordWikiAutomationEvent,
   type WikiAutomationEventResult,
@@ -103,6 +109,20 @@ export interface RecordCrystallizationDigestSaveInput {
   appliedOperationCount?: number
   skippedOperationCount?: number
   reasons?: readonly string[]
+}
+
+export interface SaveCrystallizationDigestPageInput {
+  projectPath: string
+  candidate: CrystallizationCandidate
+  plan: CrystallizationDigestPlan
+  now?: Date
+  actor?: AuditEventActor
+}
+
+export interface SaveCrystallizationDigestPageResult extends CrystallizeQueryResult {
+  filePath: string
+  pageType: CrystallizationDigestPageType
+  digestEvent: WikiAutomationEventResult
 }
 
 const DEFAULT_MIN_SCORE = 0.55
@@ -237,6 +257,64 @@ export async function recordCrystallizationDigestSave(
   })
 }
 
+export async function saveCrystallizationDigestPage(
+  input: SaveCrystallizationDigestPageInput,
+): Promise<SaveCrystallizationDigestPageResult> {
+  const pp = normalizePath(input.projectPath).replace(/\/$/, "")
+  const pageCandidate = input.plan.pageCandidates[0]
+  const pageType = pageCandidate?.type ?? "query"
+  const directory = pageType === "synthesis" ? "wiki/synthesis" : "wiki/queries"
+  const { date, fileName } = makeQueryFileName(input.plan.source.title, input.now)
+  const filePath = `${pp}/${directory}/${fileName}`
+  const tags = uniqueTexts([...(pageCandidate?.tags ?? []), "digest"])
+  const result = await writeCrystallizedQueryPage({
+    projectPath: pp,
+    filePath,
+    title: input.plan.source.title,
+    body: buildDigestPageBody(input.candidate, input.plan),
+    date,
+    origin: `digest-${input.candidate.origin}`,
+    pageType,
+    tags,
+    references: input.candidate.references,
+    candidate: {
+      origin: input.candidate.origin,
+      sourceId: input.candidate.sourceId,
+      score: input.candidate.score,
+      reasons: input.candidate.reasons,
+      dedupeKey: input.candidate.dedupeKey,
+    },
+  })
+
+  await updateDigestIndex(pp, {
+    pageType,
+    fileName,
+    title: input.plan.source.title,
+  })
+  await appendDigestLog(pp, {
+    date,
+    fileName,
+    pageType,
+  })
+
+  const digestEvent = await recordCrystallizationDigestSave({
+    projectPath: pp,
+    plan: input.plan,
+    actor: input.actor ?? "user",
+    targetPaths: [result.relativePath],
+    appliedOperationCount: 1,
+    skippedOperationCount: input.plan.relations.length,
+    reasons: ["digest page saved"],
+  })
+
+  return {
+    ...result,
+    filePath,
+    pageType,
+    digestEvent,
+  }
+}
+
 function buildPageCandidates(
   candidate: CrystallizationCandidate,
   counts: { decisionCount: number; lessonCount: number; relationCount: number },
@@ -259,6 +337,109 @@ function buildPageCandidates(
         : "high-value output can be saved as a query page",
     ],
   }]
+}
+
+function buildDigestPageBody(
+  candidate: CrystallizationCandidate,
+  plan: CrystallizationDigestPlan,
+): string {
+  const sections = [`# ${plan.source.title}`, ""]
+
+  if (plan.decisions.length > 0) {
+    sections.push(
+      "## Decisions",
+      "",
+      ...plan.decisions.map((decision) => `- ${decision.statement}`),
+      "",
+    )
+  }
+
+  if (plan.lessons.length > 0) {
+    sections.push(
+      "## Lessons",
+      "",
+      ...plan.lessons.map((lesson) => `- ${lesson.text}`),
+      "",
+    )
+  }
+
+  if (plan.entities.length > 0) {
+    sections.push(
+      "## Entities",
+      "",
+      ...plan.entities.map((entity) =>
+        `- ${entity.name}${entity.targetPath ? ` (${entity.targetPath})` : ""}`,
+      ),
+      "",
+    )
+  }
+
+  if (plan.relations.length > 0) {
+    sections.push(
+      "## Relation Candidates",
+      "",
+      ...plan.relations.map((relation) =>
+        `- ${relation.source} ${relation.field} ${relation.target}`,
+      ),
+      "",
+    )
+  }
+
+  sections.push("## Source Output", "", candidate.content.trim(), "")
+  return sections.join("\n")
+}
+
+async function updateDigestIndex(
+  projectPath: string,
+  input: {
+    pageType: CrystallizationDigestPageType
+    fileName: string
+    title: string
+  },
+): Promise<void> {
+  const indexPath = `${projectPath}/wiki/index.md`
+  let indexContent = ""
+  try {
+    indexContent = await readFile(indexPath)
+  } catch {
+    indexContent = "# Wiki Index\n"
+  }
+
+  const section = input.pageType === "synthesis" ? "Synthesis" : "Queries"
+  const linkDir = input.pageType === "synthesis" ? "synthesis" : "queries"
+  const linkTarget = input.fileName.replace(/\.md$/, "")
+  const entry = `- [[${linkDir}/${linkTarget}|${input.title}]]`
+  const header = `## ${section}`
+  if (indexContent.includes(header)) {
+    indexContent = indexContent.replace(
+      new RegExp(`(${header}\\n)`),
+      `$1${entry}\n`,
+    )
+  } else {
+    indexContent = `${indexContent.trimEnd()}\n\n${header}\n${entry}\n`
+  }
+  await writeFile(indexPath, indexContent)
+}
+
+async function appendDigestLog(
+  projectPath: string,
+  input: {
+    date: string
+    fileName: string
+    pageType: CrystallizationDigestPageType
+  },
+): Promise<void> {
+  const logPath = `${projectPath}/wiki/log.md`
+  let logContent = ""
+  try {
+    logContent = await readFile(logPath)
+  } catch {
+    logContent = "# Wiki Log\n"
+  }
+  await writeFile(
+    logPath,
+    `${logContent.trimEnd()}\n- ${input.date}: Saved digest ${input.pageType} page \`${input.fileName}\`\n`,
+  )
 }
 
 interface RecordDigestEventInput {
@@ -294,6 +475,8 @@ async function recordDigestEvent(
       sourceDedupeKey: input.plan.source.dedupeKey,
       sourceId: input.plan.source.sourceId,
       sourceOrigin: input.plan.source.origin,
+      sourceScore: input.plan.source.score,
+      sourceReasons: input.plan.source.reasons,
       targetPaths,
       counts: input.plan.summary,
       appliedOperationCount: input.appliedOperationCount,

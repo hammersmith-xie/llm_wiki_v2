@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
@@ -9,6 +10,7 @@ import {
   Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CrystallizationDigestPreview } from "@/components/crystallization-digest-preview"
 import type { ReviewItem } from "@/stores/review-store"
 import { scoreCrystallizationCandidate } from "@/lib/crystallize-candidates"
 
@@ -30,9 +32,10 @@ export function ReviewCard({
   onDismiss: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const [savedDigestKey, setSavedDigestKey] = useState<string | null>(null)
   const config = typeConfig[item.type]
   const Icon = config.icon
-  const candidate = !item.resolved
+  const scoredCandidate = !item.resolved
     ? scoreCrystallizationCandidate({
         origin: "review",
         sourceId: item.id,
@@ -42,6 +45,8 @@ export function ReviewCard({
         timestamp: item.createdAt,
       })
     : null
+  const candidate =
+    scoredCandidate?.dedupeKey === savedDigestKey ? null : scoredCandidate
 
   return (
     <div
@@ -74,9 +79,16 @@ export function ReviewCard({
       )}
 
       {candidate && (
-        <div className="mb-3 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">{t("review.saveSuggested")}</span>{" "}
-          {candidate.reasons.slice(0, 2).join(" · ")}
+        <div className="mb-3 space-y-2">
+          <div className="rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{t("review.saveSuggested")}</span>{" "}
+            {candidate.reasons.slice(0, 2).join(" · ")}
+          </div>
+          <CrystallizationDigestPreview
+            candidate={candidate}
+            compact
+            onSaved={setSavedDigestKey}
+          />
         </div>
       )}
 

@@ -18,6 +18,7 @@ export interface CrystallizeQueryInput {
   body: string
   date: string
   origin: string
+  pageType?: "query" | "synthesis"
   tags?: string[]
   references?: CrystallizeReference[]
   candidate?: CrystallizeCandidateAuditMetadata
@@ -59,7 +60,7 @@ export async function writeCrystallizedQueryPage(
 
   const frontmatter = [
     "---",
-    "type: query",
+    `type: ${input.pageType ?? "query"}`,
     `title: ${quoteYaml(input.title)}`,
     `created: ${input.date}`,
     `updated: ${input.date}`,

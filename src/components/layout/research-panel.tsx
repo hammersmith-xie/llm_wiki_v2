@@ -19,6 +19,7 @@ import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
 import { scoreCrystallizationCandidate } from "@/lib/crystallize-candidates"
+import { CrystallizationDigestPreview } from "@/components/crystallization-digest-preview"
 
 export function ResearchPanel() {
   const tasks = useResearchStore((s) => s.tasks)
@@ -235,7 +236,6 @@ function ResearchTaskCard({ task, onRemove }: { task: ResearchTask; onRemove: (i
         })),
         tags: ["research"],
         timestamp: task.createdAt,
-        alreadySaved: !!task.savedPath,
       }),
     [task.id, task.topic, task.synthesis, task.webResults, task.createdAt, task.savedPath],
   )
@@ -321,10 +321,20 @@ function ResearchTaskCard({ task, onRemove }: { task: ResearchTask; onRemove: (i
           )}
 
           {candidate && (
-            <div className="mt-2 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Save suggested</span>{" "}
-              {candidate.reasons.slice(0, 2).join(" · ")}
-              {candidate.references.length > 0 ? ` · ${candidate.references.length} refs` : ""}
+            <div className="mt-2 space-y-2">
+              {!task.savedPath && (
+                <div className="rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Save suggested</span>{" "}
+                  {candidate.reasons.slice(0, 2).join(" · ")}
+                  {candidate.references.length > 0 ? ` · ${candidate.references.length} refs` : ""}
+                </div>
+              )}
+              <CrystallizationDigestPreview
+                candidate={candidate}
+                compact
+                allowSave={!task.savedPath}
+                savedPath={task.savedPath}
+              />
             </div>
           )}
 

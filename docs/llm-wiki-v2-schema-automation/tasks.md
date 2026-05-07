@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 13 / 17
+**总体进度**: 🚧 14 / 17
 
 ---
 
@@ -434,7 +434,7 @@ graph TD
 
 ---
 
-### Task 4.3 ⏳ 增加 digest preview UI
+### Task 4.3 ✅ 增加 digest preview UI
 
 **描述**: 在现有 Save to Wiki candidate 入口附近加入 Digest Preview，允许用户查看 lessons/decisions/entities/relations，再确认保存或 patch。
 
@@ -452,16 +452,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] digest preview 不阻挡原 Save to Wiki 流程。
-- [ ] 低价值内容不显示 digest。
-- [ ] 用户确认前不写文件。
-- [ ] 保存/patch 后写 audit 并刷新 file tree/dataVersion。
+- [x] digest preview 不阻挡原 Save to Wiki 流程。
+- [x] 低价值内容不显示 digest。
+- [x] 用户确认前不写文件。
+- [x] 保存/patch 后写 audit 并刷新 file tree/dataVersion。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Deep Research 任务已经自动保存后，原 candidate scoring 会因 `alreadySaved` 直接返回 null，导致无法做 preview-only 展示；已改为仍生成 digest preview，但保存按钮关闭并显示已保存路径。自检还补充了 `digest.save` audit 中的 source score/reasons，满足验收里的可追溯性。
+- 🔧 **最终实现逻辑**: 新增 `CrystallizationDigestPreview` 组件，基于 `buildCrystallizationDigestPlan` 展示 lessons、decisions、entities、relation candidates 和目标页面；首次展开记录 `digest.preview` 且不写文件；确认保存时调用 `saveCrystallizationDigestPage`，复用 `writeCrystallizedQueryPage` 写 query/synthesis 页面，更新 `wiki/index.md`、`wiki/log.md`，记录 `digest.save`，刷新 file tree/dataVersion 并打开保存页；Chat/Review/Research 的 Save suggested 附近均接入 preview。
+- 🎯 **关键决策**: Digest preview 是新增旁路，不替换原 Save to Wiki 按钮；低分或无引用内容不渲染组件。当前版本只自动保存 digest page，relation/metadata patch 作为 preview 中的 relation candidates 展示，实际 patch 仍留给 Memory Ops executor 的确认流程，避免在 digest UI 中静默改 metadata。
 
 ---
 
@@ -601,9 +601,9 @@ graph TD
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
 | M3 | Event and Digest Core | 4 | 4 | ✅ |
-| M4 | Maintenance UI and Documentation | 2 | 5 | 🚧 |
+| M4 | Maintenance UI and Documentation | 3 | 5 | 🚧 |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **13** | **17** | **🚧** |
+| **总计** | | **14** | **17** | **🚧** |
 
 ---
 
