@@ -55,7 +55,7 @@ export function MemoryOpsPolicyPanel({
   }, [policy])
 
   const validation = useMemo(() => normalizeMemoryOpsPolicy(draft), [draft])
-  const dirty = JSON.stringify(draft) !== JSON.stringify(policy)
+  const dirty = !memoryOpsPolicyEquals(draft, policy)
   const canSave = projectReady && validation.warnings.length === 0 && dirty && !saving
 
   const setNumber = (key: NumericPolicyKey, value: string) => {
@@ -334,4 +334,23 @@ function setNumericPolicyValue(
     }
   }
   return { ...policy, [key]: value }
+}
+
+function memoryOpsPolicyEquals(a: MemoryOpsPolicy, b: MemoryOpsPolicy): boolean {
+  return (
+    a.version === b.version &&
+    a.name === b.name &&
+    a.halfLives.working === b.halfLives.working &&
+    a.halfLives.episodic === b.halfLives.episodic &&
+    a.halfLives.semantic === b.halfLives.semantic &&
+    a.halfLives.procedural === b.halfLives.procedural &&
+    a.halfLives.archived === b.halfLives.archived &&
+    a.staleMultiplier === b.staleMultiplier &&
+    a.lowConfidenceThreshold === b.lowConfidenceThreshold &&
+    a.promotion.minSources === b.promotion.minSources &&
+    a.promotion.minReinforcement === b.promotion.minReinforcement &&
+    a.archive.requireNoSourceSupport === b.archive.requireNoSourceSupport &&
+    a.archive.requireNoReinforcement === b.archive.requireNoReinforcement &&
+    a.archive.requireNoRecentUse === b.archive.requireNoRecentUse
+  )
 }

@@ -49,6 +49,9 @@ const STATUS_OPTIONS = [
   "missing",
 ] as const
 const LIMIT_OPTIONS = ["25", "100", "250"] as const
+type AuditTimelineScopeOption = (typeof SCOPE_OPTIONS)[number]
+type AuditTimelineStatusOption = (typeof STATUS_OPTIONS)[number]
+type AuditTimelineLimitOption = (typeof LIMIT_OPTIONS)[number]
 
 interface AuditTimelinePanelProps {
   projectReady: boolean
@@ -71,12 +74,12 @@ export function AuditTimelinePanel({
   const [category, setCategory] = useState<AuditEventCategory | "all">("all")
   const [action, setAction] = useState("")
   const [path, setPath] = useState("")
-  const [scope, setScope] = useState<(typeof SCOPE_OPTIONS)[number]>("all")
-  const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("all")
+  const [scope, setScope] = useState<AuditTimelineScopeOption>("all")
+  const [status, setStatus] = useState<AuditTimelineStatusOption>("all")
   const [text, setText] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const [limit, setLimit] = useState<(typeof LIMIT_OPTIONS)[number]>("100")
+  const [limit, setLimit] = useState<AuditTimelineLimitOption>("100")
 
   const filter = useMemo<AuditTimelineUiFilter>(() => ({
     category,
@@ -212,7 +215,7 @@ export function AuditTimelinePanel({
           <FilterField label={t("settings.sections.maintenance.auditTimeline.scope")}>
             <select
               value={scope}
-              onChange={(event) => setScope(event.target.value as typeof scope)}
+              onChange={(event) => setScope(event.target.value as AuditTimelineScopeOption)}
               className={selectClassName}
             >
               {SCOPE_OPTIONS.map((option) => (
@@ -225,7 +228,7 @@ export function AuditTimelinePanel({
           <FilterField label={t("settings.sections.maintenance.auditTimeline.status")}>
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value as typeof status)}
+              onChange={(event) => setStatus(event.target.value as AuditTimelineStatusOption)}
               className={selectClassName}
             >
               {STATUS_OPTIONS.map((option) => (
@@ -264,7 +267,7 @@ export function AuditTimelinePanel({
           <FilterField label={t("settings.sections.maintenance.auditTimeline.limit")}>
             <select
               value={limit}
-              onChange={(event) => setLimit(event.target.value as typeof limit)}
+              onChange={(event) => setLimit(event.target.value as AuditTimelineLimitOption)}
               className={selectClassName}
             >
               {LIMIT_OPTIONS.map((option) => (
