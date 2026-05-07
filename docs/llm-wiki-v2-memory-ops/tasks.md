@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 4 / 18
+**总体进度**: 🚧 5 / 18
 
 ---
 
@@ -154,7 +154,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ Implement deterministic lifecycle patrol rules
+### Task 2.2 ✅ Implement deterministic lifecycle patrol rules
 
 **描述**: 新建 `memory-ops-rules.ts`，基于 lifecycle、confidence、last_confirmed、reinforcement、supersession、audit usage 生成 stale/archive/promote/review 建议。
 
@@ -175,9 +175,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 同一页面可能同时触发 stale、reinforcement、promotion 等不同维护信号，需要保持建议粒度清晰，避免单个规则做太多事。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/memory-ops-rules.ts`，复用 lifecycle scoring，结合 audit 事件统计 reinforcement，输出 metadata-update suggestions 和 `metadata-patch` operation。
+- 🎯 **关键决策**: 规则只生成建议，不写文件；promotion 仅在 episodic 页面同时有多来源和足够 reinforcement 时触发，避免过度巩固。
 
 ---
 
@@ -567,11 +567,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
-| M2 | Patrol Runner + Lifecycle Rules | 1 | 4 | 🚧 |
+| M2 | Patrol Runner + Lifecycle Rules | 2 | 4 | 🚧 |
 | M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **4** | **18** | **🚧** |
+| **总计** | | **5** | **18** | **🚧** |
 
 ---
 
