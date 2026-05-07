@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 2 / 18
+**总体进度**: 🚧 3 / 18
 
 ---
 
@@ -35,7 +35,7 @@ graph TD
 
 **目标**: 把 audit、redaction、dry-run/rollback 基础能力先做成纯函数和可测试模块。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ Define unified audit timeline schema
 
@@ -92,7 +92,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ Implement safe operation dry-run and rollback shape
+### Task 1.3 ✅ Implement safe operation dry-run and rollback shape
 
 **描述**: 新建 `memory-ops-executor` 的纯函数层，支持 metadata/frontmatter patch 的 dry-run diff、apply plan、rollback report 结构。
 
@@ -113,9 +113,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 维护动作后续会来自 UI/runner，必须先避免“写一半失败后看不到部分结果”的情况。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/memory-ops-executor.ts`，支持 metadata patch dry-run、frontmatter diff、原内容 rollback snapshot，以及顺序执行时的 partial result。
+- 🎯 **关键决策**: T1.3 只处理 metadata/frontmatter patch，不碰正文重写或删除；rollback 以 restore-content 快照表达，后续 UI 可以先展示再执行。
 
 ---
 
@@ -566,12 +566,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Audit + Governance Foundation | 2 | 3 | 🚧 |
+| M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 0 | 4 | ⏳ |
 | M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **2** | **18** | **🚧** |
+| **总计** | | **3** | **18** | **🚧** |
 
 ---
 
