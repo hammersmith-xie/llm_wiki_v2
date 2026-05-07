@@ -15,6 +15,10 @@ import { normalizePath, getFileName, getRelativePath } from "@/lib/path-utils"
 import { getOutputLanguage, buildLanguageReminder } from "@/lib/output-language"
 import { isGreeting } from "@/lib/greeting-detector"
 import { computeContextBudget } from "@/lib/context-budget"
+import {
+  recordChatSessionEnd,
+  recordChatSessionStart,
+} from "@/lib/chat-session-events"
 
 // Store the page mapping from the last query so SourceFilesBar can show which pages were cited
 export let lastQueryPages: { title: string; path: string }[] = []
@@ -52,7 +56,15 @@ function ConversationSidebar() {
           variant="outline"
           size="sm"
           className="w-full gap-2"
-          onClick={() => createConversation()}
+          onClick={() => {
+            const conversationId = createConversation()
+            const projectPath = useWikiStore.getState().project?.path
+            void recordChatSessionStart({
+              projectPath,
+              conversationId,
+              reason: "sidebar new chat",
+            })
+          }}
         >
           <Plus className="h-3.5 w-3.5" />
           New Chat
@@ -161,6 +173,11 @@ export function ChatPanel() {
       let convId = useChatStore.getState().activeConversationId
       if (!convId) {
         convId = createConversation()
+        void recordChatSessionStart({
+          projectPath: project?.path,
+          conversationId: convId,
+          reason: "auto-created before first message",
+        })
       }
 
       addMessage("user", text)
@@ -417,6 +434,14 @@ export function ChatPanel() {
           onDone: () => {
             closeReasoning()
             finalizeStream(accumulated, queryRefs)
+            void recordChatSessionEnd({
+              projectPath: auditProjectPath,
+              conversationId: convId,
+              messageCount: useChatStore
+                .getState()
+                .messages.filter((m) => m.conversationId === convId).length,
+              referencedPageCount: queryRefs.length,
+            })
             if (auditProjectPath && !greetingOnly) {
               appendQueryAuditEvent(auditProjectPath, {
                 query: text,
@@ -430,13 +455,22 @@ export function ChatPanel() {
           },
           onError: (err) => {
             finalizeStream(`Error: ${err.message}`, undefined)
+            void recordChatSessionEnd({
+              projectPath: auditProjectPath,
+              conversationId: convId,
+              messageCount: useChatStore
+                .getState()
+                .messages.filter((m) => m.conversationId === convId).length,
+              status: "error",
+              reason: err.message,
+            })
             abortRef.current = null
           },
         },
         controller.signal,
       )
     },
-    [llmConfig, addMessage, setStreaming, appendStreamToken, finalizeStream, createConversation, maxHistoryMessages],
+    [project, llmConfig, addMessage, setStreaming, appendStreamToken, finalizeStream, createConversation, maxHistoryMessages],
   )
 
   const handleStop = useCallback(() => {

@@ -12,15 +12,24 @@ vi.mock("@/commands/fs", () => ({
   createDirectory: vi.fn(),
 }))
 
+vi.mock("@/lib/wiki-automation-events", () => ({
+  recordWikiAutomationEvent: vi.fn(async (input) => ({
+    action: input.type,
+    auditEvent: { action: input.type },
+  })),
+}))
+
 import { readFile, writeFile, createDirectory } from "@/commands/fs"
 import { streamChat } from "./llm-client"
 import { executeIngestWrites } from "./ingest"
 import { useChatStore } from "@/stores/chat-store"
+import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
 const mockStreamChat = vi.mocked(streamChat)
+const mockRecordWikiAutomationEvent = vi.mocked(recordWikiAutomationEvent)
 
 function fakeLlmConfig(): LlmConfig {
   return {
@@ -41,6 +50,11 @@ beforeEach(() => {
   mockReadFile.mockRejectedValue(new Error("ENOENT"))
   mockWriteFile.mockResolvedValue(undefined as unknown as void)
   mockCreateDirectory.mockResolvedValue(undefined as unknown as void)
+  mockRecordWikiAutomationEvent.mockReset()
+  mockRecordWikiAutomationEvent.mockImplementation(async (input) => ({
+    action: input.type,
+    auditEvent: { action: input.type },
+  }))
   useChatStore.setState({
     conversations: [{ id: "c1", title: "Chat", createdAt: 0, updatedAt: 0 }],
     activeConversationId: "c1",
@@ -84,5 +98,14 @@ describe("executeIngestWrites", () => {
     expect(pageWrite?.[1]).toContain("lifecycle: semantic")
     expect(pageWrite?.[1]).toContain("confidence:")
     expect(pageWrite?.[1]).toContain("review_status:")
+    expect(mockRecordWikiAutomationEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "memory.write",
+        projectPath: "/project",
+        targetPath: "wiki/concepts/chat-written.md",
+        pagePath: "wiki/concepts/chat-written.md",
+        status: "applied",
+      }),
+    )
   })
 })

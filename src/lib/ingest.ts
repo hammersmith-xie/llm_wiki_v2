@@ -21,6 +21,7 @@ import {
   enrichLifecycleFrontmatter,
 } from "@/lib/lifecycle"
 import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
+import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 /**
  * Resolve the LLM config that the caption pipeline should use.
@@ -664,6 +665,14 @@ async function autoIngestImpl(
       // ignore
     }
   }
+
+  await recordIngestMemoryWriteEvent(pp, {
+    sourcePath: sp,
+    sourceFileName: fileName,
+    writtenPaths,
+    warningCount: writeWarnings.length,
+    hardFailureCount: hardFailures.length,
+  })
 
   // ── Step 4: Parse review items ────────────────────────────────
   const reviewItems = parseReviewBlocks(generation, sp)
@@ -1595,6 +1604,15 @@ export async function executeIngestWrites(
     ])
   }
 
+  await recordIngestMemoryWriteEvent(pp, {
+    sourcePath: getStore().ingestSource ?? sourceFileName,
+    sourceFileName,
+    writtenPaths: relativeWrittenPaths,
+    warningCount: writeWarnings.length,
+    hardFailureCount: hardFailures.length,
+    origin: "chat-write",
+  })
+
   if (writtenPaths.length > 0) {
     const fileList = writtenPaths.map((p) => `- ${p}`).join("\n")
     getStore().addMessage("system", `Files written to wiki:\n${fileList}`)
@@ -1639,4 +1657,61 @@ export async function executeIngestWrites(
   }
 
   return writtenPaths
+}
+
+interface IngestMemoryWriteEventInput {
+  sourcePath: string
+  sourceFileName: string
+  writtenPaths: readonly string[]
+  warningCount: number
+  hardFailureCount: number
+  origin?: string
+}
+
+async function recordIngestMemoryWriteEvent(
+  projectPath: string,
+  input: IngestMemoryWriteEventInput,
+): Promise<void> {
+  if (input.writtenPaths.length === 0) return
+
+  const targetPath = input.writtenPaths[0]
+  const sourcePath = toProjectRelativePath(projectPath, input.sourcePath)
+  const result = await recordWikiAutomationEvent({
+    type: "memory.write",
+    projectPath,
+    actor: "system",
+    targetPath,
+    pagePath: targetPath,
+    sourcePath,
+    status: input.hardFailureCount > 0 ? "partial" : "applied",
+    reasons: ["ingest wrote wiki pages"],
+    summary: {
+      origin: input.origin ?? "ingest",
+      sourceFileName: input.sourceFileName,
+      writtenCount: input.writtenPaths.length,
+      writtenPaths: input.writtenPaths.slice(0, 20),
+      omittedWrittenPathCount: Math.max(0, input.writtenPaths.length - 20),
+      warningCount: input.warningCount,
+      hardFailureCount: input.hardFailureCount,
+    },
+  }).catch((err) => ({
+    action: "memory.write" as const,
+    auditEvent: { action: "memory.write" },
+    auditError: err instanceof Error ? err.message : String(err),
+    maintenanceError: undefined,
+  }))
+
+  if (!result.auditError && !result.maintenanceError) return
+  console.warn(
+    `[ingest] automation event failed for ${input.sourceFileName}: ${[
+      result.auditError,
+      result.maintenanceError,
+    ].filter(Boolean).join("; ")}`,
+  )
+}
+
+function toProjectRelativePath(projectPath: string, path: string): string {
+  const pp = normalizePath(projectPath).replace(/\/$/, "")
+  const normalized = normalizePath(path)
+  return normalized.startsWith(`${pp}/`) ? normalized.slice(pp.length + 1) : normalized
 }

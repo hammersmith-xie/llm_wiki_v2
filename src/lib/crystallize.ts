@@ -4,6 +4,7 @@ import {
   enrichLifecycleFrontmatter,
 } from "@/lib/lifecycle"
 import { normalizePath } from "@/lib/path-utils"
+import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 export interface CrystallizeReference {
   title?: string
@@ -94,6 +95,34 @@ export async function writeCrystallizedQueryPage(
       `[crystallize] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
     )
   })
+  const automationResult = await recordWikiAutomationEvent({
+    type: "memory.write",
+    projectPath: pp,
+    actor: "system",
+    targetPath: relativePath,
+    pagePath: relativePath,
+    status: "applied",
+    reasons: ["crystallized query page written"],
+    summary: {
+      origin: input.origin,
+      supportCount: supports.length,
+      sourceCount: sources.length,
+      candidateDedupeKey: candidate?.dedupeKey,
+    },
+  }).catch((err) => ({
+    action: "memory.write" as const,
+    auditEvent: { action: "memory.write" },
+    auditError: err instanceof Error ? err.message : String(err),
+    maintenanceError: undefined,
+  }))
+  if (automationResult.auditError || automationResult.maintenanceError) {
+    console.warn(
+      `[crystallize] automation event failed for ${relativePath}: ${[
+        automationResult.auditError,
+        automationResult.maintenanceError,
+      ].filter(Boolean).join("; ")}`,
+    )
+  }
 
   return {
     content: enriched.content,

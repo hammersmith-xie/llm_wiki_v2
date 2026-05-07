@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 8 / 17
+**总体进度**: 🚧 9 / 17
 
 ---
 
@@ -281,7 +281,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ 接入 session start/end 和 memory write hooks
+### Task 3.2 ✅ 接入 session start/end 和 memory write hooks
 
 **描述**: 在 app/session/chat/ingest/crystallize 等明确边界接入轻量 automation events。
 
@@ -298,16 +298,16 @@ graph TD
 - `src/stores/chat-store.ts`
 
 **验收**:
-- [ ] session start/end 或 conversation lifecycle 事件能被记录。
-- [ ] ingest/crystallize memory write 后记录 memory.write。
-- [ ] 不在每次 keystroke/input 触发事件。
-- [ ] audit 写失败仅 console warn 或返回 auditError。
+- [x] session start/end 或 conversation lifecycle 事件能被记录。
+- [x] ingest/crystallize memory write 后记录 memory.write。
+- [x] 不在每次 keystroke/input 触发事件。
+- [x] audit 写失败仅 console warn 或返回 auditError。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 自检时发现 `recordWikiAutomationEvent().catch` 的对象类型缺少 `maintenanceError`，以及一个 catch 括号语法错误；已由 typecheck/Vitest 暴露并修正。Chat callback dependency 也补入 `project`，避免新项目切换后闭包使用旧路径。
+- 🔧 **最终实现逻辑**: 新增 `chat-session-events.ts`，封装 `recordChatSessionStart/End`，在侧栏 New Chat、无 active conversation 的首次发送、stream done/error 边界记录 session 事件；在 `writeCrystallizedQueryPage` 写入后记录 `memory.write`；在 `autoIngest` 和 `executeIngestWrites` 的批量写入完成后记录一次 `memory.write`，并补充聚焦测试。
+- 🎯 **关键决策**: session.start/end 只写 audit，不触发 Memory Ops dirty counter；真正改变 wiki 的 ingest/crystallize 写入才计入 maintenance。写入事件按批次记录一次，避免 token/keystroke 高频噪声；automation 失败只 console.warn，不阻断文件写入或聊天完成。
 
 ---
 

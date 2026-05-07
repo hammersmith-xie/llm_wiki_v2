@@ -9,18 +9,32 @@ vi.mock("@/commands/fs", () => ({
   createDirectory: vi.fn(async () => {}),
 }))
 
+vi.mock("@/lib/wiki-automation-events", () => ({
+  recordWikiAutomationEvent: vi.fn(async (input) => ({
+    action: input.type,
+    auditEvent: { action: input.type },
+  })),
+}))
+
 import { appendFile, readFile, writeFile, createDirectory } from "@/commands/fs"
+import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 const mockAppendFile = vi.mocked(appendFile)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
+const mockRecordWikiAutomationEvent = vi.mocked(recordWikiAutomationEvent)
 
 beforeEach(() => {
   mockAppendFile.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
   mockCreateDirectory.mockReset()
+  mockRecordWikiAutomationEvent.mockReset()
+  mockRecordWikiAutomationEvent.mockImplementation(async (input) => ({
+    action: input.type,
+    auditEvent: { action: input.type },
+  }))
 })
 
 describe("writeCrystallizedQueryPage", () => {
@@ -76,6 +90,15 @@ describe("writeCrystallizedQueryPage", () => {
       actor: "system",
       pagePath: "wiki/queries/answer.md",
     })
+    expect(mockRecordWikiAutomationEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "memory.write",
+        projectPath: "/project",
+        targetPath: "wiki/queries/answer.md",
+        pagePath: "wiki/queries/answer.md",
+        status: "applied",
+      }),
+    )
   })
 
   it("records candidate score and reasons in the crystallize audit event", async () => {
