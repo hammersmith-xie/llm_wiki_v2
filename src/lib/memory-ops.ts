@@ -22,6 +22,12 @@ import {
   saveMemoryOpsMaintenanceState,
   type PersistedMemoryOpsMaintenanceState,
 } from "@/lib/project-store"
+import {
+  DEFAULT_MEMORY_OPS_POLICY,
+  loadMemoryOpsPolicy,
+  memoryOpsHalfLifeForLifecycle,
+  type MemoryOpsPolicy,
+} from "@/lib/memory-ops-policy"
 import { useActivityStore } from "@/stores/activity-store"
 import type { Conversation, DisplayMessage } from "@/stores/chat-store"
 import type { ReviewItem } from "@/stores/review-store"
@@ -99,6 +105,8 @@ export interface MemoryOpsSnapshotStats {
 export interface MemoryOpsProjectSnapshot {
   projectPath: string
   dataVersion: number
+  policy: MemoryOpsPolicy
+  policyWarnings: string[]
   pages: MemoryOpsWikiPage[]
   graph: TypedGraph
   audit: AuditTimelineResult
@@ -140,10 +148,18 @@ const MEMORY_OPS_REMINDER_COOLDOWN_MS = 30 * 60 * 1000
 
 export async function scanMemoryOpsProject(
   projectPath: string,
-  options: { dataVersion?: number; today?: string } = {},
+  options: { dataVersion?: number; today?: string; policy?: MemoryOpsPolicy } = {},
 ): Promise<MemoryOpsProjectSnapshot> {
   const pp = normalizePath(projectPath).replace(/\/$/, "")
   const dataVersion = options.dataVersion ?? 0
+  const policyLoad = options.policy
+    ? { policy: options.policy, warnings: [] }
+    : await loadMemoryOpsPolicy(pp).catch((err) => ({
+        policy: DEFAULT_MEMORY_OPS_POLICY,
+        warnings: [
+          `Memory Ops policy could not be loaded; using defaults: ${err instanceof Error ? err.message : String(err)}`,
+        ],
+      }))
   const wikiPages = await readWikiPages(pp)
   const graph = extractTypedGraphFromPages(
     wikiPages.map((page) => ({
@@ -167,12 +183,15 @@ export async function scanMemoryOpsProject(
     auditEvents: audit.events,
     reviewItems,
     today: options.today,
+    policy: policyLoad.policy,
   })
   const evidenceStats = summarizeEvidenceStats(pages)
 
   return {
     projectPath: pp,
     dataVersion,
+    policy: policyLoad.policy,
+    policyWarnings: policyLoad.warnings,
     pages,
     graph,
     audit,
@@ -193,7 +212,7 @@ export async function scanMemoryOpsProject(
 
 export async function runMemoryOpsPatrol(
   projectPath: string,
-  options: { dataVersion?: number; today?: string } = {},
+  options: { dataVersion?: number; today?: string; policy?: MemoryOpsPolicy } = {},
 ): Promise<MemoryOpsPatrolReport> {
   const activity = useActivityStore.getState()
   const activityId = activity.addItem({
@@ -208,9 +227,13 @@ export async function runMemoryOpsPatrol(
     const snapshot = await scanMemoryOpsProject(projectPath, {
       dataVersion: options.dataVersion,
       today: options.today,
+      policy: options.policy,
     })
     const suggestions = [
-      ...evaluateLifecycleSuggestions(snapshot, { today: options.today }),
+      ...evaluateLifecycleSuggestions(snapshot, {
+        today: options.today,
+        policy: snapshot.policy,
+      }),
       ...evaluateRelationCleanupSuggestions(snapshot),
     ]
     const report: MemoryOpsPatrolReport = {
@@ -226,10 +249,18 @@ export async function runMemoryOpsPatrol(
     await appendAuditEvent(snapshot.projectPath, {
       action: "memory_ops.patrol",
       targetPath: ".llm-wiki/audit.jsonl",
-      after: { stats: report.stats },
+      after: {
+        stats: report.stats,
+        policy: {
+          name: snapshot.policy.name,
+          version: snapshot.policy.version,
+          warnings: snapshot.policyWarnings,
+        },
+      },
       reasons: [
         `${report.stats.pageCount} pages scanned`,
         `${report.stats.suggestionCount} suggestions generated`,
+        `policy ${snapshot.policy.name} v${snapshot.policy.version}`,
       ],
     })
     await saveMaintenanceStateSafely(
@@ -364,6 +395,7 @@ interface PageEvidenceContext {
   auditEvents: readonly AuditEvent[]
   reviewItems: readonly ReviewItem[]
   today?: string
+  policy: MemoryOpsPolicy
 }
 
 function attachPageEvidence(
@@ -409,7 +441,7 @@ function buildPageEvidenceSummary(
   const stale =
     metadata.reviewStatus === "stale" ||
     metadata.reviewStatus === "contradicted" ||
-    isStaleByAge(metadata.lifecycle, ageDays)
+    isStaleByAge(metadata.lifecycle, ageDays, context.policy)
   const flags: MemoryOpsEvidenceRiskFlag[] = []
 
   if (stale) flags.push("stale")
@@ -601,10 +633,14 @@ function countSupportingRelations(graph: TypedGraph, pageId: string): number {
   return graph.edges.filter((edge) => edge.type === "supports" && edge.target === pageId).length
 }
 
-function isStaleByAge(lifecycle: string, ageDays: number | undefined): boolean {
+function isStaleByAge(
+  lifecycle: string,
+  ageDays: number | undefined,
+  policy: MemoryOpsPolicy = DEFAULT_MEMORY_OPS_POLICY,
+): boolean {
   if (ageDays === undefined) return false
-  const halfLifeDays = lifecycle === "procedural" ? 365 : lifecycle === "semantic" ? 180 : 45
-  return ageDays > halfLifeDays * 2
+  const halfLifeDays = memoryOpsHalfLifeForLifecycle(lifecycle, policy)
+  return ageDays > halfLifeDays * policy.staleMultiplier
 }
 
 function hasActionPrefix(event: AuditEvent, prefixes: readonly string[]): boolean {

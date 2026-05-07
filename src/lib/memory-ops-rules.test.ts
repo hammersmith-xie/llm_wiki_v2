@@ -5,6 +5,7 @@ import {
   evaluateLifecycleSuggestions,
   evaluateRelationCleanupSuggestions,
 } from "./memory-ops-rules"
+import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
 
 describe("memory ops lifecycle rules", () => {
   it("suggests stale metadata for old low-confidence pages without rewriting content", () => {
@@ -281,6 +282,74 @@ describe("memory ops lifecycle rules", () => {
     }
     expect(page.content).not.toContain("lifecycle: archived")
   })
+
+  it("uses custom lifecycle policy thresholds for stale and promotion suggestions", () => {
+    const stalePage = wikiPage("young-semantic", [
+      "---",
+      "type: concept",
+      "title: Young Semantic",
+      "lifecycle: semantic",
+      "last_confirmed: 2026-03-01",
+      "---",
+      "",
+      "# Young Semantic",
+    ].join("\n"))
+    stalePage.evidence = evidence({
+      staleness: {
+        lastConfirmed: "2026-03-01",
+        ageDays: 67,
+        stale: true,
+      },
+      risk: {
+        contradictionCount: 0,
+        supersededByCount: 0,
+        openReviewItemCount: 0,
+        flags: ["stale"],
+      },
+    })
+    const episodic = wikiPage("single-source-answer", [
+      "---",
+      "type: query",
+      "title: Single Source Answer",
+      "lifecycle: episodic",
+      "sources: [a.md]",
+      "reinforcement_count: 1",
+      "last_confirmed: 2026-05-01",
+      "---",
+      "",
+      "# Single Source Answer",
+    ].join("\n"))
+
+    const suggestions = evaluateLifecycleSuggestions(
+      snapshot([stalePage, episodic]),
+      {
+        today: "2026-05-07",
+        policy: {
+          ...DEFAULT_MEMORY_OPS_POLICY,
+          name: "fast-moving",
+          halfLives: {
+            ...DEFAULT_MEMORY_OPS_POLICY.halfLives,
+            semantic: 30,
+          },
+          promotion: {
+            minSources: 1,
+            minReinforcement: 1,
+          },
+        },
+      },
+    )
+
+    expect(suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        targetPath: "/project/wiki/concepts/young-semantic.md",
+        title: "Archive stale unsupported page",
+      }),
+      expect.objectContaining({
+        targetPath: "/project/wiki/concepts/single-source-answer.md",
+        title: "Promote to semantic memory",
+      }),
+    ]))
+  })
 })
 
 describe("memory ops relation cleanup rules", () => {
@@ -504,6 +573,8 @@ function snapshot(
   return {
     projectPath: "/project",
     dataVersion: 0,
+    policy: DEFAULT_MEMORY_OPS_POLICY,
+    policyWarnings: [],
     pages,
     graph: extractTypedGraphFromPages(
       pages.map((page) => ({

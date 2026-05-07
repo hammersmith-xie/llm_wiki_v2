@@ -15,6 +15,10 @@ import {
   WIKI_TYPED_RELATION_ARRAY_FIELDS,
   type WikiTypedRelationArrayField,
 } from "@/lib/wiki-frontmatter-fields"
+import {
+  DEFAULT_MEMORY_OPS_POLICY,
+  type MemoryOpsPolicy,
+} from "@/lib/memory-ops-policy"
 
 export type MemoryOpsSuggestionKind = "metadata-update" | "relation-cleanup" | "review-action"
 export type MemoryOpsSuggestionSeverity = "info" | "warning"
@@ -45,13 +49,12 @@ const REINFORCING_ACTION_PREFIXES = [
   "review.resolve",
   "memory_ops.apply",
 ]
-const LOW_CONFIDENCE_THRESHOLD = 0.45
-
 export function evaluateLifecycleSuggestions(
   snapshot: MemoryOpsProjectSnapshot,
-  options: { today?: string } = {},
+  options: { today?: string; policy?: MemoryOpsPolicy } = {},
 ): MemoryOpsSuggestion[] {
   const suggestions: MemoryOpsSuggestion[] = []
+  const policy = options.policy ?? DEFAULT_MEMORY_OPS_POLICY
 
   for (const page of snapshot.pages) {
     const frontmatter = page.frontmatter ?? parseFrontmatter(page.content).frontmatter
@@ -60,7 +63,7 @@ export function evaluateLifecycleSuggestions(
     const staleSuggestion = staleMetadataSuggestion(page, frontmatter, metadata.reviewStatus, metadata.confidenceReasons)
     if (staleSuggestion) suggestions.push(staleSuggestion)
 
-    const lowConfidenceSuggestion = lowConfidenceSuggestionForPage(page, frontmatter, metadata)
+    const lowConfidenceSuggestion = lowConfidenceSuggestionForPage(page, frontmatter, metadata, policy)
     if (lowConfidenceSuggestion) suggestions.push(lowConfidenceSuggestion)
 
     const refreshSuggestion = lastConfirmedRefreshSuggestion(page, frontmatter)
@@ -69,10 +72,10 @@ export function evaluateLifecycleSuggestions(
     const reinforcementSuggestion = reinforcementCountSuggestion(snapshot, page, frontmatter)
     if (reinforcementSuggestion) suggestions.push(reinforcementSuggestion)
 
-    const promotionSuggestion = promotionSuggestionForPage(page, frontmatter)
+    const promotionSuggestion = promotionSuggestionForPage(page, frontmatter, policy)
     if (promotionSuggestion) suggestions.push(promotionSuggestion)
 
-    const archiveSuggestion = archiveSuggestionForPage(page, frontmatter, metadata)
+    const archiveSuggestion = archiveSuggestionForPage(page, frontmatter, metadata, policy)
     if (archiveSuggestion) suggestions.push(archiveSuggestion)
   }
 
@@ -157,13 +160,14 @@ function lowConfidenceSuggestionForPage(
   page: MemoryOpsWikiPage,
   frontmatter: Record<string, FrontmatterValue> | null,
   metadata: LifecycleMetadata,
+  policy: MemoryOpsPolicy,
 ): MemoryOpsSuggestion | null {
   if (metadata.reviewStatus !== "needs-review") return null
   if (scalar(frontmatter?.review_status) === "needs-review") return null
-  if (metadata.confidence >= LOW_CONFIDENCE_THRESHOLD) return null
+  if (metadata.confidence >= policy.lowConfidenceThreshold) return null
 
   const confidence = formatScore(metadata.confidence)
-  const reason = `confidence ${confidence} is below ${formatScore(LOW_CONFIDENCE_THRESHOLD)}`
+  const reason = `confidence ${confidence} is below ${formatScore(policy.lowConfidenceThreshold)}`
   return {
     id: suggestionId("lifecycle", page.path, "low-confidence"),
     kind: "metadata-update",
@@ -248,21 +252,19 @@ function archiveSuggestionForPage(
   page: MemoryOpsWikiPage,
   frontmatter: Record<string, FrontmatterValue> | null,
   metadata: LifecycleMetadata,
+  policy: MemoryOpsPolicy,
 ): MemoryOpsSuggestion | null {
   if (scalar(frontmatter?.lifecycle) === "archived") return null
 
   const evidence = page.evidence
   const stale = evidence?.staleness.stale ?? metadata.reviewStatus === "stale"
   if (!stale) return null
-  if (!isUnsupportedByEvidence(frontmatter, evidence)) return null
-  if (hasRecentUseOrReinforcement(frontmatter, evidence)) return null
+  if (policy.archive.requireNoSourceSupport && !isUnsupportedByEvidence(frontmatter, evidence)) return null
+  if (policy.archive.requireNoReinforcement && hasReinforcement(frontmatter, evidence)) return null
+  if (policy.archive.requireNoRecentUse && hasRecentUse(evidence)) return null
   if (hasBlockingRisk(evidence)) return null
 
-  const reasons = [
-    "stale page has no source support",
-    "no reinforcement signals",
-    "no recent use signals",
-  ]
+  const reasons = archiveReasons(policy)
   return {
     id: suggestionId("lifecycle", page.path, "archive"),
     kind: "metadata-update",
@@ -410,13 +412,19 @@ function contradictionReviewSuggestion(
 function promotionSuggestionForPage(
   page: MemoryOpsWikiPage,
   frontmatter: Record<string, FrontmatterValue> | null,
+  policy: MemoryOpsPolicy,
 ): MemoryOpsSuggestion | null {
   const lifecycle = scalar(frontmatter?.lifecycle)
   const sourceCount = arrayValue(frontmatter?.sources).length
   const reinforcementCount = parseInteger(scalar(frontmatter?.reinforcement_count))
 
   if (lifecycle !== "episodic") return null
-  if (sourceCount < 2 || reinforcementCount < 3) return null
+  if (
+    sourceCount < policy.promotion.minSources ||
+    reinforcementCount < policy.promotion.minReinforcement
+  ) {
+    return null
+  }
 
   const reason = `${sourceCount} sources and ${reinforcementCount} reinforcement signals support semantic promotion`
   return {
@@ -488,14 +496,24 @@ function isUnsupportedByEvidence(
   return arrayValue(frontmatter?.sources).length === 0
 }
 
-function hasRecentUseOrReinforcement(
+function hasReinforcement(
   frontmatter: Record<string, FrontmatterValue> | null,
   evidence: MemoryOpsPageEvidenceSummary | undefined,
 ): boolean {
-  if (evidence) {
-    return evidence.recentUse.eventCount > 0 || evidence.reinforcement.totalCount > 0
-  }
+  if (evidence) return evidence.reinforcement.totalCount > 0
   return parseInteger(scalar(frontmatter?.reinforcement_count)) > 0
+}
+
+function hasRecentUse(evidence: MemoryOpsPageEvidenceSummary | undefined): boolean {
+  return (evidence?.recentUse.eventCount ?? 0) > 0
+}
+
+function archiveReasons(policy: MemoryOpsPolicy): string[] {
+  const reasons = ["stale page is eligible for archive policy"]
+  if (policy.archive.requireNoSourceSupport) reasons.push("stale page has no source support")
+  if (policy.archive.requireNoReinforcement) reasons.push("no reinforcement signals")
+  if (policy.archive.requireNoRecentUse) reasons.push("no recent use signals")
+  return reasons
 }
 
 function relationFieldReferencesPage(

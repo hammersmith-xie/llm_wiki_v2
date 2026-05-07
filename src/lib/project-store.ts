@@ -218,6 +218,7 @@ export async function loadUpdateCheckState(): Promise<PersistedUpdateCheckState 
 // ── Memory Ops maintenance cooldown persistence ───────────────────────────
 
 const MEMORY_OPS_MAINTENANCE_STATE_KEY = "memoryOpsMaintenanceStateByProject"
+const MEMORY_OPS_POLICY_STATE_KEY = "memoryOpsPolicyByProject"
 
 export interface PersistedMemoryOpsMaintenanceState {
   lastPatrolAt?: number
@@ -249,6 +250,28 @@ export async function saveMemoryOpsMaintenanceState(
   await store.set(MEMORY_OPS_MAINTENANCE_STATE_KEY, {
     ...byProject,
     [projectStateKey(projectPath)]: state,
+  })
+}
+
+export async function loadMemoryOpsPolicyState(
+  projectPath: string,
+): Promise<unknown | null> {
+  const store = await getStore()
+  const byProject =
+    (await store.get<Record<string, unknown>>(MEMORY_OPS_POLICY_STATE_KEY)) ?? {}
+  return byProject[projectStateKey(projectPath)] ?? null
+}
+
+export async function saveMemoryOpsPolicyState(
+  projectPath: string,
+  policy: unknown,
+): Promise<void> {
+  const store = await getStore()
+  const byProject =
+    (await store.get<Record<string, unknown>>(MEMORY_OPS_POLICY_STATE_KEY)) ?? {}
+  await store.set(MEMORY_OPS_POLICY_STATE_KEY, {
+    ...byProject,
+    [projectStateKey(projectPath)]: policy,
   })
 }
 

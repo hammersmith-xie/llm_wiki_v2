@@ -6,6 +6,7 @@ import {
   scanMemoryOpsProject,
   runMemoryOpsPatrol,
 } from "./memory-ops"
+import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
 import { useActivityStore } from "@/stores/activity-store"
 
 vi.mock("@/commands/fs", () => ({
@@ -246,6 +247,52 @@ describe("memory ops project scanner", () => {
       riskPageCount: 1,
       auditWarningCount: 1,
     })
+  })
+
+  it("uses custom policy half-life when deriving stale evidence", async () => {
+    mockListDirectory.mockResolvedValue([
+      {
+        name: "recent.md",
+        path: "/project/wiki/concepts/recent.md",
+        is_dir: false,
+      },
+    ])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/recent.md") {
+        return [
+          "---",
+          "type: concept",
+          "title: Recent",
+          "lifecycle: semantic",
+          "last_confirmed: 2026-03-01",
+          "---",
+          "",
+          "# Recent",
+        ].join("\n")
+      }
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      throw new Error(`missing ${path}`)
+    })
+
+    const defaultSnapshot = await scanMemoryOpsProject("/project", {
+      today: "2026-05-07",
+      policy: DEFAULT_MEMORY_OPS_POLICY,
+    })
+    const fastSnapshot = await scanMemoryOpsProject("/project", {
+      today: "2026-05-07",
+      policy: {
+        ...DEFAULT_MEMORY_OPS_POLICY,
+        name: "fast-moving",
+        halfLives: {
+          ...DEFAULT_MEMORY_OPS_POLICY.halfLives,
+          semantic: 30,
+        },
+      },
+    })
+
+    expect(defaultSnapshot.pages[0].evidence?.staleness.stale).toBe(false)
+    expect(fastSnapshot.pages[0].evidence?.staleness.stale).toBe(true)
+    expect(fastSnapshot.policy.name).toBe("fast-moving")
   })
 
   it("scans wiki pages, typed graph, review items, chat summaries, and audit warnings", async () => {

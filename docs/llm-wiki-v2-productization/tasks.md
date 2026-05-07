@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 3 / 16
+**总体进度**: 🚧 4 / 16
 
 ---
 
@@ -127,9 +127,9 @@ graph TD
 
 **目标**: 补齐产品化治理所需的 policy、timeline filter 和 search health 运行核心。
 **依赖**: 无
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ 定义并接入 Memory Ops lifecycle policy
+### Task 2.1 ✅ 定义并接入 Memory Ops lifecycle policy
 
 **描述**: 新建 policy 模块，定义默认 policy、解析/校验/持久化 helpers，并让 patrol/rules 接受 policy 参数。
 
@@ -147,16 +147,16 @@ graph TD
 - `src/lib/memory-ops-rules.test.ts`
 
 **验收**:
-- [ ] 默认 policy 与当前 hard-coded 行为兼容。
-- [ ] fixed today + custom policy 会稳定改变 stale/archive/promotion 建议。
-- [ ] 坏配置回退默认 policy 并返回 warning。
-- [ ] patrol report 记录 policy version/name。
+- [x] 默认 policy 与当前 hard-coded 行为兼容。
+- [x] fixed today + custom policy 会稳定改变 stale/archive/promotion 建议。
+- [x] 坏配置回退默认 policy 并返回 warning。
+- [x] patrol report 记录 policy version/name。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `scanMemoryOpsProject` 是纯本地巡检路径，读取 project store policy 失败时不能让巡检失败；已降级为默认 policy 并记录 warning。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/memory-ops-policy.ts`，定义 default policy、normalize/load/save 和 lifecycle half-life resolver；`memory-ops.ts` 的 evidence staleness 与 patrol audit 接入 policy；`memory-ops-rules.ts` 的 low-confidence、promotion、archive 阈值改为 policy-driven。
+- 🎯 **关键决策**: 不改 `lifecycle.ts` 的 durable metadata scoring，避免影响 ingest/crystallize 已有输出；本期 policy 只作用于 Memory Ops 巡检和建议生成。
 
 ---
 
@@ -534,11 +534,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
-| M2 | Policy, Timeline, Search Health Core | 0 | 4 | ⏳ |
+| M2 | Policy, Timeline, Search Health Core | 1 | 4 | 🚧 |
 | M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **3** | **16** | **🚧** |
+| **总计** | | **4** | **16** | **🚧** |
 
 ---
 
