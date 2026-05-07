@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 11 / 16
+**总体进度**: 🚧 12 / 16
 
 ---
 
@@ -369,7 +369,7 @@ graph TD
 
 ---
 
-### Task 3.5 ⏳ 增加 Lifecycle Policy 面板
+### Task 3.5 ✅ 增加 Lifecycle Policy 面板
 
 **描述**: 在 Maintenance 中加入 policy 面板，支持查看默认策略、修改阈值、保存、恢复默认，并在 patrol 中使用。
 
@@ -393,9 +393,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Policy 保存后如果不重新巡检，用户看不到阈值修改对 suggestions 的即时影响；单纯保存配置会让界面反馈不完整。
+- 🔧 **最终实现逻辑**: 新增 `MemoryOpsPolicyPanel`，支持编辑 half-life、stale multiplier、low-confidence、promotion 阈值和 archive 条件；`MaintenanceSection` 加载/保存 `loadMemoryOpsPolicy` / `saveMemoryOpsPolicy`，保存或恢复默认后自动重新运行 Memory Ops patrol。
+- 🎯 **关键决策**: 输入校验复用 `normalizeMemoryOpsPolicy`，坏配置只显示 warning 且禁用保存；默认恢复写入默认 policy 而不是删除持久化项，确保后续加载行为可预测。
 
 ---
 
@@ -535,10 +535,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
-| M3 | Maintenance Workbench UI | 4 | 6 | 🚧 |
+| M3 | Maintenance Workbench UI | 5 | 6 | 🚧 |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **11** | **16** | **🚧** |
+| **总计** | | **12** | **16** | **🚧** |
 
 ---
 

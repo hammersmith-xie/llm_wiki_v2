@@ -338,6 +338,32 @@
             "missing": "缺失"
           }
         },
+        "policy": {
+          "title": "生命周期策略",
+          "description": "调整 Memory Ops 用于 stale 证据、低置信度、promotion 和归档建议的确定性阈值。保存后会用新策略重新巡检。",
+          "save": "保存策略",
+          "saving": "保存中…",
+          "restoreDefault": "恢复默认",
+          "resetDraft": "重置草稿",
+          "saved": "策略已保存，并已使用新阈值重新巡检。",
+          "warnings": "策略警告",
+          "halfLives": "生命周期半衰期（天）",
+          "working": "Working",
+          "episodic": "Episodic",
+          "semantic": "Semantic",
+          "procedural": "Procedural",
+          "archived": "Archived",
+          "thresholds": "阈值",
+          "staleMultiplier": "Stale 倍数",
+          "lowConfidence": "低置信度阈值",
+          "minSources": "Promotion 最少来源数",
+          "minReinforcement": "Promotion 最少强化次数",
+          "archiveRules": "归档规则",
+          "requireNoSourceSupport": "要求没有来源支持",
+          "requireNoReinforcement": "要求没有强化记录",
+          "requireNoRecentUse": "要求近期没有使用",
+          "defaultSummary": "默认值：working {{working}} 天，semantic {{semantic}} 天，procedural {{procedural}} 天，低置信度 {{confidence}}。"
+        },
         "dedup": {
           "title": "检测重复实体 / 概念",
           "description": "让 LLM 扫描全部 entity / concept 页面，把可能指向同一主题但用了不同名字的页面分组（中英对照、单复数、缩写与全称等）。每一组都需要你确认后才会合并。合并任务会进入串行队列依次执行，避免交叉引用被并发改写覆盖。",

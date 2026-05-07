@@ -46,6 +46,12 @@ import {
   type MemoryOpsRollbackResult,
 } from "@/lib/memory-ops-rollback"
 import {
+  DEFAULT_MEMORY_OPS_POLICY,
+  loadMemoryOpsPolicy,
+  saveMemoryOpsPolicy,
+  type MemoryOpsPolicy,
+} from "@/lib/memory-ops-policy"
+import {
   getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
   type MemoryOpsMaintenanceStatus,
@@ -54,6 +60,7 @@ import {
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
 import { AuditTimelinePanel } from "./audit-timeline-panel"
+import { MemoryOpsPolicyPanel } from "./memory-ops-policy-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
 import {
   enqueueMerge,
@@ -105,6 +112,11 @@ export function MaintenanceSection() {
   const [auditWarnings, setAuditWarnings] = useState<AuditTimelineWarning[]>([])
   const [auditOpenError, setAuditOpenError] = useState<string | null>(null)
   const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
+  const [policy, setPolicy] = useState<MemoryOpsPolicy>(DEFAULT_MEMORY_OPS_POLICY)
+  const [policyWarnings, setPolicyWarnings] = useState<string[]>([])
+  const [policySaving, setPolicySaving] = useState(false)
+  const [policyError, setPolicyError] = useState<string | null>(null)
+  const [policySaved, setPolicySaved] = useState(false)
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
     () => new Set(),
   )
@@ -173,6 +185,23 @@ export function MaintenanceSection() {
     void refreshMaintenanceStatus()
   }, [refreshMaintenanceStatus, dataVersion])
 
+  const refreshMemoryOpsPolicy = useCallback(async () => {
+    if (!project) {
+      setPolicy(DEFAULT_MEMORY_OPS_POLICY)
+      setPolicyWarnings([])
+      setPolicyError(null)
+      setPolicySaved(false)
+      return
+    }
+    const result = await loadMemoryOpsPolicy(project.path)
+    setPolicy(result.policy)
+    setPolicyWarnings(result.warnings)
+  }, [project])
+
+  useEffect(() => {
+    void refreshMemoryOpsPolicy()
+  }, [refreshMemoryOpsPolicy])
+
   const handlePatrol = useCallback(async () => {
     if (!project) return
     setPatrolRunning(true)
@@ -199,6 +228,56 @@ export function MaintenanceSection() {
       setPatrolRunning(false)
     }
   }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+
+  const runPatrolAfterPolicyChange = useCallback(async () => {
+    if (!project) return
+    setPatrolRunning(true)
+    setPatrolError(null)
+    setIgnoredSuggestionIds(new Set())
+    setAppliedSuggestionIds(new Set())
+    setDryRunPlans({})
+    setSuggestionErrors({})
+    setSelectedSuggestionIds(new Set())
+    setLastBatchResult(null)
+    setRollbackPreviews({})
+    setRollbackResults({})
+    setRollbackErrors({})
+    setWorkingRollbackId(null)
+    try {
+      const report = await runMemoryOpsPatrol(project.path, { dataVersion })
+      setPatrolReport(report)
+      await refreshMaintenanceStatus()
+      await refreshRecentAudit()
+    } catch (err) {
+      setPatrolError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPatrolRunning(false)
+    }
+  }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+
+  const handleSavePolicy = useCallback(
+    async (nextPolicy: MemoryOpsPolicy) => {
+      if (!project) return
+      setPolicySaving(true)
+      setPolicyError(null)
+      setPolicySaved(false)
+      try {
+        await saveMemoryOpsPolicy(project.path, nextPolicy)
+        await refreshMemoryOpsPolicy()
+        setPolicySaved(true)
+        await runPatrolAfterPolicyChange()
+      } catch (err) {
+        setPolicyError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setPolicySaving(false)
+      }
+    },
+    [project, refreshMemoryOpsPolicy, runPatrolAfterPolicyChange],
+  )
+
+  const handleRestoreDefaultPolicy = useCallback(async () => {
+    await handleSavePolicy(DEFAULT_MEMORY_OPS_POLICY)
+  }, [handleSavePolicy])
 
   const handlePreviewSuggestion = useCallback(
     async (suggestion: MemoryOpsSuggestion) => {
@@ -734,6 +813,17 @@ export function MaintenanceSection() {
         openError={auditOpenError}
         onRefresh={() => void refreshRecentAudit()}
         onOpenPath={(path) => void handleOpenAuditPath(path)}
+      />
+
+      <MemoryOpsPolicyPanel
+        projectReady={projectReady}
+        policy={policy}
+        warnings={policyWarnings}
+        saving={policySaving}
+        error={policyError}
+        saved={policySaved}
+        onSave={(nextPolicy) => void handleSavePolicy(nextPolicy)}
+        onRestoreDefault={() => void handleRestoreDefaultPolicy()}
       />
 
       <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
