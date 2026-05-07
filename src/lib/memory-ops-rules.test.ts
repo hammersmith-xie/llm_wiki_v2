@@ -235,6 +235,12 @@ function snapshot(
       chatMessageCount: 0,
       auditEventCount: options.auditEvents?.length ?? 0,
       auditWarningCount: 0,
+      pageEvidenceCount: pages.length,
+      pagesWithRecentUseCount: 0,
+      pagesWithReinforcementCount: 0,
+      pagesWithSourceSupportCount: 0,
+      stalePageCount: 0,
+      riskPageCount: 0,
     },
   }
 }

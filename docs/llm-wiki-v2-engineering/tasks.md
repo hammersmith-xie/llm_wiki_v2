@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 3 / 16
+**总体进度**: 🚧 4 / 16
 
 ---
 
@@ -128,9 +128,9 @@ graph TD
 
 **目标**: 把 Rohit v2 的 lifecycle、retention、supersession、contradiction 做成可解释、可预览的本地规则。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ 扩展 Memory Ops snapshot 和 evidence summary
+### Task 2.1 ✅ 扩展 Memory Ops snapshot 和 evidence summary
 
 **描述**: 在 scanMemoryOpsProject 中派生 page evidence summary，包括最近使用、reinforcement、source support、staleness、contradiction/supersession risk。
 
@@ -145,15 +145,15 @@ graph TD
 - `src/lib/memory-ops.test.ts`
 
 **验收**:
-- [ ] snapshot stats 包含 evidence summary 统计。
-- [ ] evidence 只从本地 wiki/audit/review/graph 派生。
-- [ ] 空项目和坏 audit 都能稳定返回。
+- [x] snapshot stats 包含 evidence summary 统计。
+- [x] evidence 只从本地 wiki/audit/review/graph 派生。
+- [x] 空项目和坏 audit 都能稳定返回。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `review_status: ok` 可能是手工旧状态，不能掩盖 `last_confirmed` 已过期；因此 evidence 的 stale 需要独立暴露年龄风险。`memory-ops-rules.test.ts` 手工 snapshot helper 也需要补齐新增 stats 字段。
+- 🔧 **最终实现逻辑**: `scanMemoryOpsProject` 在读取 wiki、audit、review 和 typed graph 后为每个 page 附加 `evidence`，包含 recent use、reinforcement、source support、staleness 和 risk flags；snapshot stats 增加 evidence page、recent use、reinforcement、source support、stale 和 risk 计数。
+- 🎯 **关键决策**: evidence 只做本地派生摘要，不读取 raw sources、不触发 LLM、不修改正文；audit path 同时支持相对路径和项目绝对路径，便于兼容新旧事件。
 
 ---
 
@@ -513,11 +513,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
-| M2 | Lifecycle and Relation Rules | 0 | 4 | ⏳ |
+| M2 | Lifecycle and Relation Rules | 1 | 4 | 🚧 |
 | M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **3** | **16** | **🚧** |
+| **总计** | | **4** | **16** | **🚧** |
 
 ---
 

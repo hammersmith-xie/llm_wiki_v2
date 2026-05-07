@@ -49,8 +49,152 @@ describe("memory ops project scanner", () => {
       reviewItemCount: 0,
       chatMessageCount: 0,
       auditEventCount: 0,
+      pageEvidenceCount: 0,
+      pagesWithRecentUseCount: 0,
+      pagesWithReinforcementCount: 0,
+      pagesWithSourceSupportCount: 0,
+      stalePageCount: 0,
+      riskPageCount: 0,
     })
     expect(mockListDirectory.mock.calls.map((call) => call[0])).toEqual(["/project/wiki"])
+  })
+
+  it("derives page evidence summaries from local wiki, audit, review, and typed graph state", async () => {
+    const wikiTree: FileNode[] = [
+      {
+        name: "concepts",
+        path: "/project/wiki/concepts",
+        is_dir: true,
+        children: [
+          {
+            name: "attention.md",
+            path: "/project/wiki/concepts/attention.md",
+            is_dir: false,
+          },
+          {
+            name: "transformer.md",
+            path: "/project/wiki/concepts/transformer.md",
+            is_dir: false,
+          },
+        ],
+      },
+    ]
+    mockListDirectory.mockResolvedValue(wikiTree)
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/attention.md") {
+        return [
+          "---",
+          "type: concept",
+          "title: Attention",
+          "sources: [paper.md, notes.md]",
+          "last_confirmed: 2025-01-01",
+          "reinforcement_count: 1",
+          "review_status: ok",
+          "contradicts: [legacy-attention]",
+          "superseded_by: [transformer]",
+          "---",
+          "",
+          "# Attention",
+        ].join("\n")
+      }
+      if (path === "/project/wiki/concepts/transformer.md") {
+        return [
+          "---",
+          "type: concept",
+          "title: Transformer",
+          "sources: [transformer.pdf]",
+          "supports: [attention]",
+          "last_confirmed: 2026-05-01",
+          "---",
+          "",
+          "# Transformer",
+        ].join("\n")
+      }
+      if (path === "/project/.llm-wiki/audit.jsonl") {
+        return [
+          JSON.stringify({
+            timestamp: "2026-05-01T00:00:00.000Z",
+            action: "query.answer",
+            retrieval: {
+              results: [{ path: "wiki/concepts/attention.md", title: "Attention", rank: 1 }],
+            },
+          }),
+          JSON.stringify({
+            timestamp: "2026-05-02T00:00:00.000Z",
+            action: "search.run",
+            retrieval: {
+              results: [{ path: "/project/wiki/concepts/attention.md", title: "Attention", rank: 1 }],
+            },
+          }),
+          JSON.stringify({
+            timestamp: "2026-05-03T00:00:00.000Z",
+            action: "crystallize.query",
+            pagePath: "wiki/concepts/attention.md",
+          }),
+          "not-json",
+        ].join("\n")
+      }
+      if (path === "/project/.llm-wiki/review.json") {
+        return JSON.stringify([
+          {
+            id: "review-1",
+            type: "contradiction",
+            title: "Resolve conflicting Attention claim",
+            description: "Attention has conflicting claims.",
+            affectedPages: ["/project/wiki/concepts/attention.md"],
+            options: [],
+            resolved: false,
+            createdAt: 1,
+          },
+        ])
+      }
+      if (path === "/project/.llm-wiki/conversations.json") return "[]"
+      throw new Error(`unexpected readFile ${path}`)
+    })
+
+    const snapshot = await scanMemoryOpsProject("/project", {
+      dataVersion: 5,
+      today: "2026-05-07",
+    })
+
+    const attention = snapshot.pages.find((page) => page.id === "attention")
+    expect(attention?.evidence).toMatchObject({
+      pagePath: "wiki/concepts/attention.md",
+      recentUse: {
+        eventCount: 2,
+        lastUsedAt: "2026-05-02T00:00:00.000Z",
+      },
+      reinforcement: {
+        frontmatterCount: 1,
+        auditEventCount: 3,
+        totalCount: 4,
+        lastReinforcedAt: "2026-05-03T00:00:00.000Z",
+      },
+      sourceSupport: {
+        sourceCount: 2,
+        supportingRelationCount: 1,
+      },
+      staleness: {
+        lastConfirmed: "2025-01-01",
+        ageDays: 491,
+        stale: true,
+      },
+      risk: {
+        contradictionCount: 1,
+        supersededByCount: 1,
+        openReviewItemCount: 1,
+        flags: ["stale", "contradicted", "superseded", "open-review"],
+      },
+    })
+    expect(snapshot.stats).toMatchObject({
+      pageEvidenceCount: 2,
+      pagesWithRecentUseCount: 1,
+      pagesWithReinforcementCount: 1,
+      pagesWithSourceSupportCount: 2,
+      stalePageCount: 1,
+      riskPageCount: 1,
+      auditWarningCount: 1,
+    })
   })
 
   it("scans wiki pages, typed graph, review items, chat summaries, and audit warnings", async () => {
