@@ -564,7 +564,7 @@ graph TD
 
 ---
 
-### Task 5.2 ⏳ 五轮最终审核与 completion audit
+### Task 5.2 🚧 五轮最终审核与 completion audit
 
 **描述**: 按中型项目执行 5 轮最终审核：功能、类型/静态分析、性能、安全、UX/a11y，并补齐发现。
 
