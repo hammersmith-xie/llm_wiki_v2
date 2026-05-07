@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 14 / 18
+**总体进度**: 🚧 15 / 18
 
 ---
 
@@ -356,7 +356,7 @@ graph TD
 
 **目标**: 把 Memory Ops 做成可用的现有界面扩展，而不是隐藏在库函数中。
 **依赖**: M2, M3
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ Add Memory Ops block in Maintenance settings
 
@@ -441,7 +441,7 @@ graph TD
 
 ---
 
-### Task 4.4 ⏳ UI polish, a11y, and i18n parity
+### Task 4.4 ✅ UI polish, a11y, and i18n parity
 
 **描述**: 收尾 UI 状态、键盘可达性、窄面板布局、i18n parity test。
 
@@ -463,9 +463,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: M4 结束时发现 `maintenance-section.tsx`、`chat-message.tsx`、`review-view.tsx` 仍超过 400 行；其中 chat/review 主要是既有大视图，完整拆分会超出本任务的 UI polish 范围。
+- 🔧 **最终实现逻辑**: 将 Memory Ops 面板拆到 `memory-ops-patrol-block.tsx`，保留现有 dedup 维护逻辑在原文件；跑通 i18n parity、candidate/crystallize 和 Memory Ops UI helper focused tests。
+- 🎯 **关键决策**: 本轮只拆新增 Memory Ops 职责，避免把历史 chat/review/dedup 视图做大规模重排；后续如继续 UI 重构，应单独列任务。
 
 ---
 
@@ -569,9 +569,9 @@ graph TD
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
-| M4 | UI Integration | 3 | 4 | 🚧 |
+| M4 | UI Integration | 4 | 4 | ✅ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **14** | **18** | **🚧** |
+| **总计** | | **15** | **18** | **🚧** |
 
 ---
 
