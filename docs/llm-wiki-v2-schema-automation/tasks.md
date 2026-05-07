@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 10 / 17
+**总体进度**: 🚧 11 / 17
 
 ---
 
@@ -340,7 +340,7 @@ graph TD
 
 ---
 
-### Task 3.4 ⏳ 实现 coordination summary helper
+### Task 3.4 ✅ 实现 coordination summary helper
 
 **描述**: 新建 `coordination-summary.ts`，从 audit/review/schema findings 汇总 actor activity、blocked findings、pending review 和 promotion candidates。
 
@@ -356,16 +356,16 @@ graph TD
 - `src/stores/review-store.ts`
 
 **验收**:
-- [ ] audit-only 项目能生成 summary。
-- [ ] actor/action/path/scope/status 聚合稳定。
-- [ ] private event 摘要不泄漏 detail。
-- [ ] pending review 和 blocked finding 可定位 target path。
+- [x] audit-only 项目能生成 summary。
+- [x] actor/action/path/scope/status 聚合稳定。
+- [x] private event 摘要不泄漏 detail。
+- [x] pending review 和 blocked finding 可定位 target path。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 测试 fixture 初版用了不存在的 `set-frontmatter-field` patch kind，typecheck 暴露后改为现有 `metadata-patch` 结构，确保 helper 与 Memory Ops executor 类型一致。
+- 🔧 **最终实现逻辑**: 新增 `coordination-summary.ts`，从 audit events、review items 和 schema drift findings 聚合 actor activity、recent events、target summaries、pending reviews、blocked findings 与 private->shared promotion candidates；新增 `coordination-summary.test.ts` 覆盖 audit-only、private redaction、review/finding 定位和 promotion candidate 过滤。
+- 🎯 **关键决策**: Coordination summary 是纯函数，不读取磁盘、不写 worklog、不引入同步/权限语义。Private event 保留 target locator，但隐藏 page/source path 和 reason detail；blocked finding 优先展示 review-only 或 warning finding，避免把它误当作自动可处理工作。
 
 ---
 
