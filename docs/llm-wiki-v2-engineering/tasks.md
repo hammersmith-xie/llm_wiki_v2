@@ -358,7 +358,7 @@ graph TD
 
 **目标**: 将新规则和报告交给用户可理解、可操作地处理，并完成安全边界检查。
 **依赖**: M2, M3
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ 升级 Memory Ops patrol report 和 UI
 
@@ -450,7 +450,7 @@ graph TD
 
 **目标**: 文档、模板、测试和最终审核闭环。
 **依赖**: M4
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 5.1 ✅ 更新 README、schema template 和使用说明
 
@@ -480,7 +480,7 @@ graph TD
 
 ---
 
-### Task 5.2 ⏳ 全量验证和提交前清理
+### Task 5.2 ✅ 全量验证和提交前清理
 
 **描述**: 跑完整 mock 验证、必要 Rust 测试、检查文件长度、更新任务备注和状态。
 
@@ -494,17 +494,17 @@ graph TD
 - 所有本轮变更文件
 
 **验收**:
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过。
-- [ ] 如改 Rust/Tauri config，`cd src-tauri && cargo test` 通过。
-- [ ] 每个任务备注块填完。
-- [ ] `docs/` 在 `.gitignore` 中，提交本 feature docs 时使用 `git add -f docs/llm-wiki-v2-engineering/...`。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过。
+- [x] 如改 Rust/Tauri config，`cd src-tauri && cargo test` 通过。
+- [x] 每个任务备注块填完。
+- [x] `docs/` 在 `.gitignore` 中，提交本 feature docs 时使用 `git add -f docs/llm-wiki-v2-engineering/...`。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 文件长度检查显示仓库仍有多处历史超长文件（如 `src-tauri/src/commands/fs.rs`、`src/lib/ingest.ts`、`src/components/graph/graph-view.tsx`、`src/lib/templates.ts`）；本轮没有新增新的超长实现模块，M3/M4 已拆分本轮触及的 search 和 Memory Ops UI 大文件。
+- 🔧 **最终实现逻辑**: 跑全量 `npm run typecheck`、`npm run test:mocks`、`cd src-tauri && cargo test`；补充 TS template 测试覆盖 Memory Ops audit/patrol schema 文案；用 `wc -l` 扫描源码长度并确认 `.dev-spec-flow/` 保持未暂存。
+- 🎯 **关键决策**: 不在发布收尾里做全仓大文件重构，避免把历史模块拆分和 v2 工程化落地混进同一变更；后续如要治理超长文件，应按模块另开 refactor 任务。
 
 ---
 
@@ -516,8 +516,8 @@ graph TD
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
 | M3 | Retrieval and Evaluation | 4 | 4 | ✅ |
 | M4 | Maintenance UI and Governance | 3 | 3 | ✅ |
-| M5 | Documentation and Release Review | 1 | 2 | 🚧 |
-| **总计** | | **15** | **16** | **🚧** |
+| M5 | Documentation and Release Review | 2 | 2 | ✅ |
+| **总计** | | **16** | **16** | **✅** |
 
 ---
 

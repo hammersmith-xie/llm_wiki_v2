@@ -18,6 +18,15 @@ describe("wiki templates", () => {
     }
   })
 
+  it("include memory ops audit and patrol boundaries", () => {
+    for (const template of templates) {
+      expect(template.schema, template.id).toContain("Memory Ops and audit rules")
+      expect(template.schema, template.id).toContain(".llm-wiki/audit.jsonl")
+      expect(template.schema, template.id).toContain("previewing the frontmatter diff")
+      expect(template.schema, template.id).toContain("scope: private")
+    }
+  })
+
   it("does not redefine v2 relationship arrays as scalar fields", () => {
     for (const template of templates) {
       expect(template.schema, template.id).not.toContain('supersedes: ""')
