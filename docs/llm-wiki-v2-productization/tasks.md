@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 14 / 16
+**总体进度**: 🚧 15 / 16
 
 ---
 
@@ -432,7 +432,7 @@ graph TD
 
 **目标**: 补齐文档、测试和整体验证。
 **依赖**: M3
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ 更新文档与 i18n parity
 
@@ -463,7 +463,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ 运行 focused tests、typecheck 和 mock regression
+### Task 4.2 ✅ 运行 focused tests、typecheck 和 mock regression
 
 **描述**: 运行新增和相关测试，并根据失败修复。
 
@@ -480,16 +480,16 @@ graph TD
 - `package.json`
 
 **验收**:
-- [ ] Focused Vitest suites 通过。
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过或明确记录失败和原因。
-- [ ] 若 Rust 侧无改动，可记录未跑 `cargo test`；若有改动必须跑。
+- [x] Focused Vitest suites 通过。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过或明确记录失败和原因。
+- [x] 若 Rust 侧无改动，可记录未跑 `cargo test`；若有改动必须跑。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无验证失败；本期未修改 Rust 代码，因此未跑 `cargo test`。
+- 🔧 **最终实现逻辑**: 运行 `npm run typecheck`、focused Vitest suites（memory-ops batch/rollback/policy/rules/ui、audit timeline UI、search health、i18n parity）和 `npm run test:mocks`。
+- 🎯 **关键决策**: Real LLM tests 仍按仓库约定保持 opt-in，未纳入默认回归。
 
 ---
 
@@ -536,9 +536,9 @@ graph TD
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
 | M3 | Maintenance Workbench UI | 6 | 6 | ✅ |
-| M4 | Documentation and Verification | 1 | 2 | 🚧 |
+| M4 | Documentation and Verification | 2 | 2 | ✅ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **14** | **16** | **🚧** |
+| **总计** | | **15** | **16** | **🚧** |
 
 ---
 
