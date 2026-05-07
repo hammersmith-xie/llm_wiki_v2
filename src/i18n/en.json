@@ -232,7 +232,15 @@
           "auditWarnings": "Audit warnings",
           "auditWarningLine": "Line {{line}}: {{message}}",
           "recentAudit": "Recent audit activity",
-          "noAudit": "No audit events yet."
+          "noAudit": "No audit events yet.",
+          "diffTitle": "Dry-run diff",
+          "noDiff": "No metadata changes needed.",
+          "openTarget": "Open page",
+          "ignore": "Ignore",
+          "previewDiff": "Preview diff",
+          "applyMetadata": "Apply metadata",
+          "applying": "Applying…",
+          "reviewOnly": "Review-only suggestion"
         },
         "dedup": {
           "title": "Detect duplicate entities / concepts",

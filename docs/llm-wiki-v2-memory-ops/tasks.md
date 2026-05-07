@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 12 / 18
+**总体进度**: 🚧 13 / 18
 
 ---
 
@@ -386,7 +386,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ Render suggestions and confirm/ignore actions
+### Task 4.2 ✅ Render suggestions and confirm/ignore actions
 
 **描述**: 展示 patrol suggestions，支持 ignore、confirm metadata-only operation、open target page、查看 dry-run diff。
 
@@ -407,9 +407,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Relation-cleanup suggestion 没有 metadata operation，不能和 lifecycle metadata update 共用 confirm 行为；同时 confirm 前必须先让用户看到字段级 dry-run diff。
+- 🔧 **最终实现逻辑**: Memory Ops suggestions 支持 open target、ignore、preview diff、apply metadata；metadata-only suggestion 通过 `createMetadataPatchPlan` 预览，通过 `applyMemoryOpsOperations` 执行，并刷新 file tree/dataVersion。
+- 🎯 **关键决策**: Ignore 只更新本地隐藏状态并追加 `memory_ops.ignore` audit，不改 wiki；relation-cleanup 暂作为 review-only suggestion，真正修复留给用户打开页面或后续专门操作。
 
 ---
 
@@ -569,9 +569,9 @@ graph TD
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
-| M4 | UI Integration | 1 | 4 | 🚧 |
+| M4 | UI Integration | 2 | 4 | 🚧 |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **12** | **18** | **🚧** |
+| **总计** | | **13** | **18** | **🚧** |
 
 ---
 

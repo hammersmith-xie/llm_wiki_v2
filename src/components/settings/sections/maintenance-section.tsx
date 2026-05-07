@@ -14,11 +14,21 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { readFile, listDirectory } from "@/commands/fs"
 import { useWikiStore } from "@/stores/wiki-store"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
-import { readAuditTimeline, type AuditEvent } from "@/lib/audit-timeline"
+import {
+  appendAuditEvent,
+  readAuditTimeline,
+  type AuditEvent,
+} from "@/lib/audit-timeline"
 import { runDuplicateDetection } from "@/lib/dedup-runner"
 import { addNotDuplicate } from "@/lib/dedup-storage"
+import {
+  applyMemoryOpsOperations,
+  createMetadataPatchPlan,
+  type MetadataPatchPlan,
+} from "@/lib/memory-ops-executor"
 import {
   runMemoryOpsPatrol,
   type MemoryOpsPatrolReport,
@@ -26,9 +36,12 @@ import {
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
   auditEventTargetLabel,
+  metadataPatchDiffLabel,
   selectRecentAuditEvents,
   summarizeMemoryOpsPatrolReport,
+  visibleMemoryOpsSuggestions,
 } from "@/lib/memory-ops-ui"
+import { isAbsolutePath, normalizePath } from "@/lib/path-utils"
 import {
   enqueueMerge,
   cancelTask,
@@ -61,6 +74,11 @@ export function MaintenanceSection() {
   const llmConfig = useWikiStore((s) => s.llmConfig)
   const project = useWikiStore((s) => s.project)
   const dataVersion = useWikiStore((s) => s.dataVersion)
+  const setFileTree = useWikiStore((s) => s.setFileTree)
+  const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
+  const setFileContent = useWikiStore((s) => s.setFileContent)
+  const setActiveView = useWikiStore((s) => s.setActiveView)
+  const bumpDataVersion = useWikiStore((s) => s.bumpDataVersion)
 
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -70,6 +88,15 @@ export function MaintenanceSection() {
   const [patrolError, setPatrolError] = useState<string | null>(null)
   const [patrolReport, setPatrolReport] = useState<MemoryOpsPatrolReport | null>(null)
   const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
+  const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [appliedSuggestionIds, setAppliedSuggestionIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [dryRunPlans, setDryRunPlans] = useState<Record<string, MetadataPatchPlan>>({})
+  const [suggestionErrors, setSuggestionErrors] = useState<Record<string, string>>({})
+  const [workingSuggestionId, setWorkingSuggestionId] = useState<string | null>(null)
 
   // Poll the queue at 1Hz so the UI reflects pending → processing →
   // failed transitions and cross-window queue activity (e.g. a merge
@@ -103,6 +130,10 @@ export function MaintenanceSection() {
     setPatrolRunning(true)
     setPatrolError(null)
     setPatrolReport(null)
+    setIgnoredSuggestionIds(new Set())
+    setAppliedSuggestionIds(new Set())
+    setDryRunPlans({})
+    setSuggestionErrors({})
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
@@ -113,6 +144,120 @@ export function MaintenanceSection() {
       setPatrolRunning(false)
     }
   }, [project, dataVersion, refreshRecentAudit])
+
+  const handlePreviewSuggestion = useCallback(
+    async (suggestion: MemoryOpsSuggestion) => {
+      if (!project || !suggestion.proposedOperation) return
+      setWorkingSuggestionId(suggestion.id)
+      setSuggestionErrors((prev) => withoutKey(prev, suggestion.id))
+      try {
+        const operation = suggestion.proposedOperation
+        const content = await readFile(resolveProjectPath(project.path, operation.targetPath))
+        const plan = createMetadataPatchPlan({
+          targetPath: operation.targetPath,
+          content,
+          fields: operation.fields,
+          reason: operation.reason,
+        })
+        setDryRunPlans((prev) => ({ ...prev, [suggestion.id]: plan }))
+      } catch (err) {
+        setSuggestionErrors((prev) => ({
+          ...prev,
+          [suggestion.id]: err instanceof Error ? err.message : String(err),
+        }))
+      } finally {
+        setWorkingSuggestionId(null)
+      }
+    },
+    [project],
+  )
+
+  const handleApplySuggestion = useCallback(
+    async (suggestion: MemoryOpsSuggestion) => {
+      if (!project || !suggestion.proposedOperation) return
+      setWorkingSuggestionId(suggestion.id)
+      setSuggestionErrors((prev) => withoutKey(prev, suggestion.id))
+      try {
+        const result = await applyMemoryOpsOperations(project.path, [suggestion.proposedOperation])
+        const first = result.results[0]
+        if (!first || first.status === "error") {
+          throw new Error(first?.error ?? "Memory Ops operation failed")
+        }
+
+        await appendAuditEvent(project.path, {
+          action: "memory_ops.apply",
+          targetPath: suggestion.proposedOperation.targetPath,
+          after: {
+            suggestionId: suggestion.id,
+            status: first.status,
+            diff: first.plan?.diff ?? dryRunPlans[suggestion.id]?.diff ?? [],
+          },
+          reasons: [suggestion.title, ...suggestion.reasons],
+        }).catch((err) => {
+          console.warn(
+            `[Memory Ops] apply audit failed: ${err instanceof Error ? err.message : err}`,
+          )
+        })
+
+        const tree = await listDirectory(project.path)
+        setFileTree(tree)
+        bumpDataVersion()
+        setAppliedSuggestionIds((prev) => new Set(prev).add(suggestion.id))
+        await refreshRecentAudit()
+      } catch (err) {
+        setSuggestionErrors((prev) => ({
+          ...prev,
+          [suggestion.id]: err instanceof Error ? err.message : String(err),
+        }))
+      } finally {
+        setWorkingSuggestionId(null)
+      }
+    },
+    [project, dryRunPlans, setFileTree, bumpDataVersion, refreshRecentAudit],
+  )
+
+  const handleIgnoreSuggestion = useCallback(
+    async (suggestion: MemoryOpsSuggestion) => {
+      if (!project) return
+      setIgnoredSuggestionIds((prev) => new Set(prev).add(suggestion.id))
+      await appendAuditEvent(project.path, {
+        action: "memory_ops.ignore",
+        targetPath: suggestion.targetPath,
+        after: {
+          suggestionId: suggestion.id,
+          kind: suggestion.kind,
+          title: suggestion.title,
+        },
+        reasons: suggestion.reasons,
+      }).catch((err) => {
+        console.warn(
+          `[Memory Ops] ignore audit failed: ${err instanceof Error ? err.message : err}`,
+        )
+      })
+      await refreshRecentAudit()
+    },
+    [project, refreshRecentAudit],
+  )
+
+  const handleOpenSuggestion = useCallback(
+    async (suggestion: MemoryOpsSuggestion) => {
+      if (!project) return
+      setSuggestionErrors((prev) => withoutKey(prev, suggestion.id))
+      try {
+        const path = resolveProjectPath(project.path, suggestion.targetPath)
+        const content = await readFile(path)
+        setSelectedFile(path)
+        setFileContent(content)
+        setActiveView("wiki")
+      } catch (err) {
+        setSuggestionErrors((prev) => ({
+          ...prev,
+          [suggestion.id]: err instanceof Error ? err.message : String(err),
+        }))
+      }
+    },
+    [project, setSelectedFile, setFileContent, setActiveView],
+  )
 
   const handleScan = useCallback(async () => {
     if (!project) return
@@ -260,7 +405,16 @@ export function MaintenanceSection() {
         error={patrolError}
         report={patrolReport}
         recentAuditEvents={recentAuditEvents}
+        ignoredSuggestionIds={ignoredSuggestionIds}
+        appliedSuggestionIds={appliedSuggestionIds}
+        dryRunPlans={dryRunPlans}
+        suggestionErrors={suggestionErrors}
+        workingSuggestionId={workingSuggestionId}
         onRun={() => void handlePatrol()}
+        onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
+        onApply={(suggestion) => void handleApplySuggestion(suggestion)}
+        onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
+        onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
       />
 
       <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -371,19 +525,41 @@ function MemoryOpsPatrolBlock({
   error,
   report,
   recentAuditEvents,
+  ignoredSuggestionIds,
+  appliedSuggestionIds,
+  dryRunPlans,
+  suggestionErrors,
+  workingSuggestionId,
   onRun,
+  onPreview,
+  onApply,
+  onIgnore,
+  onOpen,
 }: {
   projectReady: boolean
   running: boolean
   error: string | null
   report: MemoryOpsPatrolReport | null
   recentAuditEvents: readonly AuditEvent[]
+  ignoredSuggestionIds: ReadonlySet<string>
+  appliedSuggestionIds: ReadonlySet<string>
+  dryRunPlans: Record<string, MetadataPatchPlan>
+  suggestionErrors: Record<string, string>
+  workingSuggestionId: string | null
   onRun: () => void
+  onPreview: (suggestion: MemoryOpsSuggestion) => void
+  onApply: (suggestion: MemoryOpsSuggestion) => void
+  onIgnore: (suggestion: MemoryOpsSuggestion) => void
+  onOpen: (suggestion: MemoryOpsSuggestion) => void
 }) {
   const { t } = useTranslation()
   const summary = report ? summarizeMemoryOpsPatrolReport(report) : null
-  const suggestions = report?.suggestions.slice(0, 3) ?? []
-  const extraSuggestionCount = Math.max(0, (report?.suggestions.length ?? 0) - suggestions.length)
+  const activeSuggestions = visibleMemoryOpsSuggestions(report?.suggestions ?? [], {
+    ignoredIds: ignoredSuggestionIds,
+    appliedIds: appliedSuggestionIds,
+  })
+  const suggestions = activeSuggestions.slice(0, 6)
+  const extraSuggestionCount = Math.max(0, activeSuggestions.length - suggestions.length)
 
   return (
     <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -452,7 +628,7 @@ function MemoryOpsPatrolBlock({
             <span>
               {t("settings.sections.maintenance.memoryOps.suggestions", {
                 defaultValue: "{{n}} suggestions",
-                n: summary.suggestionCount,
+                n: activeSuggestions.length,
               })}
             </span>
             <span>
@@ -469,7 +645,7 @@ function MemoryOpsPatrolBlock({
             </span>
           </div>
 
-          {summary.emptySuggestions ? (
+          {activeSuggestions.length === 0 ? (
             <div className="flex items-start gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div>
@@ -486,7 +662,17 @@ function MemoryOpsPatrolBlock({
                 })}
               </div>
               {suggestions.map((suggestion) => (
-                <MemoryOpsSuggestionRow key={suggestion.id} suggestion={suggestion} />
+                <MemoryOpsSuggestionRow
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  plan={dryRunPlans[suggestion.id]}
+                  error={suggestionErrors[suggestion.id]}
+                  working={workingSuggestionId === suggestion.id}
+                  onPreview={() => onPreview(suggestion)}
+                  onApply={() => onApply(suggestion)}
+                  onIgnore={() => onIgnore(suggestion)}
+                  onOpen={() => onOpen(suggestion)}
+                />
               ))}
               {extraSuggestionCount > 0 && (
                 <div className="text-xs text-muted-foreground">
@@ -554,19 +740,118 @@ function MemoryOpsPatrolBlock({
   )
 }
 
-function MemoryOpsSuggestionRow({ suggestion }: { suggestion: MemoryOpsSuggestion }) {
+function MemoryOpsSuggestionRow({
+  suggestion,
+  plan,
+  error,
+  working,
+  onPreview,
+  onApply,
+  onIgnore,
+  onOpen,
+}: {
+  suggestion: MemoryOpsSuggestion
+  plan: MetadataPatchPlan | undefined
+  error: string | undefined
+  working: boolean
+  onPreview: () => void
+  onApply: () => void
+  onIgnore: () => void
+  onOpen: () => void
+}) {
+  const { t } = useTranslation()
   const tone =
     suggestion.severity === "warning"
       ? "text-amber-700 dark:text-amber-400"
       : "text-muted-foreground"
+  const canApply = !!suggestion.proposedOperation
+  const canConfirm = !!plan && canApply && !working
 
   return (
-    <div className="text-xs">
-      <div className="font-medium">{suggestion.title}</div>
+    <div className="space-y-2 border-t border-border/50 pt-2 text-xs first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="font-medium">{suggestion.title}</div>
+        <span className={tone}>{suggestion.severity}</span>
+      </div>
       <div className={tone}>
         <code className="font-mono">{suggestion.targetPath}</code>
       </div>
       <div className="text-muted-foreground">{suggestion.detail}</div>
+
+      {plan && (
+        <div className="space-y-1 rounded border border-border/60 bg-background/80 px-2 py-1.5">
+          <div className="font-medium">
+            {t("settings.sections.maintenance.memoryOps.diffTitle", {
+              defaultValue: "Dry-run diff",
+            })}
+          </div>
+          {plan.diff.length === 0 ? (
+            <div className="text-muted-foreground">
+              {t("settings.sections.maintenance.memoryOps.noDiff", {
+                defaultValue: "No metadata changes needed.",
+              })}
+            </div>
+          ) : (
+            plan.diff.map((diff) => (
+              <div key={diff.field} className="font-mono text-[11px] text-muted-foreground">
+                {metadataPatchDiffLabel(diff)}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-start gap-1.5 rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-rose-700 dark:text-rose-400">
+          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>{error}</div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="ghost" onClick={onOpen}>
+          {t("settings.sections.maintenance.memoryOps.openTarget", {
+            defaultValue: "Open page",
+          })}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onIgnore}>
+          {t("settings.sections.maintenance.memoryOps.ignore", {
+            defaultValue: "Ignore",
+          })}
+        </Button>
+        {canApply ? (
+          <>
+            <Button size="sm" variant="ghost" onClick={onPreview} disabled={working}>
+              {working ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {t("settings.sections.maintenance.memoryOps.previewDiff", {
+                defaultValue: "Preview diff",
+              })}
+            </Button>
+            <Button size="sm" onClick={onApply} disabled={!canConfirm}>
+              {working ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t("settings.sections.maintenance.memoryOps.applying", {
+                    defaultValue: "Applying…",
+                  })}
+                </>
+              ) : (
+                t("settings.sections.maintenance.memoryOps.applyMetadata", {
+                  defaultValue: "Apply metadata",
+                })
+              )}
+            </Button>
+          </>
+        ) : (
+          <span className="self-center text-xs text-muted-foreground">
+            {t("settings.sections.maintenance.memoryOps.reviewOnly", {
+              defaultValue: "Review-only suggestion",
+            })}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -582,6 +867,18 @@ function useRefInit<T>(init: () => T): { current: T } {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [ref] = useState<{ current: T }>(() => ({ current: init() }))
   return ref
+}
+
+function resolveProjectPath(projectPath: string, targetPath: string): string {
+  const normalized = normalizePath(targetPath)
+  return isAbsolutePath(normalized) ? normalized : `${normalizePath(projectPath)}/${normalized}`
+}
+
+function withoutKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in record)) return record
+  const next = { ...record }
+  delete next[key]
+  return next
 }
 
 interface QueueOrphanListProps {

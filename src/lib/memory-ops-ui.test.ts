@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest"
 import type { AuditEvent } from "@/lib/audit-timeline"
+import type { MetadataPatchPlan } from "@/lib/memory-ops-executor"
 import type { MemoryOpsPatrolReport } from "@/lib/memory-ops"
+import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
   auditEventTargetLabel,
+  metadataPatchDiffLabel,
   selectRecentAuditEvents,
   summarizeMemoryOpsPatrolReport,
+  visibleMemoryOpsSuggestions,
 } from "./memory-ops-ui"
 
 describe("memory ops ui helpers", () => {
@@ -60,4 +64,45 @@ describe("memory ops ui helpers", () => {
     ).toBe("conversation-1")
     expect(auditEventTargetLabel({ action: "memory_ops.patrol" })).toBe(".llm-wiki/audit.jsonl")
   })
+
+  it("filters ignored and applied suggestions from the active list", () => {
+    const suggestions = [
+      suggestion("a", "metadata-update"),
+      suggestion("b", "relation-cleanup"),
+      suggestion("c", "metadata-update"),
+    ]
+
+    expect(
+      visibleMemoryOpsSuggestions(suggestions, {
+        ignoredIds: new Set(["b"]),
+        appliedIds: new Set(["c"]),
+      }).map((item) => item.id),
+    ).toEqual(["a"])
+  })
+
+  it("formats metadata patch diffs before confirmation", () => {
+    const plan = {
+      diff: [
+        { field: "review_status", before: "ok", after: "stale" },
+        { field: "confidence_reasons", before: undefined, after: ["last confirmed 400 days ago"] },
+      ],
+    } as MetadataPatchPlan
+
+    expect(plan.diff.map(metadataPatchDiffLabel)).toEqual([
+      "review_status: ok -> stale",
+      "confidence_reasons: (empty) -> last confirmed 400 days ago",
+    ])
+  })
 })
+
+function suggestion(id: string, kind: MemoryOpsSuggestion["kind"]): MemoryOpsSuggestion {
+  return {
+    id,
+    kind,
+    severity: "info",
+    targetPath: `wiki/${id}.md`,
+    title: id,
+    detail: id,
+    reasons: [],
+  }
+}

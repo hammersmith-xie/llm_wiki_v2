@@ -232,7 +232,15 @@
           "auditWarnings": "审计警告",
           "auditWarningLine": "第 {{line}} 行：{{message}}",
           "recentAudit": "最近审计活动",
-          "noAudit": "暂无审计事件。"
+          "noAudit": "暂无审计事件。",
+          "diffTitle": "Dry-run diff",
+          "noDiff": "无需变更 metadata。",
+          "openTarget": "打开页面",
+          "ignore": "忽略",
+          "previewDiff": "预览 diff",
+          "applyMetadata": "应用 metadata",
+          "applying": "应用中…",
+          "reviewOnly": "仅供审阅的建议"
         },
         "dedup": {
           "title": "检测重复实体 / 概念",
