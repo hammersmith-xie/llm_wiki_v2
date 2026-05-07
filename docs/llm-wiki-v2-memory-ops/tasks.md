@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 3 / 18
+**总体进度**: 🚧 4 / 18
 
 ---
 
@@ -123,9 +123,9 @@ graph TD
 
 **目标**: 做出不依赖 LLM 的 Memory Ops 巡检核心，先生成建议，不直接改文件。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ Build project snapshot scanner
+### Task 2.1 ✅ Build project snapshot scanner
 
 **描述**: 新建 scanner，读取 wiki pages、frontmatter、typed graph、review items、audit events、chat/research summary，为 patrol 规则提供统一输入。
 
@@ -148,9 +148,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Snapshot 需要聚合多种状态文件，但 `.llm-wiki/` 文件缺失或损坏都不能阻塞维护巡检。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/memory-ops.ts`，只扫描 `wiki/` markdown 和 `.llm-wiki` audit/review/chat 状态，并用 `extractTypedGraphFromPages` 构建 typed graph。
+- 🎯 **关键决策**: 不读取 `raw/sources/`，避免巡检触发 PDF/Office 大文件提取；缺失状态全部降级为空数组，坏 audit 行保留 warning。
 
 ---
 
@@ -567,11 +567,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
-| M2 | Patrol Runner + Lifecycle Rules | 0 | 4 | ⏳ |
+| M2 | Patrol Runner + Lifecycle Rules | 1 | 4 | 🚧 |
 | M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **3** | **18** | **🚧** |
+| **总计** | | **4** | **18** | **🚧** |
 
 ---
 
