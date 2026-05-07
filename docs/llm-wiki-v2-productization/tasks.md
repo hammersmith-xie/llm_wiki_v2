@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 1 / 16
+**总体进度**: 🚧 2 / 16
 
 ---
 
@@ -66,7 +66,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 为 batch 操作定义 audit summary contract
+### Task 1.2 ✅ 为 batch 操作定义 audit summary contract
 
 **描述**: 增加 `memory_ops.batch_preview`、`memory_ops.batch_apply`、`memory_ops.batch_ignore` 的统一 audit summary，避免只留下零散逐项事件。
 
@@ -81,15 +81,15 @@ graph TD
 - `src/lib/audit-timeline.test.ts`
 
 **验收**:
-- [ ] batch summary 包含 selected/applied/unchanged/error/ignored counts。
-- [ ] summary 包含 suggestion category 分布。
-- [ ] 不重复泄漏 per-file private diff。
+- [x] batch summary 包含 selected/applied/unchanged/error/ignored counts。
+- [x] summary 包含 suggestion category 分布。
+- [x] 不重复泄漏 per-file private diff。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: T1.1 已经写单项 apply/ignore audit；本任务需要补 batch-level summary，同时避免把单项 private diff 再打包泄漏进 summary。
+- 🔧 **最终实现逻辑**: 在 `memory-ops-batch.ts` 增加 `buildMemoryOpsBatchAuditEvent` 和 batch audit 写入路径；preview/apply/ignore 都追加一条 `memory_ops.batch_*` summary，包含 counts、category distribution 和 item status。
+- 🎯 **关键决策**: Batch summary 只记录状态、目标、changed/error/auditError 等摘要，不携带 per-file diff；具体 metadata diff 仍由单项 audit helper 根据 scope/redaction 处理。
 
 ---
 
@@ -533,12 +533,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Batch and Rollback Core | 1 | 3 | 🚧 |
+| M1 | Batch and Rollback Core | 2 | 3 | 🚧 |
 | M2 | Policy, Timeline, Search Health Core | 0 | 4 | ⏳ |
 | M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **1** | **16** | **🚧** |
+| **总计** | | **2** | **16** | **🚧** |
 
 ---
 

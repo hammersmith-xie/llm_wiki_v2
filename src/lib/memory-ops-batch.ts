@@ -10,6 +10,7 @@ import {
   type MetadataPatchPlan,
 } from "@/lib/memory-ops-executor"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import { categorizeMemoryOpsSuggestion } from "@/lib/memory-ops-ui"
 
 export type MemoryOpsBatchItemStatus =
   | "planned"
@@ -46,6 +47,7 @@ export interface MemoryOpsBatchResult {
   ok: boolean
   summary: MemoryOpsBatchSummary
   items: MemoryOpsBatchItem[]
+  auditError?: string
 }
 
 export function isBatchApplicableMemoryOpsSuggestion(
@@ -96,7 +98,9 @@ export async function previewMemoryOpsBatch(
     }
   }
 
-  return buildBatchResult(suggestions.length, items)
+  const result = buildBatchResult(suggestions.length, items)
+  result.auditError = await appendBatchAuditSafely(projectPath, "memory_ops.batch_preview", suggestions, result)
+  return result
 }
 
 export async function applyMemoryOpsBatch(
@@ -143,7 +147,9 @@ export async function applyMemoryOpsBatch(
     }
   }
 
-  return buildBatchResult(suggestions.length, items)
+  const result = buildBatchResult(suggestions.length, items)
+  result.auditError = await appendBatchAuditSafely(projectPath, "memory_ops.batch_apply", suggestions, result)
+  return result
 }
 
 export async function ignoreMemoryOpsBatch(
@@ -184,7 +190,40 @@ export async function ignoreMemoryOpsBatch(
     }
   }
 
-  return buildBatchResult(suggestions.length, items)
+  const result = buildBatchResult(suggestions.length, items)
+  result.auditError = await appendBatchAuditSafely(projectPath, "memory_ops.batch_ignore", suggestions, result)
+  return result
+}
+
+export function buildMemoryOpsBatchAuditEvent(
+  action: "memory_ops.batch_preview" | "memory_ops.batch_apply" | "memory_ops.batch_ignore",
+  suggestions: readonly MemoryOpsSuggestion[],
+  result: MemoryOpsBatchResult,
+) {
+  return {
+    action,
+    actor: "user" as const,
+    targetPath: ".llm-wiki/audit.jsonl",
+    changes: {
+      status: result.ok ? batchAuditStatusForAction(action) : "error",
+    },
+    after: {
+      summary: result.summary,
+      categories: countSuggestionCategories(suggestions),
+      items: result.items.map((item) => ({
+        suggestionId: item.suggestionId,
+        targetPath: item.targetPath,
+        status: item.status,
+        changed: item.plan?.changed ?? item.applyResult?.plan?.changed,
+        error: item.error,
+        auditError: item.auditError,
+      })),
+    },
+    reasons: [
+      `${result.summary.selectedCount} suggestion${result.summary.selectedCount === 1 ? "" : "s"} selected`,
+      `${result.summary.errorCount} error${result.summary.errorCount === 1 ? "" : "s"}`,
+    ],
+  }
 }
 
 async function appendPatchAuditSafely(
@@ -206,6 +245,28 @@ async function appendPatchAuditSafely(
   } catch (err) {
     return errorMessage(err)
   }
+}
+
+async function appendBatchAuditSafely(
+  projectPath: string,
+  action: "memory_ops.batch_preview" | "memory_ops.batch_apply" | "memory_ops.batch_ignore",
+  suggestions: readonly MemoryOpsSuggestion[],
+  result: MemoryOpsBatchResult,
+): Promise<string | undefined> {
+  try {
+    await appendAuditEvent(projectPath, buildMemoryOpsBatchAuditEvent(action, suggestions, result))
+    return undefined
+  } catch (err) {
+    return errorMessage(err)
+  }
+}
+
+function batchAuditStatusForAction(
+  action: "memory_ops.batch_preview" | "memory_ops.batch_apply" | "memory_ops.batch_ignore",
+): string {
+  if (action === "memory_ops.batch_preview") return "dry-run"
+  if (action === "memory_ops.batch_ignore") return "ignored"
+  return "applied"
 }
 
 function batchOperationForSuggestion(
@@ -254,6 +315,17 @@ function summarizeBatchItems(
     ineligibleCount: count("ineligible"),
     errorCount: count("error"),
   }
+}
+
+function countSuggestionCategories(
+  suggestions: readonly MemoryOpsSuggestion[],
+): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const suggestion of suggestions) {
+    const category = categorizeMemoryOpsSuggestion(suggestion)
+    counts[category] = (counts[category] ?? 0) + 1
+  }
+  return counts
 }
 
 function errorMessage(err: unknown): string {

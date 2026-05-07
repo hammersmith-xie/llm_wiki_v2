@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   applyMemoryOpsBatch,
+  buildMemoryOpsBatchAuditEvent,
   ignoreMemoryOpsBatch,
   isBatchApplicableMemoryOpsSuggestion,
   previewMemoryOpsBatch,
@@ -57,7 +58,22 @@ describe("memory ops batch", () => {
       status: "ineligible",
     })
     expect(mockWriteFile).not.toHaveBeenCalled()
-    expect(mockAppendFile).not.toHaveBeenCalled()
+    expect(mockAppendFile).toHaveBeenCalledTimes(1)
+    const audit = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
+    expect(audit).toMatchObject({
+      action: "memory_ops.batch_preview",
+      changes: { status: "dry-run" },
+      after: {
+        summary: {
+          selectedCount: 2,
+          plannedCount: 1,
+          ineligibleCount: 1,
+        },
+        categories: {
+          lifecycle: 2,
+        },
+      },
+    })
   })
 
   it("marks preview items as errors without stopping later suggestions", async () => {
@@ -110,7 +126,7 @@ describe("memory ops batch", () => {
       "ineligible",
     ])
     expect(mockWriteFile).toHaveBeenCalledTimes(2)
-    expect(mockAppendFile).toHaveBeenCalledTimes(2)
+    expect(mockAppendFile).toHaveBeenCalledTimes(3)
     const firstAudit = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
     expect(firstAudit).toMatchObject({
       action: "memory_ops.apply",
@@ -128,6 +144,27 @@ describe("memory ops batch", () => {
         suggestionId: "s2",
         status: "error",
         error: "disk full",
+      },
+    })
+    const batchAudit = JSON.parse(String(mockAppendFile.mock.calls[2][1]))
+    expect(batchAudit).toMatchObject({
+      action: "memory_ops.batch_apply",
+      changes: { status: "error" },
+      after: {
+        summary: {
+          selectedCount: 3,
+          appliedCount: 1,
+          errorCount: 1,
+          ineligibleCount: 1,
+        },
+        categories: {
+          lifecycle: 3,
+        },
+        items: [
+          { suggestionId: "s1", status: "applied", changed: true },
+          { suggestionId: "s2", status: "error", error: "disk full" },
+          { suggestionId: "s3", status: "ineligible" },
+        ],
       },
     })
   })
@@ -167,7 +204,7 @@ describe("memory ops batch", () => {
       errorCount: 0,
     })
     expect(result.items.map((item) => item.status)).toEqual(["ignored", "ignored"])
-    expect(mockAppendFile).toHaveBeenCalledTimes(2)
+    expect(mockAppendFile).toHaveBeenCalledTimes(3)
     const audit = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
     expect(audit).toMatchObject({
       action: "memory_ops.ignore",
@@ -178,6 +215,17 @@ describe("memory ops batch", () => {
         kind: "metadata-update",
       },
     })
+    const batchAudit = JSON.parse(String(mockAppendFile.mock.calls[2][1]))
+    expect(batchAudit).toMatchObject({
+      action: "memory_ops.batch_ignore",
+      changes: { status: "ignored" },
+      after: {
+        summary: {
+          selectedCount: 2,
+          ignoredCount: 2,
+        },
+      },
+    })
   })
 
   it("detects whether a suggestion can enter batch apply", () => {
@@ -185,6 +233,65 @@ describe("memory ops batch", () => {
       suggestion("s1", "wiki/a.md", { review_status: "stale" }),
     )).toBe(true)
     expect(isBatchApplicableMemoryOpsSuggestion(reviewOnlySuggestion("s2", "wiki/b.md"))).toBe(false)
+  })
+
+  it("builds batch summary audits without per-file private diffs", () => {
+    const result = {
+      ok: true,
+      summary: {
+        selectedCount: 1,
+        eligibleCount: 1,
+        plannedCount: 1,
+        appliedCount: 0,
+        unchangedCount: 0,
+        ignoredCount: 0,
+        ineligibleCount: 0,
+        errorCount: 0,
+      },
+      items: [
+        {
+          suggestionId: "private",
+          suggestionTitle: "Private stale",
+          targetPath: "wiki/private.md",
+          status: "planned" as const,
+          plan: {
+            kind: "metadata-patch" as const,
+            dryRun: true as const,
+            targetPath: "wiki/private.md",
+            scope: "private",
+            changed: true,
+            diff: [{ field: "review_status", before: "ok", after: "stale" }],
+            beforeContent: "private body",
+            afterContent: "private body stale",
+            rollback: {
+              kind: "restore-content" as const,
+              targetPath: "wiki/private.md",
+              content: "private body",
+              reason: "rollback",
+            },
+          },
+        },
+      ],
+    }
+
+    const event = buildMemoryOpsBatchAuditEvent(
+      "memory_ops.batch_preview",
+      [suggestion("private", "wiki/private.md", { review_status: "stale" }, { scope: "private" })],
+      result,
+    )
+
+    const serialized = JSON.stringify(event)
+    expect(event).toMatchObject({
+      action: "memory_ops.batch_preview",
+      after: {
+        summary: { selectedCount: 1, plannedCount: 1 },
+        categories: { lifecycle: 1 },
+        items: [{ suggestionId: "private", status: "planned", changed: true }],
+      },
+    })
+    expect(serialized).not.toContain("private body")
+    expect(serialized).not.toContain("review_status")
+    expect(serialized).not.toContain("stale")
   })
 })
 
