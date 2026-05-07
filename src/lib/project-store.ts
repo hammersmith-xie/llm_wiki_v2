@@ -219,12 +219,29 @@ export async function loadUpdateCheckState(): Promise<PersistedUpdateCheckState 
 
 const MEMORY_OPS_MAINTENANCE_STATE_KEY = "memoryOpsMaintenanceStateByProject"
 const MEMORY_OPS_POLICY_STATE_KEY = "memoryOpsPolicyByProject"
+const SCHEMA_QUALITY_SUMMARY_STATE_KEY = "schemaQualitySummaryByProject"
 
 export interface PersistedMemoryOpsMaintenanceState {
   lastPatrolAt?: number
   dirtySince?: number
   eventCountSincePatrol: number
   lastReminderAt?: number
+}
+
+export interface PersistedSchemaQualitySummaryState {
+  scannedAt: number
+  dataVersion?: number
+  pageCount: number
+  contractName: string
+  contractVersion: number
+  schemaContractFound: boolean
+  findingCount: number
+  warningCount: number
+  infoCount: number
+  averageQualityScore: number
+  lowQualityPageCount: number
+  suggestionCount: number
+  auditError?: string
 }
 
 export async function loadMemoryOpsMaintenanceState(
@@ -272,6 +289,32 @@ export async function saveMemoryOpsPolicyState(
   await store.set(MEMORY_OPS_POLICY_STATE_KEY, {
     ...byProject,
     [projectStateKey(projectPath)]: policy,
+  })
+}
+
+export async function loadSchemaQualitySummaryState(
+  projectPath: string,
+): Promise<PersistedSchemaQualitySummaryState | null> {
+  const store = await getStore()
+  const byProject =
+    (await store.get<Record<string, PersistedSchemaQualitySummaryState>>(
+      SCHEMA_QUALITY_SUMMARY_STATE_KEY,
+    )) ?? {}
+  return byProject[projectStateKey(projectPath)] ?? null
+}
+
+export async function saveSchemaQualitySummaryState(
+  projectPath: string,
+  summary: PersistedSchemaQualitySummaryState,
+): Promise<void> {
+  const store = await getStore()
+  const byProject =
+    (await store.get<Record<string, PersistedSchemaQualitySummaryState>>(
+      SCHEMA_QUALITY_SUMMARY_STATE_KEY,
+    )) ?? {}
+  await store.set(SCHEMA_QUALITY_SUMMARY_STATE_KEY, {
+    ...byProject,
+    [projectStateKey(projectPath)]: summary,
   })
 }
 

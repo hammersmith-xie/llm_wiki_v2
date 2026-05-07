@@ -96,6 +96,7 @@ describe("memory ops project scanner", () => {
     expect(snapshot.reviewItems).toEqual([])
     expect(snapshot.conversations).toEqual([])
     expect(snapshot.chatMessages).toEqual([])
+    expect(snapshot.schemaQualitySummary).toBeNull()
     expect(snapshot.stats).toMatchObject({
       pageCount: 0,
       reviewItemCount: 0,

@@ -716,7 +716,7 @@ export function MaintenanceSection() {
     setRollbackErrors({})
     setWorkingRollbackId(null)
     try {
-      const result = await runProjectSchemaQualityScan(project.path)
+      const result = await runProjectSchemaQualityScan(project.path, { dataVersion })
       setSchemaQualityResult(result)
       await refreshRecentAudit()
     } catch (err) {
@@ -724,7 +724,7 @@ export function MaintenanceSection() {
     } finally {
       setSchemaQualityRunning(false)
     }
-  }, [project, refreshRecentAudit])
+  }, [project, dataVersion, refreshRecentAudit])
 
   const handleScan = useCallback(async () => {
     if (!project) return

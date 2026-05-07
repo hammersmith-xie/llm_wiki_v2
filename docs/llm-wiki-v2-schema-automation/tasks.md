@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 12 / 17
+**总体进度**: 🚧 13 / 17
 
 ---
 
@@ -125,7 +125,7 @@ graph TD
 
 **目标**: 提供纯函数 schema drift checker 和 deterministic page quality evaluator，作为后续 UI 和 Memory Ops 的稳定 API。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 实现 schema/frontmatter drift checker
 
@@ -249,7 +249,7 @@ graph TD
 
 **目标**: 建立轻量 event automation registry，扩展 crystallization digest，并提供本地 coordination summary。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ 实现 Wiki automation event registry
 
@@ -405,7 +405,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ 将 Schema & Quality summary 接入 Memory Ops patrol
+### Task 4.2 ✅ 将 Schema & Quality summary 接入 Memory Ops patrol
 
 **描述**: Memory Ops patrol 报告中展示 schema/quality 摘要，避免用户需要运行多个独立工具才看到全貌。
 
@@ -422,15 +422,15 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] Patrol summary 显示 schema warnings/finding counts/quality average。
-- [ ] 不让 patrol 对大项目同步重复跑昂贵 scan，必要时用最近 report。
-- [ ] UI 明确区分 Memory Ops suggestions 与 schema scan findings。
+- [x] Patrol summary 显示 schema warnings/finding counts/quality average。
+- [x] 不让 patrol 对大项目同步重复跑昂贵 scan，必要时用最近 report。
+- [x] UI 明确区分 Memory Ops suggestions 与 schema scan findings。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Typecheck 暴露组件测试手写 `TypedGraph` fixture 带了不存在的 `aliases` 字段；已改为复用 `extractTypedGraphFromPages([], 9)`，避免测试结构与真实 graph 类型漂移。
+- 🔧 **最终实现逻辑**: `runProjectSchemaQualityScan` 在 scan 后构建并持久化轻量 `schemaQualitySummary`，包含 scannedAt、dataVersion、contract、finding/warning/info、平均质量、低质量页和 suggestion 数；`scanMemoryOpsProject` best-effort 读取最近摘要并放入 patrol snapshot；`summarizeMemoryOpsPatrolReport` 和 `MemoryOpsPatrolBlock` 展示最近 Schema & Quality 摘要，补充中英文文案和组件测试。
+- 🎯 **关键决策**: Patrol 只读取最近一次保存的 schema scan summary，不在 Memory Ops 巡检路径里重复读取 `schema.md` 和 `wiki/**/*.md` 做昂贵扫描。UI 文案明确这是 latest saved schema result，并把 schema/quality suggestion 数作为摘要展示，不混入当前 Memory Ops active suggestions。
 
 ---
 
@@ -600,10 +600,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
-| M3 | Event and Digest Core | 1 | 4 | 🚧 |
-| M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
+| M3 | Event and Digest Core | 4 | 4 | ✅ |
+| M4 | Maintenance UI and Documentation | 2 | 5 | 🚧 |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **8** | **17** | **🚧** |
+| **总计** | | **13** | **17** | **🚧** |
 
 ---
 

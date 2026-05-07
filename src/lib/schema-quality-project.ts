@@ -5,16 +5,28 @@ import {
   type RunSchemaQualityScanResult,
 } from "@/lib/schema-quality"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import {
+  saveSchemaQualitySummaryState,
+  type PersistedSchemaQualitySummaryState,
+} from "@/lib/project-store"
 import { getFileStem, normalizePath } from "@/lib/path-utils"
 import type { SchemaDriftPageInput } from "@/lib/schema-drift"
 import type { FileNode } from "@/types/wiki"
 
 export interface ProjectSchemaQualityScanResult extends RunSchemaQualityScanResult {
   suggestions: MemoryOpsSuggestion[]
+  schemaQualitySummary: PersistedSchemaQualitySummaryState
+}
+
+export interface RunProjectSchemaQualityScanOptions {
+  dataVersion?: number
+  now?: number
+  persistSummary?: boolean
 }
 
 export async function runProjectSchemaQualityScan(
   projectPath: string,
+  options: RunProjectSchemaQualityScanOptions = {},
 ): Promise<ProjectSchemaQualityScanResult> {
   const pp = normalizePath(projectPath)
   const [schemaMarkdown, pages] = await Promise.all([
@@ -26,10 +38,37 @@ export async function runProjectSchemaQualityScan(
     schemaMarkdown,
     pages,
   })
+  const suggestions = schemaQualityScanSuggestions(result.report)
+  const schemaQualitySummary = buildPersistedSummary(
+    result,
+    suggestions.length,
+    {
+      dataVersion: options.dataVersion,
+      scannedAt: options.now ?? Date.now(),
+    },
+  )
+  if (options.persistSummary !== false) {
+    await saveSchemaQualitySummaryState(pp, schemaQualitySummary).catch(() => {})
+  }
 
   return {
     ...result,
-    suggestions: schemaQualityScanSuggestions(result.report),
+    suggestions,
+    schemaQualitySummary,
+  }
+}
+
+function buildPersistedSummary(
+  result: RunSchemaQualityScanResult,
+  suggestionCount: number,
+  options: { scannedAt: number; dataVersion?: number },
+): PersistedSchemaQualitySummaryState {
+  return {
+    scannedAt: options.scannedAt,
+    dataVersion: options.dataVersion,
+    ...result.report.summary,
+    suggestionCount,
+    auditError: result.auditError,
   }
 }
 

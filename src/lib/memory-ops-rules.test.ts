@@ -585,6 +585,7 @@ function snapshot(
       })),
     ),
     audit: { events: options.auditEvents ?? [], warnings: [] },
+    schemaQualitySummary: null,
     reviewItems: [],
     conversations: [],
     chatMessages: [],

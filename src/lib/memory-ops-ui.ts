@@ -2,6 +2,7 @@ import type { AuditEvent } from "@/lib/audit-timeline"
 import type { MetadataFieldDiff, MetadataPatchValue } from "@/lib/memory-ops-executor"
 import type { MemoryOpsPatrolReport } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import type { PersistedSchemaQualitySummaryState } from "@/lib/project-store"
 
 export type MemoryOpsSuggestionCategory =
   | "lifecycle"
@@ -26,6 +27,7 @@ export interface MemoryOpsPatrolSummary {
   stalePageCount: number
   riskPageCount: number
   categoryCounts: Partial<Record<MemoryOpsSuggestionCategory, number>>
+  schemaQualitySummary: PersistedSchemaQualitySummaryState | null
   emptySuggestions: boolean
 }
 
@@ -40,6 +42,7 @@ export function summarizeMemoryOpsPatrolReport(
     stalePageCount: report.stats.stalePageCount,
     riskPageCount: report.stats.riskPageCount,
     categoryCounts: countSuggestionCategories(report.suggestions),
+    schemaQualitySummary: report.snapshot?.schemaQualitySummary ?? null,
     emptySuggestions: report.suggestions.length === 0,
   }
 }

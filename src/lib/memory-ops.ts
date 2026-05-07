@@ -19,8 +19,10 @@ import {
 } from "@/lib/typed-graph"
 import {
   loadMemoryOpsMaintenanceState,
+  loadSchemaQualitySummaryState,
   saveMemoryOpsMaintenanceState,
   type PersistedMemoryOpsMaintenanceState,
+  type PersistedSchemaQualitySummaryState,
 } from "@/lib/project-store"
 import {
   DEFAULT_MEMORY_OPS_POLICY,
@@ -110,6 +112,7 @@ export interface MemoryOpsProjectSnapshot {
   pages: MemoryOpsWikiPage[]
   graph: TypedGraph
   audit: AuditTimelineResult
+  schemaQualitySummary: PersistedSchemaQualitySummaryState | null
   reviewItems: ReviewItem[]
   conversations: Conversation[]
   chatMessages: DisplayMessage[]
@@ -152,14 +155,17 @@ export async function scanMemoryOpsProject(
 ): Promise<MemoryOpsProjectSnapshot> {
   const pp = normalizePath(projectPath).replace(/\/$/, "")
   const dataVersion = options.dataVersion ?? 0
-  const policyLoad = options.policy
-    ? { policy: options.policy, warnings: [] }
-    : await loadMemoryOpsPolicy(pp).catch((err) => ({
-        policy: DEFAULT_MEMORY_OPS_POLICY,
-        warnings: [
-          `Memory Ops policy could not be loaded; using defaults: ${err instanceof Error ? err.message : String(err)}`,
-        ],
-      }))
+  const [policyLoad, schemaQualitySummary] = await Promise.all([
+    options.policy
+      ? Promise.resolve({ policy: options.policy, warnings: [] })
+      : loadMemoryOpsPolicy(pp).catch((err) => ({
+          policy: DEFAULT_MEMORY_OPS_POLICY,
+          warnings: [
+            `Memory Ops policy could not be loaded; using defaults: ${err instanceof Error ? err.message : String(err)}`,
+          ],
+        })),
+    loadSchemaQualitySummaryState(pp).catch(() => null),
+  ])
   const wikiPages = await readWikiPages(pp)
   const graph = extractTypedGraphFromPages(
     wikiPages.map((page) => ({
@@ -195,6 +201,7 @@ export async function scanMemoryOpsProject(
     pages,
     graph,
     audit,
+    schemaQualitySummary,
     reviewItems,
     conversations,
     chatMessages,

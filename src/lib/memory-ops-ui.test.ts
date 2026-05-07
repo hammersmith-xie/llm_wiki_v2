@@ -28,6 +28,22 @@ describe("memory ops ui helpers", () => {
         suggestionCount: 0,
       },
       warnings: [{ line: 4, message: "bad json", raw: "{" }],
+      snapshot: {
+        schemaQualitySummary: {
+          scannedAt: 1_777_777,
+          dataVersion: 9,
+          pageCount: 8,
+          contractName: "llm-wiki-v2-default",
+          contractVersion: 1,
+          schemaContractFound: true,
+          findingCount: 3,
+          warningCount: 2,
+          infoCount: 1,
+          averageQualityScore: 0.73,
+          lowQualityPageCount: 2,
+          suggestionCount: 4,
+        },
+      },
       suggestions: [
         suggestion("a", "metadata-update", { title: "Mark stale page" }),
         suggestion("b", "relation-cleanup", { title: "Review unresolved typed relation" }),
@@ -49,6 +65,10 @@ describe("memory ops ui helpers", () => {
         relation: 1,
         contradiction: 1,
         retention: 1,
+      },
+      schemaQualitySummary: {
+        findingCount: 3,
+        averageQualityScore: 0.73,
       },
     })
   })

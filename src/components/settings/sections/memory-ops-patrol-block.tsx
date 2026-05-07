@@ -24,6 +24,7 @@ import {
   summarizeMemoryOpsPatrolReport,
   visibleMemoryOpsSuggestions,
 } from "@/lib/memory-ops-ui"
+import type { PersistedSchemaQualitySummaryState } from "@/lib/project-store"
 import { MemoryOpsSuggestionGroups } from "./memory-ops-suggestion-groups"
 
 interface MemoryOpsPatrolBlockProps {
@@ -177,6 +178,8 @@ export function MemoryOpsPatrolBlock({
             )}
           </div>
 
+          <SchemaQualitySummaryBlock summary={summary.schemaQualitySummary} />
+
           {lastBatchResult && (
             <MemoryOpsBatchSummaryBlock
               result={lastBatchResult}
@@ -264,6 +267,104 @@ export function MemoryOpsPatrolBlock({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function SchemaQualitySummaryBlock({
+  summary,
+}: {
+  summary: PersistedSchemaQualitySummaryState | null
+}) {
+  const { t } = useTranslation()
+
+  if (!summary) {
+    return (
+      <div className="rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
+        <div className="flex items-center gap-1.5 font-medium">
+          <History className="h-3.5 w-3.5 text-muted-foreground" />
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryTitle")}
+        </div>
+        <div className="mt-1 text-muted-foreground">
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryMissing")}
+        </div>
+      </div>
+    )
+  }
+
+  const hasFindings =
+    summary.findingCount > 0 ||
+    summary.warningCount > 0 ||
+    summary.lowQualityPageCount > 0
+  const titleTone = hasFindings
+    ? "text-amber-700 dark:text-amber-400"
+    : "text-emerald-700 dark:text-emerald-400"
+
+  return (
+    <div className="space-y-1.5 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
+      <div className={`flex items-center gap-1.5 font-medium ${titleTone}`}>
+        {hasFindings ? (
+          <AlertTriangle className="h-3.5 w-3.5" />
+        ) : (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        )}
+        {t("settings.sections.maintenance.memoryOps.schemaSummaryTitle")}
+      </div>
+      <div className="text-muted-foreground">
+        {t(
+          summary.dataVersion === undefined
+            ? "settings.sections.maintenance.memoryOps.schemaSummaryLatest"
+            : "settings.sections.maintenance.memoryOps.schemaSummaryLatestWithVersion",
+          {
+            time: new Date(summary.scannedAt).toLocaleString(),
+            version: summary.dataVersion,
+          },
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+        <span>
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryContract", {
+            name: summary.contractName,
+            version: summary.contractVersion,
+          })}
+          {!summary.schemaContractFound
+            ? ` · ${t("settings.sections.maintenance.memoryOps.schemaSummaryFallback")}`
+            : ""}
+        </span>
+        <span>{t("settings.sections.maintenance.memoryOps.pages", { n: summary.pageCount })}</span>
+        <span>
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryFindings", {
+            n: summary.findingCount,
+          })}
+        </span>
+        <span>
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryWarnings", {
+            n: summary.warningCount,
+          })}
+        </span>
+        <span>
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryAverageQuality", {
+            score: summary.averageQualityScore.toFixed(2),
+          })}
+        </span>
+        <span>
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryLowQuality", {
+            n: summary.lowQualityPageCount,
+          })}
+        </span>
+        <span>
+          {t("settings.sections.maintenance.memoryOps.schemaSummarySuggestions", {
+            n: summary.suggestionCount,
+          })}
+        </span>
+      </div>
+      {summary.auditError && (
+        <div className="text-amber-700 dark:text-amber-400">
+          {t("settings.sections.maintenance.memoryOps.schemaSummaryAuditFailed", {
+            error: summary.auditError,
+          })}
+        </div>
+      )}
     </div>
   )
 }

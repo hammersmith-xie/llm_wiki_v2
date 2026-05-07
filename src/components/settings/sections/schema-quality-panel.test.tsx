@@ -45,6 +45,20 @@ describe("SchemaQualityPanel", () => {
 function scanResult(): ProjectSchemaQualityScanResult {
   return {
     auditError: undefined,
+    schemaQualitySummary: {
+      scannedAt: 1_777_777,
+      dataVersion: 5,
+      pageCount: 1,
+      contractName: "llm-wiki-v2-default",
+      contractVersion: 1,
+      schemaContractFound: true,
+      findingCount: 1,
+      warningCount: 1,
+      infoCount: 0,
+      averageQualityScore: 0.42,
+      lowQualityPageCount: 1,
+      suggestionCount: 1,
+    },
     suggestions: [
       {
         id: "schema-drift:missing-title",
