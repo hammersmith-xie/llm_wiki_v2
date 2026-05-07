@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 6 / 16
+**总体进度**: 🚧 7 / 16
 
 ---
 
@@ -127,7 +127,7 @@ graph TD
 
 **目标**: 补齐产品化治理所需的 policy、timeline filter 和 search health 运行核心。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 定义并接入 Memory Ops lifecycle policy
 
@@ -218,7 +218,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ 定义内置 search health smoke scenarios
+### Task 2.4 ✅ 定义内置 search health smoke scenarios
 
 **描述**: 提供无需用户配置的基础 search health scenarios，覆盖 exact title、alias/keyword、typed graph、CJK 和 contradiction deprioritize 的轻量 smoke set。
 
@@ -234,15 +234,15 @@ graph TD
 - `src/test-helpers/scenarios/search-scenarios.ts`
 
 **验收**:
-- [ ] 内置 scenarios 能在小型 fixture 下运行。
-- [ ] 项目内容不足时跳过不可判定场景，而不是失败。
-- [ ] 报告明确区分 skipped 和 failed。
+- [x] 内置 scenarios 能在小型 fixture 下运行。
+- [x] 项目内容不足时跳过不可判定场景，而不是失败。
+- [x] 报告明确区分 skipped 和 failed。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 内置 smoke scenarios 不能假设每个项目都有 alias、typed relation、CJK 或 contradiction 页面；否则小项目会误报搜索失败。
+- 🔧 **最终实现逻辑**: 扩展 `src/lib/search-health.ts`，新增 `buildBuiltInSearchHealthScenarios`，从 wiki markdown frontmatter/content 派生 title exact、alias/keyword、typed graph、CJK、contradiction-deprioritize scenarios；不可判定项进入 skipped list。
+- 🎯 **关键决策**: skipped scenarios 随 Search Health result/audit 一起返回，和 failed scenarios 区分开；本期仍不做用户自定义 scenarios 编辑器。
 
 ---
 
@@ -534,11 +534,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
-| M2 | Policy, Timeline, Search Health Core | 3 | 4 | 🚧 |
+| M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
 | M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **6** | **16** | **🚧** |
+| **总计** | | **7** | **16** | **🚧** |
 
 ---
 

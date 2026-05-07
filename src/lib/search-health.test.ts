@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { runSearchHealth, searchHealthReportPath } from "./search-health"
+import {
+  buildBuiltInSearchHealthScenarios,
+  runSearchHealth,
+  searchHealthReportPath,
+} from "./search-health"
 
 vi.mock("@/commands/fs", () => ({
   createDirectory: vi.fn(async () => {}),
@@ -18,25 +22,34 @@ vi.mock("@/lib/search-eval", async (importOriginal) => {
 })
 
 import { appendFile, writeFile } from "@/commands/fs"
+import { listDirectory, readFile } from "@/commands/fs"
 import { runSearchWikiEval } from "@/lib/search-eval"
+import type { FileNode } from "@/types/wiki"
 
 const mockAppendFile = vi.mocked(appendFile)
 const mockWriteFile = vi.mocked(writeFile)
+const mockListDirectory = vi.mocked(listDirectory)
+const mockReadFile = vi.mocked(readFile)
 const mockRunSearchWikiEval = vi.mocked(runSearchWikiEval)
 
 beforeEach(() => {
   mockAppendFile.mockReset()
   mockWriteFile.mockReset()
+  mockListDirectory.mockReset()
+  mockReadFile.mockReset()
   mockRunSearchWikiEval.mockReset()
 })
 
 describe("search health", () => {
   it("skips cleanly when no scenarios are available", async () => {
-    const result = await runSearchHealth("/project", [])
+    const result = await runSearchHealth("/project", [], {
+      skippedScenarios: [{ id: "builtin-title-exact", reason: "No titled wiki page found." }],
+    })
 
     expect(result).toMatchObject({
       status: "skipped",
       scenarioCount: 0,
+      skippedScenarios: [{ id: "builtin-title-exact", reason: "No titled wiki page found." }],
     })
     expect(mockRunSearchWikiEval).not.toHaveBeenCalled()
     expect(mockWriteFile).not.toHaveBeenCalled()
@@ -48,6 +61,7 @@ describe("search health", () => {
       after: {
         status: "skipped",
         scenarioCount: 0,
+        skippedScenarios: [{ id: "builtin-title-exact", reason: "No titled wiki page found." }],
       },
       reasons: ["no search health scenarios available"],
     })
@@ -179,5 +193,109 @@ describe("search health", () => {
 
   it("computes the report artifact path", () => {
     expect(searchHealthReportPath("/project/")).toBe("/project/.llm-wiki/search-eval-report.json")
+  })
+
+  it("builds smoke scenarios from available project pages and skips missing categories", async () => {
+    const tree: FileNode[] = [
+      {
+        name: "concepts",
+        path: "/project/wiki/concepts",
+        is_dir: true,
+        children: [
+          { name: "attention.md", path: "/project/wiki/concepts/attention.md", is_dir: false },
+          { name: "agent.md", path: "/project/wiki/concepts/agent.md", is_dir: false },
+          { name: "旧知识.md", path: "/project/wiki/concepts/旧知识.md", is_dir: false },
+        ],
+      },
+    ]
+    mockListDirectory.mockResolvedValueOnce(tree)
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/attention.md") {
+        return [
+          "---",
+          "title: Attention",
+          "aliases: [self attention]",
+          "---",
+          "",
+          "# Attention",
+        ].join("\n")
+      }
+      if (path === "/project/wiki/concepts/agent.md") {
+        return [
+          "---",
+          "title: Agent",
+          "uses: [tool-calling]",
+          "---",
+          "",
+          "# Agent",
+        ].join("\n")
+      }
+      if (path === "/project/wiki/concepts/旧知识.md") {
+        return [
+          "---",
+          "title: 旧知识",
+          "superseded_by: [new-knowledge]",
+          "---",
+          "",
+          "# 旧知识",
+        ].join("\n")
+      }
+      throw new Error(`unexpected path ${path}`)
+    })
+
+    const result = await buildBuiltInSearchHealthScenarios("/project")
+
+    expect(result.scenarios).toEqual(expect.arrayContaining([
+      {
+        id: "builtin-title-exact",
+        query: "Attention",
+        expectedInTopK: [{ path: "wiki/concepts/attention.md", topK: 3 }],
+      },
+      {
+        id: "builtin-alias-keyword",
+        query: "self attention",
+        expectedInTopK: [{ path: "wiki/concepts/attention.md", topK: 5 }],
+      },
+      {
+        id: "builtin-typed-graph",
+        query: "tool-calling",
+        expectedInTopK: [{ path: "wiki/concepts/agent.md", topK: 10 }],
+      },
+      {
+        id: "builtin-cjk",
+        query: "旧知识",
+        expectedInTopK: [{ path: "wiki/concepts/旧知识.md", topK: 5 }],
+      },
+      {
+        id: "builtin-contradiction-deprioritize",
+        query: "旧知识",
+        expectedOutsideTopK: [{ path: "wiki/concepts/旧知识.md", topK: 1 }],
+        topK: 5,
+      },
+    ]))
+    expect(result.skipped).toEqual([])
+  })
+
+  it("skips smoke scenarios when project content is insufficient", async () => {
+    mockListDirectory.mockResolvedValueOnce([
+      { name: "empty.md", path: "/project/wiki/empty.md", is_dir: false },
+    ])
+    mockReadFile.mockResolvedValueOnce("---\n---\n\n")
+
+    const result = await buildBuiltInSearchHealthScenarios("/project")
+
+    expect(result.scenarios).toEqual([
+      {
+        id: "builtin-title-exact",
+        query: "empty",
+        expectedInTopK: [{ path: "wiki/empty.md", topK: 3 }],
+      },
+    ])
+    expect(result.skipped.map((item) => item.id)).toEqual([
+      "builtin-alias-keyword",
+      "builtin-cjk",
+      "builtin-typed-graph",
+      "builtin-contradiction-deprioritize",
+    ])
   })
 })
