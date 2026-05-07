@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 10 / 16
+**总体进度**: 🚧 11 / 16
 
 ---
 
@@ -128,7 +128,7 @@ graph TD
 
 **目标**: 把 Rohit v2 的 lifecycle、retention、supersession、contradiction 做成可解释、可预览的本地规则。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 扩展 Memory Ops snapshot 和 evidence summary
 
@@ -327,7 +327,7 @@ graph TD
 
 ---
 
-### Task 3.4 ⏳ 扩展 search evaluation harness
+### Task 3.4 ✅ 扩展 search evaluation harness
 
 **描述**: 增加 BM25-only、typed relation、contradiction deprioritize、CJK、vector-only、graph-only 的评估场景和 report summary。
 
@@ -342,15 +342,15 @@ graph TD
 - `src/test-helpers/scenarios/search-scenarios.ts`
 
 **验收**:
-- [ ] eval report 包含 pass/fail 和 top-k evidence。
-- [ ] Memory Ops 可读取 summary。
-- [ ] 失败场景能定位 query 和期望页面。
+- [x] eval report 包含 pass/fail 和 top-k evidence。
+- [x] Memory Ops 可读取 summary。
+- [x] 失败场景能定位 query 和期望页面。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 旧 eval report 只保留 ranked path，失败时缺少 top-k evidence 和 stream contribution；Memory Ops 也没有稳定的 compact summary 可读。
+- 🔧 **最终实现逻辑**: `runSearchEval` 为每个场景生成 `topResults` evidence，包含 path/title/score 和 token/BM25/vector/graph stream contribution；新增 `expectedOutsideTopK` 支持 contradiction deprioritize 场景；新增 `summarizeSearchEvalForMemoryOps` 输出 pass/fail、streamCounts 和失败场景摘要。
+- 🎯 **关键决策**: report 内部继续保留完整 rankedPaths 便于精确断言，展示和 Memory Ops summary 使用 `wiki/...` 形式的短路径，避免临时目录污染报告。
 
 ---
 
@@ -514,10 +514,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
-| M3 | Retrieval and Evaluation | 2 | 4 | 🚧 |
+| M3 | Retrieval and Evaluation | 4 | 4 | ✅ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **9** | **16** | **🚧** |
+| **总计** | | **11** | **16** | **🚧** |
 
 ---
 

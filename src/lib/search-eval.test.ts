@@ -26,7 +26,12 @@ vi.mock("@/lib/typed-graph", () => ({
   graphRankPages: (...args: unknown[]) => mockGraphRankPages(...args),
 }))
 
-import { runSearchEval, runSearchWikiEval } from "./search-eval"
+import {
+  formatSearchEvalReport,
+  runSearchEval,
+  runSearchWikiEval,
+  summarizeSearchEvalForMemoryOps,
+} from "./search-eval"
 import { useWikiStore } from "@/stores/wiki-store"
 
 interface Ctx {
@@ -105,6 +110,14 @@ describe("search eval harness", () => {
       failedCount: 0,
     })
     expect(report.results.every((result) => result.passed)).toBe(true)
+    expect(report.results[0].topResults[0]).toMatchObject({
+      rank: 1,
+      path: "wiki/concepts/attention.md",
+      streams: [
+        { name: "token", rank: 1 },
+        { name: "bm25", rank: 1 },
+      ],
+    })
   })
 
   it("runs deterministic vector-only and graph-only scenarios with mocked embedding enabled", async () => {
@@ -174,6 +187,81 @@ describe("search eval harness", () => {
 
     expect(report.summary.failedCount).toBe(0)
     expect(report.results.map((result) => result.id)).toEqual(["vector-only", "graph-only"])
+    expect(report.results[0].topResults[0].streams).toContainEqual(
+      expect.objectContaining({ name: "vector", rank: 1 }),
+    )
+    expect(report.results[1].topResults.some((result) =>
+      result.streams.some((stream) =>
+        stream.name === "graph" &&
+          stream.path?.join(" > ") === "seed > graph-only" &&
+          stream.pathTypes?.includes("uses"),
+      ),
+    )).toBe(true)
+  })
+
+  it("summarizes BM25-only and contradiction-deprioritize scenarios for Memory Ops", async () => {
+    const report = await runSearchEval(
+      [
+        {
+          id: "bm25-only",
+          query: "rare evidence",
+          expectedInTopK: [{ path: "wiki/concepts/bm25.md", topK: 1 }],
+        },
+        {
+          id: "contradiction-deprioritize",
+          query: "outdated claim",
+          expectedTopPaths: ["wiki/concepts/current.md"],
+          expectedOutsideTopK: [{ path: "wiki/concepts/old-claim.md", topK: 1 }],
+        },
+      ],
+      async (query) => {
+        if (query === "rare evidence") {
+          return [
+            result("wiki/concepts/bm25.md", "BM25", {
+              retrieval: {
+                rrfScore: 1 / 61,
+                bm25: { rank: 1, rawScore: 7.5, rrf: 1 / 61 },
+              },
+            }),
+          ]
+        }
+        return [
+          result("wiki/concepts/current.md", "Current", {
+            retrieval: {
+              rrfScore: 1 / 61,
+              token: { rank: 1, rawScore: 420, rrf: 1 / 61 },
+            },
+          }),
+          result("wiki/concepts/old-claim.md", "Old Claim", {
+            retrieval: {
+              rrfScore: 1 / 62,
+              token: { rank: 2, rawScore: 100, rrf: 1 / 62 },
+            },
+          }),
+        ]
+      },
+    )
+
+    expect(report.summary).toMatchObject({
+      scenarioCount: 2,
+      passedCount: 2,
+      failedCount: 0,
+    })
+    expect(report.results[0].topResults[0].streams).toEqual([
+      { name: "bm25", rank: 1, rawScore: 7.5, contribution: 1 / 61 },
+    ])
+
+    const summary = summarizeSearchEvalForMemoryOps(report)
+    expect(summary).toMatchObject({
+      status: "pass",
+      scenarioCount: 2,
+      failedCount: 0,
+      failedScenarios: [],
+      streamCounts: {
+        bm25: 1,
+        token: 2,
+      },
+    })
   })
 
   it("reports top-rank, top-k, and excluded-path failures with ranked paths", async () => {
@@ -207,6 +295,23 @@ describe("search eval harness", () => {
       "missing-from-top-k",
       "top-rank-mismatch",
     ])
+
+    expect(report.results[0].topResults.map((result) => result.path)).toEqual([
+      "wiki/concepts/random.md",
+      "wiki/concepts/rope.md",
+    ])
+    expect(report.results[0].failures[0]).toMatchObject({
+      query: "rope",
+      topKPaths: ["wiki/concepts/random.md", "wiki/concepts/rope.md"],
+    })
+    expect(formatSearchEvalReport(report)).toContain(
+      "FAIL failing-case: rope | top 5: wiki/concepts/random.md, wiki/concepts/rope.md",
+    )
+    expect(summarizeSearchEvalForMemoryOps(report).failedScenarios[0]).toMatchObject({
+      id: "failing-case",
+      query: "rope",
+      topKPaths: ["wiki/concepts/random.md", "wiki/concepts/rope.md"],
+    })
   })
 })
 
@@ -224,7 +329,11 @@ function page(title: string, frontmatter: string, body: string): string {
   return `---\ntitle: ${title}\n${frontmatter}\n---\n\n# ${title}\n\n${body}\n`
 }
 
-function result(path: string, title: string) {
+function result(
+  path: string,
+  title: string,
+  overrides: Record<string, unknown> = {},
+) {
   return {
     path,
     title,
@@ -232,5 +341,6 @@ function result(path: string, title: string) {
     snippet: "",
     titleMatch: false,
     images: [],
+    ...overrides,
   }
 }
