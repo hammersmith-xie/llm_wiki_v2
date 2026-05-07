@@ -364,6 +364,26 @@
           "requireNoRecentUse": "要求近期没有使用",
           "defaultSummary": "默认值：working {{working}} 天，semantic {{semantic}} 天，procedural {{procedural}} 天，低置信度 {{confidence}}。"
         },
+        "searchHealth": {
+          "title": "搜索健康度",
+          "description": "运行内置 smoke scenarios，覆盖精确标题、别名、中文内容、typed graph 链接和冲突降权。结果会写入审计，并保存为最新 search eval report。",
+          "run": "运行搜索健康度",
+          "running": "运行中…",
+          "notRun": "本会话尚未运行搜索健康度检查。",
+          "pass": "搜索健康度通过。",
+          "fail": "搜索健康度发现失败场景。",
+          "skipped": "没有可运行 scenarios，已跳过搜索健康度检查。",
+          "scenarios": "{{n}} 个场景",
+          "passed": "{{n}} 个通过",
+          "failed": "{{n}} 个失败",
+          "openReport": "打开报告",
+          "writeError": "报告写入失败：{{error}}",
+          "auditError": "搜索健康度审计写入失败：{{error}}",
+          "skippedTitle": "已跳过场景",
+          "streams": "检索流",
+          "failures": "失败详情",
+          "topK": "Top 结果：{{paths}}"
+        },
         "dedup": {
           "title": "检测重复实体 / 概念",
           "description": "让 LLM 扫描全部 entity / concept 页面，把可能指向同一主题但用了不同名字的页面分组（中英对照、单复数、缩写与全称等）。每一组都需要你确认后才会合并。合并任务会进入串行队列依次执行，避免交叉引用被并发改写覆盖。",

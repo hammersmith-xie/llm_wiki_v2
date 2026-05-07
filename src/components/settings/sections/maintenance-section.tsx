@@ -52,6 +52,11 @@ import {
   type MemoryOpsPolicy,
 } from "@/lib/memory-ops-policy"
 import {
+  buildBuiltInSearchHealthScenarios,
+  runSearchHealth,
+  type SearchHealthRunResult,
+} from "@/lib/search-health"
+import {
   getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
   type MemoryOpsMaintenanceStatus,
@@ -62,6 +67,7 @@ import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
 import { AuditTimelinePanel } from "./audit-timeline-panel"
 import { MemoryOpsPolicyPanel } from "./memory-ops-policy-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
+import { SearchHealthPanel } from "./search-health-panel"
 import {
   enqueueMerge,
   cancelTask,
@@ -117,6 +123,10 @@ export function MaintenanceSection() {
   const [policySaving, setPolicySaving] = useState(false)
   const [policyError, setPolicyError] = useState<string | null>(null)
   const [policySaved, setPolicySaved] = useState(false)
+  const [searchHealthRunning, setSearchHealthRunning] = useState(false)
+  const [searchHealthResult, setSearchHealthResult] =
+    useState<SearchHealthRunResult | null>(null)
+  const [searchHealthError, setSearchHealthError] = useState<string | null>(null)
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
     () => new Set(),
   )
@@ -632,6 +642,25 @@ export function MaintenanceSection() {
     [project, setSelectedFile, setFileContent, setActiveView],
   )
 
+  const handleRunSearchHealth = useCallback(async () => {
+    if (!project) return
+    setSearchHealthRunning(true)
+    setSearchHealthError(null)
+    setSearchHealthResult(null)
+    try {
+      const builtIn = await buildBuiltInSearchHealthScenarios(project.path)
+      const result = await runSearchHealth(project.path, builtIn.scenarios, {
+        skippedScenarios: builtIn.skipped,
+      })
+      setSearchHealthResult(result)
+      await refreshRecentAudit()
+    } catch (err) {
+      setSearchHealthError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSearchHealthRunning(false)
+    }
+  }, [project, refreshRecentAudit])
+
   const handleScan = useCallback(async () => {
     if (!project) return
     setScanning(true)
@@ -824,6 +853,15 @@ export function MaintenanceSection() {
         saved={policySaved}
         onSave={(nextPolicy) => void handleSavePolicy(nextPolicy)}
         onRestoreDefault={() => void handleRestoreDefaultPolicy()}
+      />
+
+      <SearchHealthPanel
+        projectReady={projectReady}
+        running={searchHealthRunning}
+        result={searchHealthResult}
+        error={searchHealthError}
+        onRun={() => void handleRunSearchHealth()}
+        onOpenReport={(path) => void handleOpenAuditPath(path)}
       />
 
       <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">

@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 12 / 16
+**总体进度**: 🚧 13 / 16
 
 ---
 
@@ -250,7 +250,7 @@ graph TD
 
 **目标**: 把 batch、rollback、policy、timeline、search health 编排进 Settings -> Maintenance。
 **依赖**: M1, M2
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ 为建议卡增加 selection 和 batch action UI
 
@@ -399,7 +399,7 @@ graph TD
 
 ---
 
-### Task 3.6 ⏳ 增加 Search Health 面板
+### Task 3.6 ✅ 增加 Search Health 面板
 
 **描述**: 在 Maintenance 中加入 search health 面板，用户可运行 eval、查看 summary/failures/stream counts 和最近 report。
 
@@ -422,9 +422,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 内置 scenarios 可能因为项目内容不足而部分或全部 skipped；UI 需要把 skipped 与 failed 分开，否则小项目会被误解为搜索质量失败。
+- 🔧 **最终实现逻辑**: 新增 `SearchHealthPanel`，支持运行内置 smoke scenarios、展示 skipped/pass/fail、scenario counts、stream counts、failure top-k 和 report 写入/audit 错误；`MaintenanceSection` 编排 `buildBuiltInSearchHealthScenarios` + `runSearchHealth`，运行后刷新 audit timeline。
+- 🎯 **关键决策**: 本期只提供内置 smoke scenarios 的手动运行入口，不做自定义 scenario 编辑器；`.llm-wiki/search-eval-report.json` 作为最近一次报告 artifact。
 
 ---
 
@@ -535,10 +535,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
-| M3 | Maintenance Workbench UI | 5 | 6 | 🚧 |
+| M3 | Maintenance Workbench UI | 6 | 6 | ✅ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **12** | **16** | **🚧** |
+| **总计** | | **13** | **16** | **🚧** |
 
 ---
 
