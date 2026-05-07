@@ -86,6 +86,8 @@ interface GroupUiEntry {
   skipped: boolean
 }
 
+type MaintenanceWorkbenchTab = "patrol" | "timeline" | "policy" | "search"
+
 /** Match a card to its task in the queue (if any) by slug-set. */
 function findTaskForGroup(
   tasks: readonly DedupTask[],
@@ -127,6 +129,7 @@ export function MaintenanceSection() {
   const [searchHealthResult, setSearchHealthResult] =
     useState<SearchHealthRunResult | null>(null)
   const [searchHealthError, setSearchHealthError] = useState<string | null>(null)
+  const [workbenchTab, setWorkbenchTab] = useState<MaintenanceWorkbenchTab>("patrol")
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
     () => new Set(),
   )
@@ -273,6 +276,29 @@ export function MaintenanceSection() {
       setPolicySaved(false)
       try {
         await saveMemoryOpsPolicy(project.path, nextPolicy)
+        await appendAuditEvent(project.path, {
+          action: "memory_ops.policy_update",
+          actor: "user",
+          targetPath: ".llm-wiki/memory-ops-policy",
+          changes: { status: "applied" },
+          after: {
+            version: nextPolicy.version,
+            name: nextPolicy.name,
+            halfLives: nextPolicy.halfLives,
+            staleMultiplier: nextPolicy.staleMultiplier,
+            lowConfidenceThreshold: nextPolicy.lowConfidenceThreshold,
+            promotion: nextPolicy.promotion,
+            archive: nextPolicy.archive,
+          },
+          reasons: ["Memory Ops lifecycle policy updated"],
+        })
+        .catch((err) => {
+          setPolicyError(
+            t("settings.sections.maintenance.policy.auditError", {
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          )
+        })
         await refreshMemoryOpsPolicy()
         setPolicySaved(true)
         await runPatrolAfterPolicyChange()
@@ -801,68 +827,91 @@ export function MaintenanceSection() {
         </p>
       </div>
 
-      <MemoryOpsPatrolBlock
-        projectReady={projectReady}
-        running={patrolRunning}
-        error={patrolError}
-        report={patrolReport}
-        maintenanceStatus={maintenanceStatus}
-        recentAuditEvents={recentAuditEvents}
-        ignoredSuggestionIds={ignoredSuggestionIds}
-        appliedSuggestionIds={appliedSuggestionIds}
-        dryRunPlans={dryRunPlans}
-        suggestionErrors={suggestionErrors}
-        workingSuggestionId={workingSuggestionId}
-        selectedSuggestionIds={selectedSuggestionIds}
-        batchWorking={batchWorking}
-        lastBatchResult={lastBatchResult}
-        rollbackPreviews={rollbackPreviews}
-        rollbackResults={rollbackResults}
-        rollbackErrors={rollbackErrors}
-        workingRollbackId={workingRollbackId}
-        onToggleSelection={handleToggleSuggestionSelection}
-        onSelectCategory={handleSelectSuggestionCategory}
-        onClearSelection={handleClearSuggestionSelection}
-        onBatchPreview={() => void handleBatchPreview()}
-        onBatchApply={() => void handleBatchApply()}
-        onBatchIgnore={() => void handleBatchIgnore()}
-        onPreviewRollback={(item) => void handlePreviewRollback(item)}
-        onApplyRollback={(item) => void handleApplyRollback(item)}
-        onRun={() => void handlePatrol()}
-        onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
-        onApply={(suggestion) => void handleApplySuggestion(suggestion)}
-        onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
-        onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
-      />
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-2">
+          {(["patrol", "timeline", "policy", "search"] as const).map((tab) => (
+            <Button
+              key={tab}
+              size="sm"
+              variant={workbenchTab === tab ? "secondary" : "ghost"}
+              onClick={() => setWorkbenchTab(tab)}
+            >
+              {t(`settings.sections.maintenance.workbenchTabs.${tab}`)}
+            </Button>
+          ))}
+        </div>
 
-      <AuditTimelinePanel
-        projectReady={projectReady}
-        events={auditEvents}
-        warnings={auditWarnings}
-        openError={auditOpenError}
-        onRefresh={() => void refreshRecentAudit()}
-        onOpenPath={(path) => void handleOpenAuditPath(path)}
-      />
+        {workbenchTab === "patrol" && (
+          <MemoryOpsPatrolBlock
+            projectReady={projectReady}
+            running={patrolRunning}
+            error={patrolError}
+            report={patrolReport}
+            maintenanceStatus={maintenanceStatus}
+            recentAuditEvents={recentAuditEvents}
+            ignoredSuggestionIds={ignoredSuggestionIds}
+            appliedSuggestionIds={appliedSuggestionIds}
+            dryRunPlans={dryRunPlans}
+            suggestionErrors={suggestionErrors}
+            workingSuggestionId={workingSuggestionId}
+            selectedSuggestionIds={selectedSuggestionIds}
+            batchWorking={batchWorking}
+            lastBatchResult={lastBatchResult}
+            rollbackPreviews={rollbackPreviews}
+            rollbackResults={rollbackResults}
+            rollbackErrors={rollbackErrors}
+            workingRollbackId={workingRollbackId}
+            onToggleSelection={handleToggleSuggestionSelection}
+            onSelectCategory={handleSelectSuggestionCategory}
+            onClearSelection={handleClearSuggestionSelection}
+            onBatchPreview={() => void handleBatchPreview()}
+            onBatchApply={() => void handleBatchApply()}
+            onBatchIgnore={() => void handleBatchIgnore()}
+            onPreviewRollback={(item) => void handlePreviewRollback(item)}
+            onApplyRollback={(item) => void handleApplyRollback(item)}
+            onRun={() => void handlePatrol()}
+            onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
+            onApply={(suggestion) => void handleApplySuggestion(suggestion)}
+            onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
+            onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
+          />
+        )}
 
-      <MemoryOpsPolicyPanel
-        projectReady={projectReady}
-        policy={policy}
-        warnings={policyWarnings}
-        saving={policySaving}
-        error={policyError}
-        saved={policySaved}
-        onSave={(nextPolicy) => void handleSavePolicy(nextPolicy)}
-        onRestoreDefault={() => void handleRestoreDefaultPolicy()}
-      />
+        {workbenchTab === "timeline" && (
+          <AuditTimelinePanel
+            projectReady={projectReady}
+            events={auditEvents}
+            warnings={auditWarnings}
+            openError={auditOpenError}
+            onRefresh={() => void refreshRecentAudit()}
+            onOpenPath={(path) => void handleOpenAuditPath(path)}
+          />
+        )}
 
-      <SearchHealthPanel
-        projectReady={projectReady}
-        running={searchHealthRunning}
-        result={searchHealthResult}
-        error={searchHealthError}
-        onRun={() => void handleRunSearchHealth()}
-        onOpenReport={(path) => void handleOpenAuditPath(path)}
-      />
+        {workbenchTab === "policy" && (
+          <MemoryOpsPolicyPanel
+            projectReady={projectReady}
+            policy={policy}
+            warnings={policyWarnings}
+            saving={policySaving}
+            error={policyError}
+            saved={policySaved}
+            onSave={(nextPolicy) => void handleSavePolicy(nextPolicy)}
+            onRestoreDefault={() => void handleRestoreDefaultPolicy()}
+          />
+        )}
+
+        {workbenchTab === "search" && (
+          <SearchHealthPanel
+            projectReady={projectReady}
+            running={searchHealthRunning}
+            result={searchHealthResult}
+            error={searchHealthError}
+            onRun={() => void handleRunSearchHealth()}
+            onOpenReport={(path) => void handleOpenAuditPath(path)}
+          />
+        )}
+      </div>
 
       <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
         <div className="flex items-center gap-2">

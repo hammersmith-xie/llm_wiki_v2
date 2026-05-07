@@ -74,6 +74,8 @@ export function AuditTimelinePanel({
   const [scope, setScope] = useState<(typeof SCOPE_OPTIONS)[number]>("all")
   const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]>("all")
   const [text, setText] = useState("")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
   const [limit, setLimit] = useState<(typeof LIMIT_OPTIONS)[number]>("100")
 
   const filter = useMemo<AuditTimelineUiFilter>(() => ({
@@ -83,8 +85,10 @@ export function AuditTimelinePanel({
     scope: scope === "all" ? undefined : scope,
     status: status === "all" ? undefined : status,
     text: trimmedOrUndefined(text),
+    dateFrom: datetimeLocalOrUndefined(dateFrom),
+    dateTo: datetimeLocalOrUndefined(dateTo),
     limit: Number.parseInt(limit, 10),
-  }), [category, action, path, scope, status, text, limit])
+  }), [category, action, path, scope, status, text, dateFrom, dateTo, limit])
 
   const filteredSummaries = useMemo(
     () => filterAuditTimelineEvents(events, filter).map(summarizeAuditTimelineEvent),
@@ -98,6 +102,8 @@ export function AuditTimelinePanel({
     scope !== "all" ||
     status !== "all" ||
     !!text.trim() ||
+    !!dateFrom ||
+    !!dateTo ||
     limit !== "100"
 
   const clearFilters = () => {
@@ -107,6 +113,8 @@ export function AuditTimelinePanel({
     setScope("all")
     setStatus("all")
     setText("")
+    setDateFrom("")
+    setDateTo("")
     setLimit("100")
   }
 
@@ -232,6 +240,22 @@ export function AuditTimelinePanel({
               value={text}
               onChange={(event) => setText(event.target.value)}
               placeholder={t("settings.sections.maintenance.auditTimeline.textPlaceholder")}
+              className="h-7 text-xs"
+            />
+          </FilterField>
+          <FilterField label={t("settings.sections.maintenance.auditTimeline.dateFrom")}>
+            <Input
+              type="datetime-local"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="h-7 text-xs"
+            />
+          </FilterField>
+          <FilterField label={t("settings.sections.maintenance.auditTimeline.dateTo")}>
+            <Input
+              type="datetime-local"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
               className="h-7 text-xs"
             />
           </FilterField>
@@ -393,6 +417,12 @@ function StatusPill({ status }: { status: string }) {
 function trimmedOrUndefined(value: string): string | undefined {
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
+}
+
+function datetimeLocalOrUndefined(value: string): string | undefined {
+  if (!value) return undefined
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
 }
 
 function formatTimestamp(timestamp: string): string {

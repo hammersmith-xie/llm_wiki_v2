@@ -221,6 +221,12 @@
         "description": "保持 wiki 健康的工具 —— 运行本地巡检、查看最近审计记录，并合并重复实体 / 概念。",
         "noProject": "请先打开一个项目。",
         "noLlm": "请先配置 LLM 服务。",
+        "workbenchTabs": {
+          "patrol": "巡检",
+          "timeline": "时间线",
+          "policy": "策略",
+          "search": "搜索健康度"
+        },
         "memoryOps": {
           "title": "Memory Ops 巡检",
           "description": "本地、确定性的维护扫描，会检查 wiki metadata、typed relations、待审阅状态、聊天历史和审计事件。它只生成建议，不会改写 wiki 文件。",
@@ -304,6 +310,8 @@
           "status": "状态",
           "text": "文本",
           "textPlaceholder": "原因、标题、查询",
+          "dateFrom": "开始时间",
+          "dateTo": "结束时间",
           "limit": "数量上限",
           "clearFilters": "清除过滤",
           "matchingEvents": "显示 {{shown}} / {{total}} 条事件",
@@ -346,6 +354,7 @@
           "restoreDefault": "恢复默认",
           "resetDraft": "重置草稿",
           "saved": "策略已保存，并已使用新阈值重新巡检。",
+          "auditError": "策略已保存，但审计写入失败：{{error}}",
           "warnings": "策略警告",
           "halfLives": "生命周期半衰期（天）",
           "working": "Working",
@@ -382,7 +391,8 @@
           "skippedTitle": "已跳过场景",
           "streams": "检索流",
           "failures": "失败详情",
-          "topK": "Top 结果：{{paths}}"
+          "topK": "Top 结果：{{paths}}",
+          "failureMeta": "预期 {{expected}}；预期排名/top-k {{expectedRank}}；实际排名 {{actualRank}}。"
         },
         "dedup": {
           "title": "检测重复实体 / 概念",

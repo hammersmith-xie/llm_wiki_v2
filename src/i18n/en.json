@@ -221,6 +221,12 @@
         "description": "Tools for keeping the wiki healthy — run local patrols, review recent audit activity, and merge duplicate entities/concepts.",
         "noProject": "Open a project first.",
         "noLlm": "Configure an LLM provider first.",
+        "workbenchTabs": {
+          "patrol": "Patrol",
+          "timeline": "Timeline",
+          "policy": "Policy",
+          "search": "Search Health"
+        },
         "memoryOps": {
           "title": "Memory Ops patrol",
           "description": "Runs a local, deterministic maintenance scan over wiki metadata, typed relations, review state, chat history, and audit events. It only creates suggestions; it does not rewrite wiki files.",
@@ -304,6 +310,8 @@
           "status": "Status",
           "text": "Text",
           "textPlaceholder": "reason, title, query",
+          "dateFrom": "From",
+          "dateTo": "To",
           "limit": "Limit",
           "clearFilters": "Clear filters",
           "matchingEvents": "{{shown}} of {{total}} events",
@@ -346,6 +354,7 @@
           "restoreDefault": "Restore default",
           "resetDraft": "Reset draft",
           "saved": "Policy saved. Patrol reran with the new thresholds.",
+          "auditError": "Policy was saved, but audit failed: {{error}}",
           "warnings": "Policy warnings",
           "halfLives": "Lifecycle half-lives (days)",
           "working": "Working",
@@ -382,7 +391,8 @@
           "skippedTitle": "Skipped scenarios",
           "streams": "Retrieval streams",
           "failures": "Failures",
-          "topK": "Top results: {{paths}}"
+          "topK": "Top results: {{paths}}",
+          "failureMeta": "Expected {{expected}}; expected rank/top-k {{expectedRank}}; actual rank {{actualRank}}."
         },
         "dedup": {
           "title": "Detect duplicate entities / concepts",

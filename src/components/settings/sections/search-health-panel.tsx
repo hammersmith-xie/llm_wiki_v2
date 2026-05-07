@@ -185,7 +185,14 @@ export function SearchHealthPanel({
                   )}
                   {scenario.failures.slice(0, 3).map((failure) => (
                     <div key={`${failure.kind}:${failure.expectedPath}`} className="break-words">
-                      {failure.message}
+                      <span>{failure.message}</span>
+                      <span className="ml-1">
+                        {t("settings.sections.maintenance.searchHealth.failureMeta", {
+                          expected: failure.expectedPath,
+                          actualRank: failure.actualRank ?? "-",
+                          expectedRank: failure.expectedRank ?? failure.expectedTopK ?? "-",
+                        })}
+                      </span>
                     </div>
                   ))}
                 </div>
