@@ -59,6 +59,99 @@ fn create_project_impl(name: String, path: String) -> Result<WikiProject, String
 - Sources: `author-year-slug.md` (e.g., `wei-2022-chain-of-thought.md`)
 - Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
 
+## Machine-readable Schema Contract
+
+The following block is app-readable. Keep it in sync with the human-readable
+rules below when evolving this project schema.
+
+```yaml llm-wiki-schema-contract
+version: 1
+name: llm-wiki-v2-default
+pageTypes:
+  - type: entity
+    directory: wiki/entities/
+    description: Named things such as people, tools, organizations, and datasets.
+  - type: concept
+    directory: wiki/concepts/
+    description: Ideas, techniques, phenomena, and frameworks.
+  - type: source
+    directory: wiki/sources/
+    description: Papers, articles, talks, books, and blog posts.
+  - type: query
+    directory: wiki/queries/
+    description: Open questions and crystallized explorations.
+  - type: comparison
+    directory: wiki/comparisons/
+    description: Side-by-side analysis of related entities or concepts.
+  - type: synthesis
+    directory: wiki/synthesis/
+    description: Cross-cutting summaries and conclusions.
+  - type: overview
+    directory: wiki/
+    description: High-level project summary.
+frontmatterFields:
+  - name: type
+    kind: enum
+    required: true
+    values: [entity, concept, source, query, comparison, synthesis, overview]
+  - name: title
+    kind: string
+    required: true
+  - name: tags
+    kind: string-array
+    required: true
+  - name: related
+    kind: string-array
+    required: true
+  - name: created
+    kind: date
+    required: true
+  - name: updated
+    kind: date
+    required: true
+  - name: lifecycle
+    kind: enum
+    recommended: true
+    values: [working, episodic, semantic, procedural, archived]
+  - name: confidence
+    kind: score
+    recommended: true
+  - name: confidence_reasons
+    kind: string-array
+    recommended: true
+  - name: last_confirmed
+    kind: date
+    recommended: true
+  - name: reinforcement_count
+    kind: integer-string
+    recommended: true
+  - name: quality_score
+    kind: score
+    recommended: true
+  - name: review_status
+    kind: enum
+    recommended: true
+    values: [ok, needs-review, stale, contradicted]
+  - name: scope
+    kind: enum
+    recommended: true
+    values: [shared, private]
+relations:
+  graphSeedFields: [alias, aliases, keywords]
+  genericRelationFields: [related]
+  typedRelationFields: [uses, depends_on, contradicts, supports, supersedes, superseded_by]
+quality:
+  minQualityScore: 0.55
+  minConfidence: 0.45
+  minRelationCount: 1
+  requiredSections: [Summary]
+memoryOps:
+  sourceOfTruth: markdown
+  auditPath: .llm-wiki/audit.jsonl
+  requiresPreviewForMetadataPatch: true
+  privateScopeRedaction: true
+```
+
 ## Frontmatter
 
 All pages must include YAML frontmatter:
@@ -384,6 +477,13 @@ mod tests {
         let schema = fs::read_to_string(Path::new(&project.path).join("schema.md")).unwrap();
 
         assert!(schema.contains("Graph seed arrays"));
+        assert!(schema.contains("```yaml llm-wiki-schema-contract"));
+        assert!(schema.contains("version: 1"));
+        assert!(schema.contains("name: llm-wiki-v2-default"));
+        assert!(schema.contains("frontmatterFields:"));
+        assert!(schema.contains("typedRelationFields: [uses, depends_on, contradicts, supports, supersedes, superseded_by]"));
+        assert!(schema.contains("minQualityScore: 0.55"));
+        assert!(schema.contains("requiresPreviewForMetadataPatch: true"));
         assert!(schema.contains("alias: []"));
         assert!(schema.contains("aliases: []"));
         assert!(schema.contains("keywords: []"));

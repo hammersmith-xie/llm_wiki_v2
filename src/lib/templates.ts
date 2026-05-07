@@ -1,3 +1,5 @@
+import { DEFAULT_LLM_WIKI_SCHEMA_CONTRACT_BLOCK } from "@/lib/schema-contract"
+
 export interface WikiTemplate {
   id: string
   name: string
@@ -96,6 +98,13 @@ url: ""
 venue: ""
 \`\`\``
 
+const BASE_SCHEMA_CONTRACT = `## Machine-readable Schema Contract
+
+The following block is app-readable. Keep it in sync with the human-readable
+rules below when evolving this project schema.
+
+${DEFAULT_LLM_WIKI_SCHEMA_CONTRACT_BLOCK}`
+
 const BASE_INDEX_FORMAT = `\`wiki/index.md\` lists all pages grouped by type. Each entry:
 \`\`\`
 - [[page-slug]] — one-line description
@@ -144,6 +153,8 @@ ${BASE_NAMING}
 - Findings: descriptive slug (e.g., \`larger-models-better-few-shot.md\`)
 
 ## Frontmatter
+
+${BASE_SCHEMA_CONTRACT}
 
 ${BASE_FRONTMATTER}
 
@@ -267,6 +278,8 @@ ${BASE_NAMING}
 
 ## Frontmatter
 
+${BASE_SCHEMA_CONTRACT}
+
 ${BASE_FRONTMATTER}
 
 Character pages also include:
@@ -383,6 +396,8 @@ ${BASE_NAMING}
 - Journal: date slug (e.g., \`2024-03-15.md\`)
 
 ## Frontmatter
+
+${BASE_SCHEMA_CONTRACT}
 
 ${BASE_FRONTMATTER}
 
@@ -511,6 +526,8 @@ ${BASE_NAMING}
 - Stakeholders: name or team in kebab-case (e.g., \`alice-chen.md\`, \`platform-team.md\`)
 
 ## Frontmatter
+
+${BASE_SCHEMA_CONTRACT}
 
 ${BASE_FRONTMATTER}
 
@@ -641,6 +658,8 @@ ${BASE_SCHEMA_TYPES}
 ${BASE_NAMING}
 
 ## Frontmatter
+
+${BASE_SCHEMA_CONTRACT}
 
 ${BASE_FRONTMATTER}
 

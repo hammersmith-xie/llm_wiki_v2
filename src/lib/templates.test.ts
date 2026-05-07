@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest"
+import {
+  DEFAULT_LLM_WIKI_SCHEMA_CONTRACT,
+  parseSchemaContractFromMarkdown,
+} from "./schema-contract"
 import { templates } from "./templates"
 
 describe("wiki templates", () => {
@@ -24,6 +28,22 @@ describe("wiki templates", () => {
       expect(template.schema, template.id).toContain(".llm-wiki/audit.jsonl")
       expect(template.schema, template.id).toContain("previewing the frontmatter diff")
       expect(template.schema, template.id).toContain("scope: private")
+    }
+  })
+
+  it("include parseable machine-readable schema contracts", () => {
+    for (const template of templates) {
+      expect(template.schema, template.id).toContain("```yaml llm-wiki-schema-contract")
+      const parsed = parseSchemaContractFromMarkdown(template.schema)
+      expect(parsed.found, template.id).toBe(true)
+      expect(parsed.warnings, template.id).toEqual([])
+      expect(parsed.contract).toMatchObject({
+        version: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.version,
+        name: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.name,
+        relations: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.relations,
+        quality: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.quality,
+        memoryOps: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.memoryOps,
+      })
     }
   })
 

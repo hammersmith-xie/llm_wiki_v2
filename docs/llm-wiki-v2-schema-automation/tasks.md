@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 2 / 17
+**总体进度**: 🚧 3 / 17
 
 ---
 
@@ -35,7 +35,7 @@ graph TD
 
 **目标**: 把自然语言 schema 升级为可解析、可测试、可迁移的机器可读 contract，同时保持 Markdown schema 可读。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 定义 schema contract 类型和默认 contract
 
@@ -92,7 +92,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 更新 TS templates 和 Rust project scaffold
+### Task 1.3 ✅ 更新 TS templates 和 Rust project scaffold
 
 **描述**: 在 `src/lib/templates.ts` 和 `src-tauri/src/commands/project.rs` 生成的新项目 schema 中加入机器可读 contract block，并补 parity 测试。
 
@@ -108,16 +108,16 @@ graph TD
 - `src-tauri/src/commands/project.rs` tests
 
 **验收**:
-- [ ] 所有 scenario template 的 `schema.md` 包含 contract block。
-- [ ] Rust create_project 生成的 `schema.md` 包含同等 contract block。
-- [ ] TS/Rust contract 字段 parity 有测试。
-- [ ] 仍保留人类可读 schema 段落。
+- [x] 所有 scenario template 的 `schema.md` 包含 contract block。
+- [x] Rust create_project 生成的 `schema.md` 包含同等 contract block。
+- [x] TS/Rust contract 字段 parity 有测试。
+- [x] 仍保留人类可读 schema 段落。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Rust 侧没有直接复用 TS 常量的机制，只能内联同等 YAML block；通过 TS/Rust 测试断言关键字段降低后续漂移风险。
+- 🔧 **最终实现逻辑**: 在 `schema-contract.ts` 导出 `DEFAULT_LLM_WIKI_SCHEMA_CONTRACT_BLOCK`，`templates.ts` 将其插入所有 scenario schema；`project.rs` 在默认 `schema.md` 中加入同等 machine-readable block；`templates.test.ts` 解析每个 template 的 contract 并断言默认关系、质量和 Memory Ops 契约，Rust project test 断言 scaffold 包含 contract 关键字段。
+- 🎯 **关键决策**: contract block 放在人类可读 `## Frontmatter` 规则之前，作为 app-readable 契约和后续 drift checker 的输入；保留原自然语言 schema，不把 `schema.md` 变成 JSON-only。
 
 ---
 
@@ -598,12 +598,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Schema Contract Foundation | 2 | 3 | 🚧 |
+| M1 | Schema Contract Foundation | 3 | 3 | ✅ |
 | M2 | Drift and Quality Core | 0 | 4 | ⏳ |
 | M3 | Event and Digest Core | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **2** | **17** | **🚧** |
+| **总计** | | **3** | **17** | **🚧** |
 
 ---
 
