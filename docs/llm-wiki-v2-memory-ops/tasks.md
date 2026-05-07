@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 10 / 18
+**总体进度**: 🚧 11 / 18
 
 ---
 
@@ -239,7 +239,7 @@ graph TD
 
 **目标**: 让探索成果可被建议保存，同时用评估保护检索质量。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ Score crystallization candidates
 
@@ -325,7 +325,7 @@ graph TD
 
 ---
 
-### Task 3.4 ⏳ Tune lexical scoring only if evaluation exposes gaps
+### Task 3.4 ✅ Tune lexical scoring only if evaluation exposes gaps
 
 **描述**: 如果 T3.3 暴露明显 lexical 排名问题，做不新增依赖的 BM25-like scoring 或局部 scoring 修正；否则记录无需改动。
 
@@ -346,9 +346,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: T3.3 新增的 evaluation 没有暴露 exact title、alias、graph-only、vector-only 或 CJK 场景的 lexical 排名缺口。
+- 🔧 **最终实现逻辑**: 未改 `src/lib/search.ts`；用 `search-eval`、`search-rrf` 和 fixture scenarios 作为本轮调参门禁。
+- 🎯 **关键决策**: 暂不引入 BM25-like scoring，避免在无失败样本时改动稳定检索权重；后续只有 evaluation 出现可复现 gap 再调。
 
 ---
 
@@ -568,10 +568,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
-| M3 | Crystallization Candidates + Search Evaluation | 3 | 4 | 🚧 |
+| M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **10** | **18** | **🚧** |
+| **总计** | | **11** | **18** | **🚧** |
 
 ---
 
