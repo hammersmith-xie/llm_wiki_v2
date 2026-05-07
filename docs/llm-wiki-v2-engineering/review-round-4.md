@@ -1,5 +1,15 @@
 # Governance / Tauri Permission Review
 
+## Phase 4 Findings
+
+### Fixed: search audit stored result snippets without page-scope context
+
+- **Severity**: Important
+- **Files**: `src/lib/audit-events.ts`, `src/lib/audit-events.test.ts`
+- **Issue**: `appendSearchAuditEvent` wrote search result `snippet` values into `.llm-wiki/audit.jsonl`. Search results do not carry source page `scope`, so audit writing could not reliably distinguish shared pages from private pages.
+- **Impact**: A private or sensitive wiki page could leak a body excerpt into the append-only audit log.
+- **Fix**: Search audit result summaries now omit snippets and keep only path, title, rank, score, and retrieval stream names. This preserves retrieval traceability without storing body excerpts.
+
 ## Scope
 
 - `src-tauri/capabilities/default.json`
@@ -62,3 +72,9 @@ This covers proxy config, provider endpoint mistakes, and request/audit reasons 
 - `node -e "JSON.parse(require('fs').readFileSync('src-tauri/capabilities/default.json','utf8')); JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8'))"`
 - `npm run typecheck`
 - `npm run test:mocks`
+
+Phase 4 verification after the snippet audit fix:
+
+- `npx vitest run src/lib/audit-events.test.ts src/lib/audit-redaction.test.ts src/lib/memory-ops-executor.test.ts` - 3 test files passed, 16 tests passed.
+- `npm run typecheck` - passed.
+- `node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('src-tauri/capabilities/default.json','utf8')); JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8')); console.log('json ok')"` - printed `json ok`.

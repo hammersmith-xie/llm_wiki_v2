@@ -36,7 +36,6 @@ export async function appendSearchAuditEvent(
   const resultSummaries = input.results.slice(0, 10).map((result, index) => ({
     path: toProjectRelativePath(projectPath, result.path),
     title: result.title,
-    snippet: result.snippet,
     rank: index + 1,
     score: result.score,
     streams: streamsForSearchResult(result),

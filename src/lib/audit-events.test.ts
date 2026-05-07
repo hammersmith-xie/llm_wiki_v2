@@ -63,7 +63,6 @@ describe("audit event helpers", () => {
           {
             path: "wiki/concepts/hybrid-search.md",
             title: "Hybrid Search",
-            snippet: "BM25 + vector + graph",
             rank: 1,
             score: 0.034,
             streams: ["token", "bm25", "vector", "graph"],
