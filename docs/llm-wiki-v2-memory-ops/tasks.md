@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 1 / 18
+**总体进度**: 🚧 2 / 18
 
 ---
 
@@ -65,7 +65,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ Add secret redaction utilities
+### Task 1.2 ✅ Add secret redaction utilities
 
 **描述**: 新建 secret redaction helper，覆盖 API key/token/password/private block 等常见敏感模式，用于 audit 和 suggestions。
 
@@ -86,9 +86,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Secret 可能出现在普通字符串、嵌套 audit payload、敏感字段名或 `<private>` block 中，单一正则不够覆盖。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/audit-redaction.ts`，提供 `redactSensitiveText` 和递归 `redactAuditEvent`；`appendAuditEvent` 在写入 JSONL 前统一调用 redaction。
+- 🎯 **关键决策**: `scope: private` 的 audit event 默认收缩成最小摘要，只保留 action、路径、reasons 和 redaction 标记，避免正文或 before/after 泄露。
 
 ---
 
@@ -566,12 +566,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Audit + Governance Foundation | 1 | 3 | 🚧 |
+| M1 | Audit + Governance Foundation | 2 | 3 | 🚧 |
 | M2 | Patrol Runner + Lifecycle Rules | 0 | 4 | ⏳ |
 | M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **1** | **18** | **🚧** |
+| **总计** | | **2** | **18** | **🚧** |
 
 ---
 

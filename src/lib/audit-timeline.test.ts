@@ -46,6 +46,23 @@ describe("audit timeline", () => {
     )
   })
 
+  it("redacts secrets before appending an audit event", async () => {
+    mockReadFile.mockResolvedValueOnce("")
+
+    await appendAuditEvent("/project", {
+      timestamp: "2026-05-07T00:00:00.000Z",
+      action: "memory_ops.apply",
+      targetPath: "wiki/concepts/a.md",
+      after: {
+        body: "OPENAI_API_KEY=sk-proj-abc1234567890secret",
+      },
+    })
+
+    const written = String(mockWriteFile.mock.calls[0][1])
+    expect(written).not.toContain("sk-proj-abc")
+    expect(written).toContain("OPENAI_API_KEY=[REDACTED:secret]")
+  })
+
   it("reads valid events while reporting bad jsonl lines", async () => {
     mockReadFile.mockResolvedValueOnce([
       "{\"timestamp\":\"2026-05-07T00:00:00.000Z\",\"action\":\"ingest.write\",\"pagePath\":\"wiki/a.md\"}",

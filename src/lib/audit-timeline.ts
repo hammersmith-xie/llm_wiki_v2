@@ -1,4 +1,5 @@
 import { createDirectory, readFile, writeFile } from "@/commands/fs"
+import { redactAuditEvent } from "@/lib/audit-redaction"
 import { normalizePath } from "@/lib/path-utils"
 
 export interface AuditEvent {
@@ -122,10 +123,10 @@ export function filterAuditEvents(
 }
 
 function normalizeAuditEvent(event: AuditEvent): AuditEvent {
-  return {
+  return redactAuditEvent({
     timestamp: event.timestamp ?? new Date().toISOString(),
     ...event,
-  }
+  })
 }
 
 function isAuditEvent(value: unknown): value is AuditEvent {
