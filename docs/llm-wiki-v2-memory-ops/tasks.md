@@ -497,7 +497,7 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**: 最终审核后又补了 `append_file` / `appendFile` append-only audit 通道，验证记录需要同步更新，避免还写成“未改 Rust、未跑 cargo test”。
+- 🐛 **遇到的问题**: 最终审核后又补了 `append_file` / `appendFile` append-only audit 通道，验证记录需要同步更新，避免保留过期的验证范围说明。
 - 🔧 **最终实现逻辑**: 新鲜跑通 `npm run typecheck`、10 个 focused Vitest 文件 42 条用例、`npm run test:mocks` 全量 mock suite 88 个测试文件 1119 条用例，以及完整 `cargo test --manifest-path src-tauri/Cargo.toml`。
 - 🎯 **关键决策**: Rust 后端改动只限 FS append command 和 command registry；不改变既有 read/write/list/delete 行为。
 
@@ -527,7 +527,7 @@ graph TD
 
 - 🐛 **遇到的问题**: README 需要补充 Rohit v2 落地能力，但不能把本期实现描述成外部 memory server、多 agent mesh 或自动破坏性维护系统。
 - 🔧 **最终实现逻辑**: 更新 README/README_CN 的功能亮点、Memory Ops 专节、快速开始和项目结构；新增 `completion-audit.md`，把每个需求点映射到实现文件和测试证据。
-- 🎯 **关键决策**: 文档明确 “Markdown 仍是 durable source of truth，Memory Ops 是本地派生维护层”；未运行 `cargo test` 的原因也写入 completion audit。
+- 🎯 **关键决策**: 文档明确 “Markdown 仍是 durable source of truth，Memory Ops 是本地派生维护层”；completion audit 记录最新 typecheck、Vitest 和 cargo test 证据。
 
 ---
 
