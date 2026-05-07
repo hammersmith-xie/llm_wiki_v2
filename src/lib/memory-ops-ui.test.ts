@@ -5,6 +5,8 @@ import type { MemoryOpsPatrolReport } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
   auditEventTargetLabel,
+  categorizeMemoryOpsSuggestion,
+  groupMemoryOpsSuggestionsByCategory,
   metadataPatchDiffLabel,
   selectRecentAuditEvents,
   summarizeMemoryOpsPatrolReport,
@@ -21,19 +23,53 @@ describe("memory ops ui helpers", () => {
         chatMessageCount: 5,
         auditEventCount: 3,
         auditWarningCount: 1,
+        stalePageCount: 2,
+        riskPageCount: 1,
         suggestionCount: 0,
       },
       warnings: [{ line: 4, message: "bad json", raw: "{" }],
-      suggestions: [],
+      suggestions: [
+        suggestion("a", "metadata-update", { title: "Mark stale page" }),
+        suggestion("b", "relation-cleanup", { title: "Review unresolved typed relation" }),
+        suggestion("c", "review-action", { title: "Review contradiction pair" }),
+        suggestion("d", "metadata-update", { title: "Archive stale unsupported page" }),
+      ],
     } as unknown as MemoryOpsPatrolReport
 
-    expect(summarizeMemoryOpsPatrolReport(report)).toEqual({
+    expect(summarizeMemoryOpsPatrolReport(report)).toMatchObject({
       pageCount: 8,
       suggestionCount: 0,
       warningCount: 1,
       auditEventCount: 3,
-      emptySuggestions: true,
+      stalePageCount: 2,
+      riskPageCount: 1,
+      emptySuggestions: false,
+      categoryCounts: {
+        lifecycle: 1,
+        relation: 1,
+        contradiction: 1,
+        retention: 1,
+      },
     })
+  })
+
+  it("groups suggestions by maintenance category in stable display order", () => {
+    const suggestions = [
+      suggestion("search", "metadata-update", { title: "Search health degraded" }),
+      suggestion("relation", "relation-cleanup"),
+      suggestion("archive", "metadata-update", { title: "Archive stale unsupported page" }),
+      suggestion("contradiction", "review-action", { title: "Review contradiction pair" }),
+      suggestion("lifecycle", "metadata-update", { title: "Refresh last confirmed date" }),
+    ]
+
+    expect(categorizeMemoryOpsSuggestion(suggestions[0])).toBe("search-health")
+    expect(groupMemoryOpsSuggestionsByCategory(suggestions).map((group) => group.category)).toEqual([
+      "lifecycle",
+      "relation",
+      "contradiction",
+      "retention",
+      "search-health",
+    ])
   })
 
   it("selects recent audit events in reverse chronological order", () => {
@@ -95,7 +131,11 @@ describe("memory ops ui helpers", () => {
   })
 })
 
-function suggestion(id: string, kind: MemoryOpsSuggestion["kind"]): MemoryOpsSuggestion {
+function suggestion(
+  id: string,
+  kind: MemoryOpsSuggestion["kind"],
+  overrides: Partial<MemoryOpsSuggestion> = {},
+): MemoryOpsSuggestion {
   return {
     id,
     kind,
@@ -104,5 +144,6 @@ function suggestion(id: string, kind: MemoryOpsSuggestion["kind"]): MemoryOpsSug
     title: id,
     detail: id,
     reasons: [],
+    ...overrides,
   }
 }

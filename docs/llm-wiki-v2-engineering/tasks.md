@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 11 / 16
+**总体进度**: 🚧 12 / 16
 
 ---
 
@@ -358,9 +358,9 @@ graph TD
 
 **目标**: 将新规则和报告交给用户可理解、可操作地处理，并完成安全边界检查。
 **依赖**: M2, M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ 升级 Memory Ops patrol report 和 UI
+### Task 4.1 ✅ 升级 Memory Ops patrol report 和 UI
 
 **描述**: 扩展 Maintenance 面板，分类展示 lifecycle、relation、contradiction、retention、search health，并支持新 explanation。
 
@@ -377,16 +377,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 新 suggestion 分类展示清楚。
-- [ ] empty/loading/error/applied/ignored 状态完整。
-- [ ] 中英文文案齐全。
-- [ ] 长文本不破坏布局。
+- [x] 新 suggestion 分类展示清楚。
+- [x] empty/loading/error/applied/ignored 状态完整。
+- [x] 中英文文案齐全。
+- [x] 长文本不破坏布局。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 原 Maintenance 面板把所有 suggestions 平铺展示，无法区分 lifecycle、relation、contradiction、retention/search health，也没有显示 ignored/applied 后的已处理数量。
+- 🔧 **最终实现逻辑**: 在 `memory-ops-ui.ts` 增加 suggestion category/group helper 和 categoryCounts summary；Patrol UI 按分类展示建议，补 stale/risk/handled 统计、relation evidence、reasons 列表和长路径 `break-all` 处理；同步补中英文文案。
+- 🎯 **关键决策**: 分类只放在展示层派生，不改 `MemoryOpsSuggestion` core contract；这样 T4.1 不影响规则生成和 executor 的安全边界。
 
 ---
 
@@ -515,9 +515,9 @@ graph TD
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
 | M3 | Retrieval and Evaluation | 4 | 4 | ✅ |
-| M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
+| M4 | Maintenance UI and Governance | 1 | 3 | 🚧 |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **11** | **16** | **🚧** |
+| **总计** | | **12** | **16** | **🚧** |
 
 ---
 
