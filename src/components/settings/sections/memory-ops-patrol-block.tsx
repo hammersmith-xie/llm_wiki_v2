@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import type { AuditEvent } from "@/lib/audit-timeline"
 import type { MetadataPatchPlan } from "@/lib/memory-ops-executor"
-import type { MemoryOpsPatrolReport } from "@/lib/memory-ops"
+import type { MemoryOpsMaintenanceStatus, MemoryOpsPatrolReport } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
   auditEventTargetLabel,
@@ -31,6 +31,7 @@ interface MemoryOpsPatrolBlockProps {
   running: boolean
   error: string | null
   report: MemoryOpsPatrolReport | null
+  maintenanceStatus: MemoryOpsMaintenanceStatus | null
   recentAuditEvents: readonly AuditEvent[]
   ignoredSuggestionIds: ReadonlySet<string>
   appliedSuggestionIds: ReadonlySet<string>
@@ -49,6 +50,7 @@ export function MemoryOpsPatrolBlock({
   running,
   error,
   report,
+  maintenanceStatus,
   recentAuditEvents,
   ignoredSuggestionIds,
   appliedSuggestionIds,
@@ -101,6 +103,22 @@ export function MemoryOpsPatrolBlock({
           </>
         )}
       </Button>
+
+      {maintenanceStatus && (
+        <div className="rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs text-muted-foreground">
+          {maintenanceStatus.needsPatrol ? (
+            t("settings.sections.maintenance.memoryOps.patrolDue", {
+              n: maintenanceStatus.eventCountSincePatrol,
+            })
+          ) : maintenanceStatus.lastPatrolAt ? (
+            t("settings.sections.maintenance.memoryOps.patrolClean", {
+              time: new Date(maintenanceStatus.lastPatrolAt).toLocaleString(),
+            })
+          ) : (
+            t("settings.sections.maintenance.memoryOps.patrolNever")
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="flex items-start gap-1.5 rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400">

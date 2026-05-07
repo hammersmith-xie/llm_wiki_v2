@@ -17,6 +17,11 @@ import {
   extractTypedGraphFromPages,
   type TypedGraph,
 } from "@/lib/typed-graph"
+import {
+  loadMemoryOpsMaintenanceState,
+  saveMemoryOpsMaintenanceState,
+  type PersistedMemoryOpsMaintenanceState,
+} from "@/lib/project-store"
 import { useActivityStore } from "@/stores/activity-store"
 import type { Conversation, DisplayMessage } from "@/stores/chat-store"
 import type { ReviewItem } from "@/stores/review-store"
@@ -114,6 +119,25 @@ export interface MemoryOpsPatrolReport {
   stats: MemoryOpsPatrolStats
 }
 
+export interface MemoryOpsMaintenanceEventOptions {
+  now?: number
+  eventThreshold?: number
+  reminderCooldownMs?: number
+}
+
+export interface MemoryOpsMaintenanceEventResult {
+  state: PersistedMemoryOpsMaintenanceState
+  reminderDue: boolean
+}
+
+export interface MemoryOpsMaintenanceStatus extends PersistedMemoryOpsMaintenanceState {
+  needsPatrol: boolean
+  reminderDue: boolean
+}
+
+const MEMORY_OPS_EVENT_THRESHOLD = 5
+const MEMORY_OPS_REMINDER_COOLDOWN_MS = 30 * 60 * 1000
+
 export async function scanMemoryOpsProject(
   projectPath: string,
   options: { dataVersion?: number; today?: string } = {},
@@ -208,6 +232,10 @@ export async function runMemoryOpsPatrol(
         `${report.stats.suggestionCount} suggestions generated`,
       ],
     })
+    await saveMaintenanceStateSafely(
+      snapshot.projectPath,
+      completeMemoryOpsPatrolCooldown(undefined, Date.now()),
+    )
 
     useActivityStore.getState().updateItem(activityId, {
       status: "done",
@@ -222,6 +250,102 @@ export async function runMemoryOpsPatrol(
     })
     throw err
   }
+}
+
+export function reduceMemoryOpsMaintenanceEvent(
+  state: PersistedMemoryOpsMaintenanceState | null | undefined,
+  options: MemoryOpsMaintenanceEventOptions = {},
+): MemoryOpsMaintenanceEventResult {
+  const now = options.now ?? Date.now()
+  const eventThreshold = options.eventThreshold ?? MEMORY_OPS_EVENT_THRESHOLD
+  const reminderCooldownMs = options.reminderCooldownMs ?? MEMORY_OPS_REMINDER_COOLDOWN_MS
+  const current = normalizeMaintenanceState(state)
+  const eventCountSincePatrol = current.eventCountSincePatrol + 1
+  const dirtySince = current.dirtySince ?? now
+  const reminderCooldownElapsed =
+    current.lastReminderAt === undefined || now - current.lastReminderAt >= reminderCooldownMs
+  const reminderDue = eventCountSincePatrol >= eventThreshold && reminderCooldownElapsed
+
+  return {
+    state: {
+      ...current,
+      dirtySince,
+      eventCountSincePatrol,
+      lastReminderAt: reminderDue ? now : current.lastReminderAt,
+    },
+    reminderDue,
+  }
+}
+
+export function completeMemoryOpsPatrolCooldown(
+  _state: PersistedMemoryOpsMaintenanceState | null | undefined,
+  now = Date.now(),
+): PersistedMemoryOpsMaintenanceState {
+  return {
+    lastPatrolAt: now,
+    eventCountSincePatrol: 0,
+  }
+}
+
+export function summarizeMemoryOpsMaintenanceStatus(
+  state: PersistedMemoryOpsMaintenanceState | null | undefined,
+  options: MemoryOpsMaintenanceEventOptions = {},
+): MemoryOpsMaintenanceStatus {
+  const now = options.now ?? Date.now()
+  const reminderCooldownMs = options.reminderCooldownMs ?? MEMORY_OPS_REMINDER_COOLDOWN_MS
+  const eventThreshold = options.eventThreshold ?? MEMORY_OPS_EVENT_THRESHOLD
+  const current = normalizeMaintenanceState(state)
+  const reminderCooldownElapsed =
+    current.lastReminderAt === undefined || now - current.lastReminderAt >= reminderCooldownMs
+  return {
+    ...current,
+    needsPatrol: current.eventCountSincePatrol > 0,
+    reminderDue: current.eventCountSincePatrol >= eventThreshold && reminderCooldownElapsed,
+  }
+}
+
+export async function getMemoryOpsMaintenanceStatus(
+  projectPath: string,
+): Promise<MemoryOpsMaintenanceStatus> {
+  const state = await loadMemoryOpsMaintenanceState(projectPath).catch(() => null)
+  return summarizeMemoryOpsMaintenanceStatus(state)
+}
+
+export async function recordMemoryOpsMaintenanceEvent(
+  projectPath: string,
+  action: string,
+  options: MemoryOpsMaintenanceEventOptions = {},
+): Promise<void> {
+  const state = await loadMemoryOpsMaintenanceState(projectPath).catch(() => null)
+  const next = reduceMemoryOpsMaintenanceEvent(state, options)
+  await saveMaintenanceStateSafely(projectPath, next.state)
+  if (!next.reminderDue) return
+
+  useActivityStore.getState().addItem({
+    type: "maintenance",
+    title: "Memory Ops patrol recommended",
+    status: "done",
+    detail: `${next.state.eventCountSincePatrol} wiki activity events since the last patrol. Latest event: ${action}.`,
+    filesWritten: [],
+  })
+}
+
+function normalizeMaintenanceState(
+  state: PersistedMemoryOpsMaintenanceState | null | undefined,
+): PersistedMemoryOpsMaintenanceState {
+  return {
+    lastPatrolAt: state?.lastPatrolAt,
+    dirtySince: state?.dirtySince,
+    eventCountSincePatrol: state?.eventCountSincePatrol ?? 0,
+    lastReminderAt: state?.lastReminderAt,
+  }
+}
+
+async function saveMaintenanceStateSafely(
+  projectPath: string,
+  state: PersistedMemoryOpsMaintenanceState,
+): Promise<void> {
+  await saveMemoryOpsMaintenanceState(projectPath, state).catch(() => {})
 }
 
 const RECENT_USE_ACTION_PREFIXES = ["query.", "search.", "chat."]

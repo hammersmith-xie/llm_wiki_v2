@@ -8,13 +8,19 @@ import {
 vi.mock("@/lib/audit-timeline", () => ({
   appendAuditEvent: vi.fn(async () => {}),
 }))
+vi.mock("@/lib/memory-ops", () => ({
+  recordMemoryOpsMaintenanceEvent: vi.fn(async () => {}),
+}))
 
 import { appendAuditEvent } from "@/lib/audit-timeline"
+import { recordMemoryOpsMaintenanceEvent } from "@/lib/memory-ops"
 
 const mockAppendAuditEvent = vi.mocked(appendAuditEvent)
+const mockRecordMaintenanceEvent = vi.mocked(recordMemoryOpsMaintenanceEvent)
 
 beforeEach(() => {
   mockAppendAuditEvent.mockReset()
+  mockRecordMaintenanceEvent.mockReset()
 })
 
 describe("audit event helpers", () => {
@@ -58,12 +64,14 @@ describe("audit event helpers", () => {
       after: { resultCount: 1 },
       reasons: ["explicit user search", "1 result returned"],
     })
+    expect(mockRecordMaintenanceEvent).toHaveBeenCalledWith("/project", "search.run")
   })
 
   it("does not write audit events for empty searches", async () => {
     await appendSearchAuditEvent("/project", { query: "   ", results: [] })
 
     expect(mockAppendAuditEvent).not.toHaveBeenCalled()
+    expect(mockRecordMaintenanceEvent).not.toHaveBeenCalled()
   })
 
   it("records answered wiki queries with cited page summaries", async () => {
@@ -90,6 +98,7 @@ describe("audit event helpers", () => {
       after: { referencedPageCount: 2 },
       reasons: ["2 wiki pages referenced"],
     })
+    expect(mockRecordMaintenanceEvent).toHaveBeenCalledWith("/project", "query.answer")
   })
 
   it("records review resolutions with source and affected page context", async () => {
@@ -125,5 +134,6 @@ describe("audit event helpers", () => {
       },
       reasons: ["Check stale claim", "Marked stale"],
     })
+    expect(mockRecordMaintenanceEvent).toHaveBeenCalledWith("/project", "review.resolve")
   })
 })

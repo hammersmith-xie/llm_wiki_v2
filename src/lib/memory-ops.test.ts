@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { FileNode } from "@/types/wiki"
-import { scanMemoryOpsProject, runMemoryOpsPatrol } from "./memory-ops"
+import {
+  completeMemoryOpsPatrolCooldown,
+  reduceMemoryOpsMaintenanceEvent,
+  scanMemoryOpsProject,
+  runMemoryOpsPatrol,
+} from "./memory-ops"
 import { useActivityStore } from "@/stores/activity-store"
 
 vi.mock("@/commands/fs", () => ({
@@ -29,6 +34,52 @@ beforeEach(() => {
 })
 
 describe("memory ops project scanner", () => {
+  it("marks frequent events dirty without triggering a patrol scan", () => {
+    const first = reduceMemoryOpsMaintenanceEvent(undefined, {
+      now: 1_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })
+    const second = reduceMemoryOpsMaintenanceEvent(first.state, {
+      now: 2_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })
+    const third = reduceMemoryOpsMaintenanceEvent(second.state, {
+      now: 3_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })
+    const fourth = reduceMemoryOpsMaintenanceEvent(third.state, {
+      now: 4_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })
+
+    expect(first.reminderDue).toBe(false)
+    expect(second.reminderDue).toBe(false)
+    expect(third.reminderDue).toBe(true)
+    expect(fourth.reminderDue).toBe(false)
+    expect(fourth.state).toMatchObject({
+      dirtySince: 1_000,
+      eventCountSincePatrol: 4,
+      lastReminderAt: 3_000,
+    })
+  })
+
+  it("resets maintenance cooldown state after a patrol completes", () => {
+    const completed = completeMemoryOpsPatrolCooldown({
+      dirtySince: 1_000,
+      eventCountSincePatrol: 7,
+      lastReminderAt: 3_000,
+    }, 5_000)
+
+    expect(completed).toEqual({
+      lastPatrolAt: 5_000,
+      eventCountSincePatrol: 0,
+    })
+  })
+
   it("returns a stable empty snapshot when wiki and state files are missing", async () => {
     mockListDirectory.mockRejectedValue(new Error("missing wiki"))
     mockReadFile.mockRejectedValue(new Error("missing state"))

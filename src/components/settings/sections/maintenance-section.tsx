@@ -30,7 +30,9 @@ import {
   type MetadataPatchPlan,
 } from "@/lib/memory-ops-executor"
 import {
+  getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
+  type MemoryOpsMaintenanceStatus,
   type MemoryOpsPatrolReport,
 } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
@@ -81,6 +83,7 @@ export function MaintenanceSection() {
   const [patrolRunning, setPatrolRunning] = useState(false)
   const [patrolError, setPatrolError] = useState<string | null>(null)
   const [patrolReport, setPatrolReport] = useState<MemoryOpsPatrolReport | null>(null)
+  const [maintenanceStatus, setMaintenanceStatus] = useState<MemoryOpsMaintenanceStatus | null>(null)
   const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
     () => new Set(),
@@ -119,6 +122,18 @@ export function MaintenanceSection() {
     void refreshRecentAudit()
   }, [refreshRecentAudit, dataVersion])
 
+  const refreshMaintenanceStatus = useCallback(async () => {
+    if (!project) {
+      setMaintenanceStatus(null)
+      return
+    }
+    setMaintenanceStatus(await getMemoryOpsMaintenanceStatus(project.path))
+  }, [project])
+
+  useEffect(() => {
+    void refreshMaintenanceStatus()
+  }, [refreshMaintenanceStatus, dataVersion])
+
   const handlePatrol = useCallback(async () => {
     if (!project) return
     setPatrolRunning(true)
@@ -131,13 +146,14 @@ export function MaintenanceSection() {
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
+      await refreshMaintenanceStatus()
       await refreshRecentAudit()
     } catch (err) {
       setPatrolError(err instanceof Error ? err.message : String(err))
     } finally {
       setPatrolRunning(false)
     }
-  }, [project, dataVersion, refreshRecentAudit])
+  }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
 
   const handlePreviewSuggestion = useCallback(
     async (suggestion: MemoryOpsSuggestion) => {
@@ -409,6 +425,7 @@ export function MaintenanceSection() {
         running={patrolRunning}
         error={patrolError}
         report={patrolReport}
+        maintenanceStatus={maintenanceStatus}
         recentAuditEvents={recentAuditEvents}
         ignoredSuggestionIds={ignoredSuggestionIds}
         appliedSuggestionIds={appliedSuggestionIds}

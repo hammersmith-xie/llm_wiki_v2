@@ -1,6 +1,7 @@
 import { load } from "@tauri-apps/plugin-store"
 import type { WikiProject } from "@/types/wiki"
 import type { LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProviderConfigs, ProxyConfig } from "@/stores/wiki-store"
+import { normalizePath } from "@/lib/path-utils"
 
 const STORE_NAME = "app-state.json"
 const RECENT_PROJECTS_KEY = "recentProjects"
@@ -212,4 +213,45 @@ export async function loadUpdateCheckState(): Promise<PersistedUpdateCheckState 
   return (
     (await store.get<PersistedUpdateCheckState>(UPDATE_CHECK_STATE_KEY)) ?? null
   )
+}
+
+// ── Memory Ops maintenance cooldown persistence ───────────────────────────
+
+const MEMORY_OPS_MAINTENANCE_STATE_KEY = "memoryOpsMaintenanceStateByProject"
+
+export interface PersistedMemoryOpsMaintenanceState {
+  lastPatrolAt?: number
+  dirtySince?: number
+  eventCountSincePatrol: number
+  lastReminderAt?: number
+}
+
+export async function loadMemoryOpsMaintenanceState(
+  projectPath: string,
+): Promise<PersistedMemoryOpsMaintenanceState | null> {
+  const store = await getStore()
+  const byProject =
+    (await store.get<Record<string, PersistedMemoryOpsMaintenanceState>>(
+      MEMORY_OPS_MAINTENANCE_STATE_KEY,
+    )) ?? {}
+  return byProject[projectStateKey(projectPath)] ?? null
+}
+
+export async function saveMemoryOpsMaintenanceState(
+  projectPath: string,
+  state: PersistedMemoryOpsMaintenanceState,
+): Promise<void> {
+  const store = await getStore()
+  const byProject =
+    (await store.get<Record<string, PersistedMemoryOpsMaintenanceState>>(
+      MEMORY_OPS_MAINTENANCE_STATE_KEY,
+    )) ?? {}
+  await store.set(MEMORY_OPS_MAINTENANCE_STATE_KEY, {
+    ...byProject,
+    [projectStateKey(projectPath)]: state,
+  })
+}
+
+function projectStateKey(projectPath: string): string {
+  return normalizePath(projectPath).replace(/\/$/, "")
 }

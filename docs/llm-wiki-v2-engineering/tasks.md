@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 13 / 16
+**总体进度**: 🚧 14 / 16
 
 ---
 
@@ -243,7 +243,7 @@ graph TD
 
 **目标**: 把 search 从 substring/token score 升级为可评估、可解释、可回归的三流 retrieval。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ 抽象 lexical retriever adapter
 
@@ -418,7 +418,7 @@ graph TD
 
 ---
 
-### Task 4.3 ⏳ Event-driven maintenance cooldown
+### Task 4.3 ✅ Event-driven maintenance cooldown
 
 **描述**: 增加轻量 hook/cooldown，避免每个事件触发全量 scan，同时能提示用户何时该 patrol。
 
@@ -434,15 +434,15 @@ graph TD
 - `src/components/settings/sections/maintenance-section.tsx`
 
 **验收**:
-- [ ] 高频 query 不触发重扫描。
-- [ ] cooldown 可测试。
-- [ ] 用户能看到 patrol reminder 或 recent status。
+- [x] 高频 query 不触发重扫描。
+- [x] cooldown 可测试。
+- [x] 用户能看到 patrol reminder 或 recent status。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 维护巡检原来只有手动入口，query/search/review 等高频事件没有轻量 dirty 状态，也没有避免全量 scan 的 cooldown 模型。
+- 🔧 **最终实现逻辑**: 增加 Memory Ops maintenance cooldown reducer、project-store 持久化、audit event 侧的轻量事件记录；达到阈值只写 activity reminder，不触发 `runMemoryOpsPatrol`；手动 patrol 成功后重置 dirty 计数，Maintenance 面板显示 recent status。
+- 🎯 **关键决策**: 事件驱动只负责提示，不自动扫描；避免高频 query/search 把全量 `scanMemoryOpsProject` 变成后台常驻负载。
 
 ---
 
@@ -515,9 +515,9 @@ graph TD
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
 | M3 | Retrieval and Evaluation | 4 | 4 | ✅ |
-| M4 | Maintenance UI and Governance | 2 | 3 | 🚧 |
+| M4 | Maintenance UI and Governance | 3 | 3 | ✅ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **13** | **16** | **🚧** |
+| **总计** | | **14** | **16** | **🚧** |
 
 ---
 

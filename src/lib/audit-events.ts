@@ -1,4 +1,5 @@
 import { appendAuditEvent } from "@/lib/audit-timeline"
+import { recordMemoryOpsMaintenanceEvent } from "@/lib/memory-ops"
 import { normalizePath } from "@/lib/path-utils"
 import type { SearchResult } from "@/lib/search"
 import type { ReviewItem } from "@/stores/review-store"
@@ -54,6 +55,7 @@ export async function appendSearchAuditEvent(
     after: { resultCount: input.results.length },
     reasons: ["explicit user search", `${input.results.length} result${input.results.length === 1 ? "" : "s"} returned`],
   })
+  await recordMemoryOpsMaintenanceEvent(projectPath, "search.run")
 }
 
 export async function appendQueryAuditEvent(
@@ -81,6 +83,7 @@ export async function appendQueryAuditEvent(
     after: { referencedPageCount: results.length },
     reasons: [`${results.length} wiki page${results.length === 1 ? "" : "s"} referenced`],
   })
+  await recordMemoryOpsMaintenanceEvent(projectPath, "query.answer")
 }
 
 export async function appendReviewResolveAuditEvent(
@@ -108,6 +111,7 @@ export async function appendReviewResolveAuditEvent(
     },
     reasons: [input.item.title, input.resolvedAction],
   })
+  await recordMemoryOpsMaintenanceEvent(projectPath, "review.resolve")
 }
 
 function streamsForSearchResult(result: SearchResult): string[] {
