@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   DEFAULT_LLM_WIKI_SCHEMA_CONTRACT,
   normalizeSchemaContract,
+  parseSchemaContractFromMarkdown,
   schemaContractFieldMap,
   schemaContractPageTypeMap,
 } from "./schema-contract"
@@ -158,5 +159,77 @@ describe("schema contract", () => {
       "quality.requiredSections must be a non-empty string array; using defaults.",
       "memoryOps.sourceOfTruth must be markdown; using markdown.",
     ]))
+  })
+
+  it("parses a YAML contract block from schema markdown", () => {
+    const result = parseSchemaContractFromMarkdown(`# Wiki Schema
+
+\`\`\`yaml llm-wiki-schema-contract
+version: 1
+name: custom-research
+pageTypes:
+  - type: finding
+    directory: wiki/findings
+frontmatterFields:
+  - name: evidence_strength
+    kind: enum
+    values: [low, medium, high]
+quality:
+  minQualityScore: 0.7
+\`\`\`
+`)
+
+    expect(result.found).toBe(true)
+    expect(result.format).toBe("yaml")
+    expect(result.warnings).toEqual([])
+    expect(result.contract.name).toBe("custom-research")
+    expect(schemaContractPageTypeMap(result.contract).get("finding")?.directory).toBe("wiki/findings/")
+    expect(schemaContractFieldMap(result.contract).get("evidence_strength")).toMatchObject({
+      kind: "enum",
+      values: ["low", "medium", "high"],
+    })
+    expect(result.contract.quality.minQualityScore).toBe(0.7)
+  })
+
+  it("parses a JSON contract block from schema markdown", () => {
+    const result = parseSchemaContractFromMarkdown(`Before
+
+\`\`\`json llm-wiki-schema-contract
+{
+  "version": 1,
+  "name": "json-contract",
+  "quality": {
+    "minConfidence": 0.6
+  }
+}
+\`\`\`
+`)
+
+    expect(result.found).toBe(true)
+    expect(result.format).toBe("json")
+    expect(result.contract.name).toBe("json-contract")
+    expect(result.contract.quality.minConfidence).toBe(0.6)
+  })
+
+  it("falls back when schema markdown has no contract block", () => {
+    const result = parseSchemaContractFromMarkdown("# Wiki Schema\n\nNo machine contract yet.")
+
+    expect(result.found).toBe(false)
+    expect(result.contract).toBe(DEFAULT_LLM_WIKI_SCHEMA_CONTRACT)
+    expect(result.warnings).toEqual([
+      "Schema contract block not found; using defaults.",
+    ])
+  })
+
+  it("falls back when schema contract block cannot be parsed", () => {
+    const result = parseSchemaContractFromMarkdown(`\`\`\`json llm-wiki-schema-contract
+{ bad json
+\`\`\`
+`)
+
+    expect(result.found).toBe(true)
+    expect(result.format).toBe("json")
+    expect(result.contract).toBe(DEFAULT_LLM_WIKI_SCHEMA_CONTRACT)
+    expect(result.warnings[0]).toContain("Schema contract JSON could not be parsed; using defaults:")
   })
 })

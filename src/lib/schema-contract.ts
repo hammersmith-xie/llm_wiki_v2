@@ -3,6 +3,7 @@ import {
   WIKI_TYPED_RELATION_ARRAY_FIELDS,
   type WikiTypedRelationArrayField,
 } from "@/lib/wiki-frontmatter-fields"
+import yaml from "js-yaml"
 
 export const LLM_WIKI_SCHEMA_CONTRACT_VERSION = 1
 
@@ -62,6 +63,11 @@ export interface LlmWikiSchemaContract {
 export interface SchemaContractNormalizeResult {
   contract: LlmWikiSchemaContract
   warnings: string[]
+}
+
+export interface SchemaContractParseResult extends SchemaContractNormalizeResult {
+  found: boolean
+  format?: "json" | "yaml"
 }
 
 export const LLM_WIKI_PAGE_TYPES: LlmWikiSchemaPageType[] = [
@@ -285,6 +291,42 @@ export function normalizeSchemaContract(input: unknown): SchemaContractNormalize
   }
 }
 
+export function parseSchemaContractFromMarkdown(
+  schemaMarkdown: string,
+): SchemaContractParseResult {
+  const block = findSchemaContractBlock(schemaMarkdown)
+  if (!block) {
+    return {
+      contract: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT,
+      found: false,
+      warnings: ["Schema contract block not found; using defaults."],
+    }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = block.format === "json"
+      ? JSON.parse(block.body)
+      : yaml.load(block.body, { schema: yaml.JSON_SCHEMA })
+  } catch (err) {
+    return {
+      contract: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT,
+      found: true,
+      format: block.format,
+      warnings: [
+        `Schema contract ${block.format.toUpperCase()} could not be parsed; using defaults: ${err instanceof Error ? err.message : String(err)}`,
+      ],
+    }
+  }
+
+  const normalized = normalizeSchemaContract(parsed)
+  return {
+    ...normalized,
+    found: true,
+    format: block.format,
+  }
+}
+
 export function schemaContractFieldMap(
   contract: LlmWikiSchemaContract = DEFAULT_LLM_WIKI_SCHEMA_CONTRACT,
 ): Map<string, LlmWikiFrontmatterFieldContract> {
@@ -295,6 +337,20 @@ export function schemaContractPageTypeMap(
   contract: LlmWikiSchemaContract = DEFAULT_LLM_WIKI_SCHEMA_CONTRACT,
 ): Map<string, LlmWikiSchemaPageType> {
   return new Map(contract.pageTypes.map((pageType) => [pageType.type, pageType]))
+}
+
+function findSchemaContractBlock(
+  markdown: string,
+): { body: string; format: "json" | "yaml" } | null {
+  const fenceRe = /^```([^\n`]*)\n([\s\S]*?)^```\s*$/gm
+  let match: RegExpExecArray | null
+  while ((match = fenceRe.exec(markdown)) !== null) {
+    const info = match[1].trim().toLowerCase()
+    if (!info.includes("llm-wiki-schema-contract")) continue
+    const format = info.includes("json") ? "json" : "yaml"
+    return { body: match[2].trim(), format }
+  }
+  return null
 }
 
 function normalizeVersion(

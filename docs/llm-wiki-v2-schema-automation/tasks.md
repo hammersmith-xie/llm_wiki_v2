@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 1 / 17
+**总体进度**: 🚧 2 / 17
 
 ---
 
@@ -64,7 +64,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 解析 schema.md contract block
+### Task 1.2 ✅ 解析 schema.md contract block
 
 **描述**: 支持从 `schema.md` 中读取 fenced YAML/JSON contract block；无 contract 或坏 contract 时 fallback 默认 contract。
 
@@ -79,16 +79,16 @@ graph TD
 - `src/commands/fs.ts`
 
 **验收**:
-- [ ] 能解析 ` ```yaml llm-wiki-schema-contract` 或等价标记。
-- [ ] 旧项目无 contract 返回默认 contract + warning。
-- [ ] YAML/JSON 解析失败不抛到 UI。
-- [ ] contract load 不读取网络、不执行代码。
+- [x] 能解析 ` ```yaml llm-wiki-schema-contract` 或等价标记。
+- [x] 旧项目无 contract 返回默认 contract + warning。
+- [x] YAML/JSON 解析失败不抛到 UI。
+- [x] contract load 不读取网络、不执行代码。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无测试失败；任务文档提到 `src/commands/fs.ts`，但本步更适合保持纯解析，文件读取留给后续 scan helper。
+- 🔧 **最终实现逻辑**: 在 `src/lib/schema-contract.ts` 增加 `parseSchemaContractFromMarkdown` 和 fenced block locator，支持 `yaml llm-wiki-schema-contract` 与 `json llm-wiki-schema-contract`，解析后复用 `normalizeSchemaContract`；坏 block 或缺失 block 返回默认 contract 和 warnings。
+- 🎯 **关键决策**: contract block 解析不读取文件、不访问网络、不执行代码；JSON/YAML parse failure 被收敛为 fallback warning，避免损坏的 `schema.md` 阻塞项目打开或后续 scan。
 
 ---
 
@@ -598,12 +598,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Schema Contract Foundation | 1 | 3 | 🚧 |
+| M1 | Schema Contract Foundation | 2 | 3 | 🚧 |
 | M2 | Drift and Quality Core | 0 | 4 | ⏳ |
 | M3 | Event and Digest Core | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **1** | **17** | **🚧** |
+| **总计** | | **2** | **17** | **🚧** |
 
 ---
 
