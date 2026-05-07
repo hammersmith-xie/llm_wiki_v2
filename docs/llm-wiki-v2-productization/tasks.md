@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 15 / 16
+**总体进度**: ✅ 16 / 16
 
 ---
 
@@ -497,9 +497,9 @@ graph TD
 
 **目标**: 按中型项目执行 5 轮最终审核并补齐发现。
 **依赖**: M4
-**状态**: ⏳
+**状态**: ✅
 
-### Task 5.1 ⏳ 五轮最终审核与 completion audit
+### Task 5.1 ✅ 五轮最终审核与 completion audit
 
 **描述**: 产出 5 轮审核报告，并修复或记录发现：功能、类型/静态分析、性能、安全、UX/a11y。
 
@@ -517,15 +517,15 @@ graph TD
 - `docs/llm-wiki-v2-productization/completion-audit.md`
 
 **验收**:
-- [ ] 5 轮 review reports 存在。
-- [ ] completion audit 对照 F1-F7。
-- [ ] 未完成项明确标为非目标或 follow-up。
+- [x] 5 轮 review reports 存在。
+- [x] completion audit 对照 F1-F7。
+- [x] 未完成项明确标为非目标或 follow-up。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 最终审核中发现并修复了 Timeline time range UI、policy update audit、Search Health expected/actual 展示、Workbench tabs、Timeline filter early-stop、依赖 audit 漏洞和 tab ARIA 语义问题。
+- 🔧 **最终实现逻辑**: 产出 5 轮 review reports 和 `completion-audit.md`；每轮发现均已修复并单独 commit/push。
+- 🎯 **关键决策**: 将自定义 Search Health scenarios、rollback conflict 强制覆盖、任意历史 audit event 自动重建 rollback 明确列为 follow-up/非目标。
 
 ---
 
@@ -537,8 +537,8 @@ graph TD
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
 | M3 | Maintenance Workbench UI | 6 | 6 | ✅ |
 | M4 | Documentation and Verification | 2 | 2 | ✅ |
-| M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **15** | **16** | **🚧** |
+| M5 | Final Review | 1 | 1 | ✅ |
+| **总计** | | **16** | **16** | **✅** |
 
 ---
 
@@ -554,8 +554,8 @@ graph TD
 
 | Round | 视角 | 状态 | 报告 |
 |-------|------|------|------|
-| 1 | 功能 | ⏳ | - |
-| 2 | 类型 & 静态分析 | ⏳ | - |
-| 3 | 性能 | ⏳ | - |
-| 4 | 安全 | ⏳ | - |
-| 5 | UX & a11y | ⏳ | - |
+| 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
+| 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
+| 3 | 性能 | ✅ | [review-round-3.md](./review-round-3.md) |
+| 4 | 安全 | ✅ | [review-round-4.md](./review-round-4.md) |
+| 5 | UX & a11y | ✅ | [review-round-5.md](./review-round-5.md) |
