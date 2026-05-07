@@ -50,19 +50,20 @@ export function filterAuditTimelineEvents(
   const toTime = filter.dateTo ? Date.parse(filter.dateTo) : Number.POSITIVE_INFINITY
   const limit = Math.max(0, filter.limit ?? events.length)
 
-  return sortAuditTimelineEvents(events)
-    .filter((event) => {
-      if (filter.category && filter.category !== "all" && eventCategory(event) !== filter.category) return false
-      if (normalizedAction && !normalizeText(event.action).includes(normalizedAction)) return false
-      if (normalizedPath && !eventPathValues(event).some((path) => normalizePath(path).includes(normalizedPath))) return false
-      if (normalizedScope && normalizeText(event.scope).trim() !== normalizedScope) return false
-      if (normalizedStatus && normalizeText(eventStatus(event)).trim() !== normalizedStatus) return false
-      if (normalizedText && !normalizeText(JSON.stringify(event)).includes(normalizedText)) return false
-      const time = timestampValue(event.timestamp)
-      if (time < fromTime || time > toTime) return false
-      return true
-    })
-    .slice(0, limit)
+  const results: AuditEvent[] = []
+  for (const event of sortAuditTimelineEvents(events)) {
+    if (filter.category && filter.category !== "all" && eventCategory(event) !== filter.category) continue
+    if (normalizedAction && !normalizeText(event.action).includes(normalizedAction)) continue
+    if (normalizedPath && !eventPathValues(event).some((path) => normalizePath(path).includes(normalizedPath))) continue
+    if (normalizedScope && normalizeText(event.scope).trim() !== normalizedScope) continue
+    if (normalizedStatus && normalizeText(eventStatus(event)).trim() !== normalizedStatus) continue
+    if (normalizedText && !normalizeText(JSON.stringify(event)).includes(normalizedText)) continue
+    const time = timestampValue(event.timestamp)
+    if (time < fromTime || time > toTime) continue
+    results.push(event)
+    if (results.length >= limit) break
+  }
+  return results
 }
 
 export function summarizeAuditTimelineEvent(event: AuditEvent): AuditTimelineEventSummary {
