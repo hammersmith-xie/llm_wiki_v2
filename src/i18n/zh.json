@@ -222,6 +222,7 @@
         "noProject": "请先打开一个项目。",
         "noLlm": "请先配置 LLM 服务。",
         "workbenchTabs": {
+          "label": "维护工作台分区",
           "patrol": "巡检",
           "timeline": "时间线",
           "policy": "策略",

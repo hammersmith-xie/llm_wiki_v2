@@ -222,6 +222,7 @@
         "noProject": "Open a project first.",
         "noLlm": "Configure an LLM provider first.",
         "workbenchTabs": {
+          "label": "Maintenance workbench sections",
           "patrol": "Patrol",
           "timeline": "Timeline",
           "policy": "Policy",
