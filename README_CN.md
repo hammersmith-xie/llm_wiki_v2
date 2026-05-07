@@ -37,7 +37,7 @@
 - **图谱洞察** — 惊奇连接与知识空白检测，一键触发 Deep Research
 - **向量语义搜索** — 可选的 embedding 检索，基于 LanceDB，支持任意 OpenAI 兼容端点
 - **LLM Wiki v2 本地切片** — 页面级生命周期、置信度信号、typed relationship 字段、图谱感知 RRF 检索、BM25 证据和 append-only audit
-- **Memory Ops 巡检** — 本地维护扫描 stale metadata、broken typed relations、安全 metadata 操作、crystallization candidates 和 cooldown 提醒
+- **Memory Ops 工作台** — 本地维护巡检、批量 metadata 治理、回滚、审计时间线浏览、生命周期策略调参和搜索健康度检查
 - **持久化摄入队列** — 串行处理，崩溃恢复，取消/重试，进度可视化
 - **文件夹导入** — 递归导入保留目录结构，文件夹路径作为 LLM 分类上下文
 - **深度研究** — LLM 智能生成搜索主题，多查询网络搜索，研究结果自动摄入 Wiki
@@ -250,9 +250,14 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **Cooldown 提醒** —— query、search、review 活动可以标记“需要巡检”，但应用不会在后台自动跑全量扫描
 - **生命周期建议** —— stale、low-confidence、superseded、archivable、promotion candidate 以 metadata suggestion 呈现，不自动重写页面
 - **关系清理建议** —— broken typed relationship target 和 dangling supersession link 独立提示，不和普通 wikilink lint 混在一起
+- **批量 metadata 治理** —— 可选择支持 metadata patch 的建议，批量 preview、批量 apply、批量 ignore；单项失败不会阻断其他项，并写入批量摘要 audit
 - **Dry-run metadata 操作** —— 用户先看 frontmatter 字段级 diff，再确认执行 metadata-only 修改；ignore/apply 决策都会进入 audit，private scope 细节会被脱敏
+- **近期 patch 回滚** —— 最近应用的 metadata patch 提供 rollback preview/apply；冲突默认只能预览不能覆盖，rollback 结果也会进入 audit
+- **审计时间线浏览器** —— Settings -> Maintenance 支持按 category、action、path、scope、status、文本过滤 audit，显示坏行警告，并可打开目标文件
+- **生命周期策略面板** —— 可按项目调整 half-life、低置信度、promotion 和归档阈值；保存后会使用新策略重新巡检
+- **搜索健康度面板** —— 可运行内置 smoke eval，覆盖精确标题、alias/keyword、中文、typed graph 和冲突降权检索，并查看失败详情和最新 `.llm-wiki/search-eval-report.json`
 - **Crystallization candidates** —— 高价值 chat、research、review 输出会低干扰提示 Save to Wiki，用户确认后复用现有 `wiki/queries/` 写入路径
-- **检索评估 harness** —— 用确定性场景覆盖 exact title、alias、typed relation、graph-only、vector-only 和 CJK query，再决定是否调检索权重
+- **检索评估 harness** —— 可通过测试或 Search Health 面板运行确定性场景，再决定是否调检索权重
 
 ### 10. 思维链 / 推理过程展示
 
@@ -421,7 +426,7 @@ npm run tauri build    # 生产构建
 5. 使用 **聊天** 查询你的知识库
 6. 浏览 **知识图谱** 查看关联
 7. 查看 **审核** 处理需要你关注的项目
-8. 定期运行 **Lint** 和 **Settings -> Maintenance -> Memory Ops patrol** 维护 Wiki 健康度
+8. 使用 **Settings -> Maintenance** 运行 Memory Ops 巡检、批量处理安全 metadata 建议、查看审计历史、调整生命周期策略并运行搜索健康度检查
 
 ## 项目结构
 
@@ -444,7 +449,8 @@ my-wiki/
 │   └── comparisons/        # 并列对比
 ├── .obsidian/              # Obsidian 仓库配置（自动生成）
 └── .llm-wiki/              # 应用配置、聊天历史、审核项
-    └── audit.jsonl         # append-only 脱敏审计时间线
+    ├── audit.jsonl         # append-only 脱敏审计时间线
+    └── search-eval-report.json # 最新搜索健康度报告
 ```
 
 ## Star History

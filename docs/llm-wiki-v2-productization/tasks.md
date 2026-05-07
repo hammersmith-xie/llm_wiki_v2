@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 13 / 16
+**总体进度**: 🚧 14 / 16
 
 ---
 
@@ -432,9 +432,9 @@ graph TD
 
 **目标**: 补齐文档、测试和整体验证。
 **依赖**: M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ 更新文档与 i18n parity
+### Task 4.1 ✅ 更新文档与 i18n parity
 
 **描述**: 更新 README/README_CN 或相关 docs，说明新的 Memory Ops 产品化治理闭环，并保证 i18n parity。
 
@@ -457,9 +457,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README 原 Memory Ops 段落只描述 patrol/audit 基础能力，未覆盖新增的 batch、rollback、timeline、policy 和 search health 工作台能力。
+- 🔧 **最终实现逻辑**: 更新 README/README_CN 的 Features、Memory Ops 章节、Quick Start 和项目结构，说明 Settings -> Maintenance 中的批量治理、近期 patch rollback、Audit Timeline Explorer、Lifecycle Policy 和 Search Health report。
+- 🎯 **关键决策**: 文档只声明内置 smoke eval 和“近期 patch”回滚，不承诺自定义 scenario 编辑器或从任意历史 audit event 自动重建 rollback。
 
 ---
 
@@ -536,9 +536,9 @@ graph TD
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
 | M3 | Maintenance Workbench UI | 6 | 6 | ✅ |
-| M4 | Documentation and Verification | 0 | 2 | ⏳ |
+| M4 | Documentation and Verification | 1 | 2 | 🚧 |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **13** | **16** | **🚧** |
+| **总计** | | **14** | **16** | **🚧** |
 
 ---
 

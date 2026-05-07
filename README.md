@@ -37,7 +37,7 @@
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
 - **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, and append-only audit events
-- **Memory Ops Patrol** — local maintenance scan for stale metadata, broken typed relations, safe metadata actions, crystallization candidates, and cooldown reminders
+- **Memory Ops Workbench** — local maintenance patrol, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, and search health checks
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
@@ -250,9 +250,14 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Cooldown reminders** — query, search, and review activity can mark that a patrol is due, but the app does not auto-run a full scan in the background
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
 - **Relation cleanup suggestions** — broken typed relationship targets and dangling supersession links are flagged separately from ordinary wikilink lint
+- **Batch metadata governance** — selectable metadata suggestions support batch preview, batch apply, and batch ignore with per-item failure isolation and batch summary audit events
 - **Dry-run metadata actions** — users preview field-level frontmatter diffs before applying metadata-only changes; ignore/apply decisions are audited and private scope details are redacted
+- **Rollback for recent patches** — recently applied metadata patches expose rollback preview/apply controls; conflicts are preview-only by default and rollback results are audited
+- **Audit Timeline Explorer** — Settings -> Maintenance includes filterable audit browsing by category, action, path, scope, status, and text, including bad-line warnings and target-file opening
+- **Lifecycle Policy panel** — local half-life, low-confidence, promotion, and archive thresholds can be tuned per project; saving reruns patrol with the new policy
+- **Search Health panel** — users can run built-in smoke evals for exact title, alias/keyword, CJK, typed graph, and contradiction-deprioritize retrieval, then inspect failures and the latest `.llm-wiki/search-eval-report.json`
 - **Crystallization candidates** — high-value chat, research, and review outputs can prompt a low-noise Save to Wiki suggestion and reuse the existing `wiki/queries/` write path after confirmation
-- **Search evaluation harness** — deterministic scenarios cover exact title, alias, typed relation, graph-only, vector-only, and CJK query behavior before retrieval tuning
+- **Search evaluation harness** — deterministic scenarios can be run from tests or the Search Health panel before retrieval tuning
 
 ### 10. Thinking / Reasoning Display
 
@@ -421,7 +426,7 @@ npm run tauri build    # Production build
 5. Use **Chat** to query your knowledge base
 6. Browse the **Knowledge Graph** to see connections
 7. Check **Review** for items needing your attention
-8. Run **Lint** and **Settings -> Maintenance -> Memory Ops patrol** periodically to maintain wiki health
+8. Use **Settings -> Maintenance** to run Memory Ops patrol, batch safe metadata suggestions, review audit history, tune lifecycle policy, and run Search Health
 
 ## Project Structure
 
@@ -444,7 +449,8 @@ my-wiki/
 │   └── comparisons/        # Side-by-side comparisons
 ├── .obsidian/              # Obsidian vault config (auto-generated)
 └── .llm-wiki/              # App config, chat history, review items
-    └── audit.jsonl         # Append-only redacted audit timeline
+    ├── audit.jsonl         # Append-only redacted audit timeline
+    └── search-eval-report.json # Latest Search Health report
 ```
 
 ## Star History
