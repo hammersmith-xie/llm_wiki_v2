@@ -27,12 +27,12 @@
 
 ## 验证证据
 
-T5.1 新鲜执行结果：
+最新验证执行结果：
 
 - `npm run typecheck`：退出码 0。
 - Focused Vitest：10 个测试文件、42 条用例通过。
 - `npm run test:mocks`：88 个测试文件、1119 条用例通过。
-- `cargo test`：未运行；本期提交未修改 `src-tauri/` 或 Rust 文件。
+- `cargo test --manifest-path src-tauri/Cargo.toml`：56 passed，1 ignored。
 
 Focused 命令覆盖：
 

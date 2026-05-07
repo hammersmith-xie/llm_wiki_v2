@@ -497,9 +497,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**: 本轮没有触碰 `src-tauri/` 或 Rust 文件，验证范围需要明确记录，避免把未运行的 `cargo test` 误报为已跑。
-- 🔧 **最终实现逻辑**: 新鲜跑通 `npm run typecheck`、10 个 focused Vitest 文件 42 条用例，以及 `npm run test:mocks` 全量 mock suite 88 个测试文件 1119 条用例。
-- 🎯 **关键决策**: 按任务条件跳过 `cargo test`；本期改动集中在 TypeScript、React UI、i18n 和 docs，Rust 后端未变更。
+- 🐛 **遇到的问题**: 最终审核后又补了 `append_file` / `appendFile` append-only audit 通道，验证记录需要同步更新，避免还写成“未改 Rust、未跑 cargo test”。
+- 🔧 **最终实现逻辑**: 新鲜跑通 `npm run typecheck`、10 个 focused Vitest 文件 42 条用例、`npm run test:mocks` 全量 mock suite 88 个测试文件 1119 条用例，以及完整 `cargo test --manifest-path src-tauri/Cargo.toml`。
+- 🎯 **关键决策**: Rust 后端改动只限 FS append command 和 command registry；不改变既有 read/write/list/delete 行为。
 
 ---
 
@@ -558,7 +558,7 @@ graph TD
 
 - 🐛 **遇到的问题**: 安全/隐私轮发现 metadata operation 可接受项目外绝对路径和 `../` parent traversal；UX/a11y 轮发现新增 candidate 提示仍有硬编码英文和 Review 图标按钮缺少 accessible label。
 - 🔧 **最终实现逻辑**: 写入 5 轮审核报告；新增 `resolveMemoryOpsTargetPath` 并让 executor/preview/open target 统一做 project-root 边界校验；补齐 Chat/Review candidate i18n key 和 Review dismiss aria label。
-- 🎯 **关键决策**: 性能轮把 audit JSONL read+rewrite 记录为后续 FS append primitive 的低风险优化项，本期不引入 Rust FS command 变更。
+- 🎯 **关键决策**: 性能轮发现的 audit JSONL read+rewrite 低风险优化项已在后续用 Rust/TS append-only FS command 处理；仍不引入外部服务或独立 audit store。
 
 ---
 
