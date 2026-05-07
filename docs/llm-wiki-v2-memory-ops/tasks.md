@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 7 / 18
+**总体进度**: 🚧 8 / 18
 
 ---
 
@@ -239,9 +239,9 @@ graph TD
 
 **目标**: 让探索成果可被建议保存，同时用评估保护检索质量。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ Score crystallization candidates
+### Task 3.1 ✅ Score crystallization candidates
 
 **描述**: 新建 `crystallize-candidates.ts`，对 chat/research/review 输出进行确定性评分和去重，生成 Save to Wiki 建议。
 
@@ -264,9 +264,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Research task 目前没有像 chat/review 一样持久化到 `.llm-wiki/`，且 Deep Research 成功后通常已经自动保存，因此候选收集要支持 live task 输入并跳过 `savedPath`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/crystallize-candidates.ts`，提供 deterministic scorer、content dedupe key、chat/research/review collector；评分基于长度、显式引用、结构、结论和 decision/recommendation 信号。
+- 🎯 **关键决策**: T3.1 只生成候选，不写 Wiki、不接 UI；无引用或内容过短直接跳过，已保存/已 dedupe 的内容不重复提示。
 
 ---
 
@@ -568,10 +568,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
-| M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
+| M3 | Crystallization Candidates + Search Evaluation | 1 | 4 | 🚧 |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **7** | **18** | **🚧** |
+| **总计** | | **8** | **18** | **🚧** |
 
 ---
 
