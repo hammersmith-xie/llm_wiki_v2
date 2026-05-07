@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 4 / 17
+**总体进度**: 🚧 5 / 17
 
 ---
 
@@ -157,7 +157,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 实现 deterministic page quality evaluator
+### Task 2.2 ✅ 实现 deterministic page quality evaluator
 
 **描述**: 新建 `page-quality.ts`，按 structure/citation/relation/retrieval/governance 维度评分并给出 reasons。
 
@@ -173,16 +173,16 @@ graph TD
 - `src/lib/lifecycle.ts`
 
 **验收**:
-- [ ] 无标题结构、无 sources、无 typed/link relation、private governance、weak retrieval evidence 场景有 tests。
-- [ ] quality_score 建议可解释且固定输入稳定。
-- [ ] 不调用 LLM。
-- [ ] 不覆盖更高用户显式评分，除非 contract 配置允许。
+- [x] 无标题结构、无 sources、无 typed/link relation、private governance、weak retrieval evidence 场景有 tests。
+- [x] quality_score 建议可解释且固定输入稳定。
+- [x] 不调用 LLM。
+- [x] 不覆盖更高用户显式评分，除非 contract 配置允许。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无测试失败；评分规则需要避免被理解成事实正确性判断，因此测试和命名都围绕 wiki artifact health。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/page-quality.ts`，按 structure、citation、relation、retrieval、governance 五个维度计算确定性分数，聚合为 `quality_score` 建议；新增 `src/lib/page-quality.test.ts` 覆盖高质量页面、短无来源页面、高显式分不覆盖、private scope 和 batch 评估。
+- 🎯 **关键决策**: `quality_score` 只衡量页面结构健康、引用/关系/检索种子和治理 metadata 完整度；不调用 LLM，也不判断正文事实真假。若已有显式 `quality_score` 高于新分数，则不降级覆盖。
 
 ---
 
@@ -599,11 +599,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
-| M2 | Drift and Quality Core | 1 | 4 | 🚧 |
+| M2 | Drift and Quality Core | 2 | 4 | 🚧 |
 | M3 | Event and Digest Core | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **4** | **17** | **🚧** |
+| **总计** | | **5** | **17** | **🚧** |
 
 ---
 
