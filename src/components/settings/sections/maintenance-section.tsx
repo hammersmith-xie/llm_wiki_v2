@@ -27,14 +27,23 @@ import {
   buildMemoryOpsPatchAuditEvent,
   createMetadataPatchPlan,
   resolveMemoryOpsTargetPath,
+  type ApplyOperationResult,
+  type MetadataPatchOperation,
   type MetadataPatchPlan,
 } from "@/lib/memory-ops-executor"
 import {
   applyMemoryOpsBatch,
   ignoreMemoryOpsBatch,
   previewMemoryOpsBatch,
+  type MemoryOpsBatchItem,
   type MemoryOpsBatchResult,
 } from "@/lib/memory-ops-batch"
+import {
+  applyMemoryOpsRollback,
+  previewMemoryOpsRollback,
+  type MemoryOpsRollbackPreview,
+  type MemoryOpsRollbackResult,
+} from "@/lib/memory-ops-rollback"
 import {
   getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
@@ -105,6 +114,14 @@ export function MaintenanceSection() {
   )
   const [batchWorking, setBatchWorking] = useState(false)
   const [lastBatchResult, setLastBatchResult] = useState<MemoryOpsBatchResult | null>(null)
+  const [rollbackPreviews, setRollbackPreviews] = useState<
+    Record<string, MemoryOpsRollbackPreview>
+  >({})
+  const [rollbackResults, setRollbackResults] = useState<
+    Record<string, MemoryOpsRollbackResult>
+  >({})
+  const [rollbackErrors, setRollbackErrors] = useState<Record<string, string>>({})
+  const [workingRollbackId, setWorkingRollbackId] = useState<string | null>(null)
 
   // Poll the queue at 1Hz so the UI reflects pending → processing →
   // failed transitions and cross-window queue activity (e.g. a merge
@@ -156,6 +173,10 @@ export function MaintenanceSection() {
     setSuggestionErrors({})
     setSelectedSuggestionIds(new Set())
     setLastBatchResult(null)
+    setRollbackPreviews({})
+    setRollbackResults({})
+    setRollbackErrors({})
+    setWorkingRollbackId(null)
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
@@ -233,6 +254,14 @@ export function MaintenanceSection() {
           throw new Error(first?.error ?? "Memory Ops operation failed")
         }
 
+        setLastBatchResult(buildSingleApplyBatchResult(
+          suggestion,
+          suggestion.proposedOperation,
+          first,
+        ))
+        setRollbackPreviews({})
+        setRollbackResults({})
+        setRollbackErrors({})
         const tree = await listDirectory(project.path)
         setFileTree(tree)
         bumpDataVersion()
@@ -309,6 +338,9 @@ export function MaintenanceSection() {
     if (suggestions.length === 0) return
     setBatchWorking(true)
     setSuggestionErrors({})
+    setRollbackPreviews({})
+    setRollbackResults({})
+    setRollbackErrors({})
     try {
       const result = await previewMemoryOpsBatch(project.path, suggestions)
       setLastBatchResult(result)
@@ -332,6 +364,9 @@ export function MaintenanceSection() {
     if (suggestions.length === 0) return
     setBatchWorking(true)
     setSuggestionErrors({})
+    setRollbackPreviews({})
+    setRollbackResults({})
+    setRollbackErrors({})
     try {
       const result = await applyMemoryOpsBatch(project.path, suggestions)
       setLastBatchResult(result)
@@ -371,6 +406,9 @@ export function MaintenanceSection() {
     if (suggestions.length === 0) return
     setBatchWorking(true)
     setSuggestionErrors({})
+    setRollbackPreviews({})
+    setRollbackResults({})
+    setRollbackErrors({})
     try {
       const result = await ignoreMemoryOpsBatch(project.path, suggestions)
       setLastBatchResult(result)
@@ -396,6 +434,76 @@ export function MaintenanceSection() {
       setBatchWorking(false)
     }
   }, [project, selectedMemoryOpsSuggestions, refreshRecentAudit])
+
+  const handlePreviewRollback = useCallback(
+    async (item: MemoryOpsBatchItem) => {
+      if (!project || !item.plan) return
+      setWorkingRollbackId(item.suggestionId)
+      setRollbackErrors((prev) => withoutKey(prev, item.suggestionId))
+      setRollbackResults((prev) => withoutKey(prev, item.suggestionId))
+      try {
+        const preview = await previewMemoryOpsRollback(project.path, {
+          rollback: item.plan.rollback,
+          expectedContent: item.plan.afterContent,
+          suggestionId: item.suggestionId,
+          suggestionTitle: item.suggestionTitle,
+          scope: item.plan.scope,
+        })
+        setRollbackPreviews((prev) => ({ ...prev, [item.suggestionId]: preview }))
+      } catch (err) {
+        setRollbackErrors((prev) => ({
+          ...prev,
+          [item.suggestionId]: err instanceof Error ? err.message : String(err),
+        }))
+      } finally {
+        setWorkingRollbackId(null)
+      }
+    },
+    [project],
+  )
+
+  const handleApplyRollback = useCallback(
+    async (item: MemoryOpsBatchItem) => {
+      if (!project || !item.plan) return
+      setWorkingRollbackId(item.suggestionId)
+      setRollbackErrors((prev) => withoutKey(prev, item.suggestionId))
+      try {
+        const result = await applyMemoryOpsRollback(project.path, {
+          rollback: item.plan.rollback,
+          expectedContent: item.plan.afterContent,
+          suggestionId: item.suggestionId,
+          suggestionTitle: item.suggestionTitle,
+          scope: item.plan.scope,
+        })
+        setRollbackResults((prev) => ({ ...prev, [item.suggestionId]: result }))
+        if (result.preview) {
+          setRollbackPreviews((prev) => ({ ...prev, [item.suggestionId]: result.preview! }))
+        }
+        if (result.status !== "restored") {
+          setRollbackErrors((prev) => ({
+            ...prev,
+            [item.suggestionId]: result.error ?? result.reason,
+          }))
+          await refreshRecentAudit()
+          return
+        }
+
+        const tree = await listDirectory(project.path)
+        setFileTree(tree)
+        bumpDataVersion()
+        setAppliedSuggestionIds((prev) => withoutSetValue(prev, item.suggestionId))
+        await refreshRecentAudit()
+      } catch (err) {
+        setRollbackErrors((prev) => ({
+          ...prev,
+          [item.suggestionId]: err instanceof Error ? err.message : String(err),
+        }))
+      } finally {
+        setWorkingRollbackId(null)
+      }
+    },
+    [project, setFileTree, bumpDataVersion, refreshRecentAudit],
+  )
 
   const handleOpenSuggestion = useCallback(
     async (suggestion: MemoryOpsSuggestion) => {
@@ -572,12 +680,18 @@ export function MaintenanceSection() {
         selectedSuggestionIds={selectedSuggestionIds}
         batchWorking={batchWorking}
         lastBatchResult={lastBatchResult}
+        rollbackPreviews={rollbackPreviews}
+        rollbackResults={rollbackResults}
+        rollbackErrors={rollbackErrors}
+        workingRollbackId={workingRollbackId}
         onToggleSelection={handleToggleSuggestionSelection}
         onSelectCategory={handleSelectSuggestionCategory}
         onClearSelection={handleClearSuggestionSelection}
         onBatchPreview={() => void handleBatchPreview()}
         onBatchApply={() => void handleBatchApply()}
         onBatchIgnore={() => void handleBatchIgnore()}
+        onPreviewRollback={(item) => void handlePreviewRollback(item)}
+        onApplyRollback={(item) => void handleApplyRollback(item)}
         onRun={() => void handlePatrol()}
         onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
         onApply={(suggestion) => void handleApplySuggestion(suggestion)}
@@ -712,6 +826,36 @@ function withoutSetValue<T>(set: ReadonlySet<T>, value: T): Set<T> {
   const next = new Set(set)
   next.delete(value)
   return next
+}
+
+function buildSingleApplyBatchResult(
+  suggestion: MemoryOpsSuggestion,
+  operation: MetadataPatchOperation,
+  result: ApplyOperationResult,
+): MemoryOpsBatchResult {
+  return {
+    ok: result.status !== "error",
+    summary: {
+      selectedCount: 1,
+      eligibleCount: 1,
+      plannedCount: 0,
+      appliedCount: result.status === "applied" ? 1 : 0,
+      unchangedCount: result.status === "unchanged" ? 1 : 0,
+      ignoredCount: 0,
+      ineligibleCount: 0,
+      errorCount: result.status === "error" ? 1 : 0,
+    },
+    items: [{
+      suggestionId: suggestion.id,
+      suggestionTitle: suggestion.title,
+      targetPath: operation.targetPath,
+      status: result.status,
+      operation,
+      applyResult: result,
+      plan: result.plan,
+      error: result.error,
+    }],
+  }
 }
 
 interface QueueOrphanListProps {

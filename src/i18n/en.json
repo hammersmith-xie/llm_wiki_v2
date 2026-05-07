@@ -278,7 +278,16 @@
           "batchUnchanged": "{{n}} unchanged",
           "batchIgnored": "{{n}} ignored",
           "batchErrors": "{{n}} errors",
-          "batchAuditFailed": "Batch audit failed: {{error}}"
+          "batchAuditFailed": "Batch audit failed: {{error}}",
+          "rollbackTitle": "Rollback",
+          "previewRollback": "Preview rollback",
+          "applyRollback": "Apply rollback",
+          "rollbackSafe": "Safe to restore. Current content matches the applied patch.",
+          "rollbackConflict": "Conflict: this page changed after the patch.",
+          "rollbackMissing": "Rollback target is missing.",
+          "rollbackError": "Rollback preview failed.",
+          "rollbackRestored": "Rollback restored the previous content.",
+          "rollbackAuditFailed": "Rollback audit failed: {{error}}"
         },
         "dedup": {
           "title": "Detect duplicate entities / concepts",

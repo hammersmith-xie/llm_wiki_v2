@@ -1,15 +1,21 @@
 import { useTranslation } from "react-i18next"
 import {
+  AlertTriangle,
   CheckCircle2,
   History,
   Loader2,
+  RotateCcw,
   ShieldCheck,
   XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { AuditEvent } from "@/lib/audit-timeline"
 import type { MetadataPatchPlan } from "@/lib/memory-ops-executor"
-import type { MemoryOpsBatchResult } from "@/lib/memory-ops-batch"
+import type { MemoryOpsBatchItem, MemoryOpsBatchResult } from "@/lib/memory-ops-batch"
+import type {
+  MemoryOpsRollbackPreview,
+  MemoryOpsRollbackResult,
+} from "@/lib/memory-ops-rollback"
 import type { MemoryOpsMaintenanceStatus, MemoryOpsPatrolReport } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
@@ -35,6 +41,10 @@ interface MemoryOpsPatrolBlockProps {
   selectedSuggestionIds: ReadonlySet<string>
   batchWorking: boolean
   lastBatchResult: MemoryOpsBatchResult | null
+  rollbackPreviews: Record<string, MemoryOpsRollbackPreview>
+  rollbackResults: Record<string, MemoryOpsRollbackResult>
+  rollbackErrors: Record<string, string>
+  workingRollbackId: string | null
   onRun: () => void
   onToggleSelection: (suggestion: MemoryOpsSuggestion) => void
   onSelectCategory: (suggestions: MemoryOpsSuggestion[]) => void
@@ -42,6 +52,8 @@ interface MemoryOpsPatrolBlockProps {
   onBatchPreview: () => void
   onBatchApply: () => void
   onBatchIgnore: () => void
+  onPreviewRollback: (item: MemoryOpsBatchItem) => void
+  onApplyRollback: (item: MemoryOpsBatchItem) => void
   onPreview: (suggestion: MemoryOpsSuggestion) => void
   onApply: (suggestion: MemoryOpsSuggestion) => void
   onIgnore: (suggestion: MemoryOpsSuggestion) => void
@@ -63,6 +75,10 @@ export function MemoryOpsPatrolBlock({
   selectedSuggestionIds,
   batchWorking,
   lastBatchResult,
+  rollbackPreviews,
+  rollbackResults,
+  rollbackErrors,
+  workingRollbackId,
   onRun,
   onToggleSelection,
   onSelectCategory,
@@ -70,6 +86,8 @@ export function MemoryOpsPatrolBlock({
   onBatchPreview,
   onBatchApply,
   onBatchIgnore,
+  onPreviewRollback,
+  onApplyRollback,
   onPreview,
   onApply,
   onIgnore,
@@ -159,6 +177,18 @@ export function MemoryOpsPatrolBlock({
             )}
           </div>
 
+          {lastBatchResult && (
+            <MemoryOpsBatchSummaryBlock
+              result={lastBatchResult}
+              rollbackPreviews={rollbackPreviews}
+              rollbackResults={rollbackResults}
+              rollbackErrors={rollbackErrors}
+              workingRollbackId={workingRollbackId}
+              onPreviewRollback={onPreviewRollback}
+              onApplyRollback={onApplyRollback}
+            />
+          )}
+
           {activeSuggestions.length === 0 ? (
             <div className="flex items-start gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -169,7 +199,6 @@ export function MemoryOpsPatrolBlock({
               <div className="text-xs font-medium">
                 {t("settings.sections.maintenance.memoryOps.suggestionPreview")}
               </div>
-              {lastBatchResult && <MemoryOpsBatchSummaryBlock result={lastBatchResult} />}
               <MemoryOpsSuggestionGroups
                 groups={suggestionGroups}
                 dryRunPlans={dryRunPlans}
@@ -239,10 +268,27 @@ export function MemoryOpsPatrolBlock({
   )
 }
 
-function MemoryOpsBatchSummaryBlock({ result }: { result: MemoryOpsBatchResult }) {
+function MemoryOpsBatchSummaryBlock({
+  result,
+  rollbackPreviews,
+  rollbackResults,
+  rollbackErrors,
+  workingRollbackId,
+  onPreviewRollback,
+  onApplyRollback,
+}: {
+  result: MemoryOpsBatchResult
+  rollbackPreviews: Record<string, MemoryOpsRollbackPreview>
+  rollbackResults: Record<string, MemoryOpsRollbackResult>
+  rollbackErrors: Record<string, string>
+  workingRollbackId: string | null
+  onPreviewRollback: (item: MemoryOpsBatchItem) => void
+  onApplyRollback: (item: MemoryOpsBatchItem) => void
+}) {
   const { t } = useTranslation()
   const summary = result.summary
   const errorItems = result.items.filter((item) => item.status === "error")
+  const restorableItems = result.items.filter((item) => item.status === "applied" && item.plan)
 
   return (
     <div className="space-y-1 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
@@ -272,6 +318,119 @@ function MemoryOpsBatchSummaryBlock({ result }: { result: MemoryOpsBatchResult }
           ))}
         </div>
       )}
+      {restorableItems.length > 0 && (
+        <div className="space-y-1 border-t border-border/60 pt-1.5">
+          <div className="font-medium">
+            {t("settings.sections.maintenance.memoryOps.rollbackTitle")}
+          </div>
+          {restorableItems.slice(0, 3).map((item) => (
+            <MemoryOpsRollbackRow
+              key={item.suggestionId}
+              item={item}
+              preview={rollbackPreviews[item.suggestionId]}
+              result={rollbackResults[item.suggestionId]}
+              error={rollbackErrors[item.suggestionId]}
+              working={workingRollbackId === item.suggestionId}
+              onPreviewRollback={() => onPreviewRollback(item)}
+              onApplyRollback={() => onApplyRollback(item)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+function MemoryOpsRollbackRow({
+  item,
+  preview,
+  result,
+  error,
+  working,
+  onPreviewRollback,
+  onApplyRollback,
+}: {
+  item: MemoryOpsBatchItem
+  preview: MemoryOpsRollbackPreview | undefined
+  result: MemoryOpsRollbackResult | undefined
+  error: string | undefined
+  working: boolean
+  onPreviewRollback: () => void
+  onApplyRollback: () => void
+}) {
+  const { t } = useTranslation()
+  const restored = result?.status === "restored"
+  const canApply = preview?.status === "safe" && !restored && !working
+  const statusTone =
+    preview?.status === "safe" || restored
+      ? "text-emerald-700 dark:text-emerald-400"
+      : preview
+        ? "text-amber-700 dark:text-amber-400"
+        : "text-muted-foreground"
+
+  return (
+    <div className="space-y-1 rounded border border-border/50 px-2 py-1.5">
+      <div className="min-w-0 break-words">
+        <code className="break-all font-mono">{item.targetPath}</code>
+      </div>
+      {preview && (
+        <div className={`flex items-start gap-1.5 ${statusTone}`}>
+          {preview.status === "safe" || restored ? (
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          )}
+          <div>
+            {rollbackStatusLabel(preview, t)}
+            {preview.error ? `: ${preview.error}` : ""}
+          </div>
+        </div>
+      )}
+      {result?.auditError && (
+        <div className="text-amber-700 dark:text-amber-400">
+          {t("settings.sections.maintenance.memoryOps.rollbackAuditFailed", {
+            error: result.auditError,
+          })}
+        </div>
+      )}
+      {error && !restored && (
+        <div className="text-rose-700 dark:text-rose-400">{error}</div>
+      )}
+      {restored && (
+        <div className="text-emerald-700 dark:text-emerald-400">
+          {t("settings.sections.maintenance.memoryOps.rollbackRestored")}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="ghost" onClick={onPreviewRollback} disabled={working || restored}>
+          {working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {t("settings.sections.maintenance.memoryOps.previewRollback")}
+        </Button>
+        <Button size="sm" onClick={onApplyRollback} disabled={!canApply}>
+          {working ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="h-3.5 w-3.5" />
+          )}
+          {t("settings.sections.maintenance.memoryOps.applyRollback")}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function rollbackStatusLabel(
+  preview: MemoryOpsRollbackPreview,
+  t: ReturnType<typeof useTranslation>["t"],
+): string {
+  if (preview.status === "safe") {
+    return t("settings.sections.maintenance.memoryOps.rollbackSafe")
+  }
+  if (preview.status === "conflict") {
+    return t("settings.sections.maintenance.memoryOps.rollbackConflict")
+  }
+  if (preview.status === "missing") {
+    return t("settings.sections.maintenance.memoryOps.rollbackMissing")
+  }
+  return t("settings.sections.maintenance.memoryOps.rollbackError")
 }

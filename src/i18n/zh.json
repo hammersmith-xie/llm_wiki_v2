@@ -278,7 +278,16 @@
           "batchUnchanged": "{{n}} 条无变化",
           "batchIgnored": "{{n}} 条已忽略",
           "batchErrors": "{{n}} 个错误",
-          "batchAuditFailed": "批量审计写入失败：{{error}}"
+          "batchAuditFailed": "批量审计写入失败：{{error}}",
+          "rollbackTitle": "回滚",
+          "previewRollback": "预览回滚",
+          "applyRollback": "执行回滚",
+          "rollbackSafe": "可以恢复，当前内容与已应用 patch 匹配。",
+          "rollbackConflict": "存在冲突：页面在 patch 后已经变化。",
+          "rollbackMissing": "回滚目标不存在。",
+          "rollbackError": "回滚预览失败。",
+          "rollbackRestored": "已恢复到变更前内容。",
+          "rollbackAuditFailed": "回滚审计写入失败：{{error}}"
         },
         "dedup": {
           "title": "检测重复实体 / 概念",

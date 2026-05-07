@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 9 / 16
+**总体进度**: 🚧 10 / 16
 
 ---
 
@@ -309,7 +309,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ 接入 rollback preview/apply UI
+### Task 3.3 ✅ 接入 rollback preview/apply UI
 
 **描述**: 在 dry-run plan、applied suggestion 或 audit event 相关入口中提供 rollback preview/apply。
 
@@ -333,9 +333,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 已应用 suggestion 会从建议列表隐藏；如果 rollback 入口只挂在 suggestion row 上，用户在单项/批量应用后反而找不到恢复入口。
+- 🔧 **最终实现逻辑**: `MaintenanceSection` 接入 `previewMemoryOpsRollback` / `applyMemoryOpsRollback`，维护 rollback preview/result/error/working 状态；单项 apply 也生成最近结果摘要；`MemoryOpsBatchSummaryBlock` 对最近已应用项展示 rollback preview/apply，并在恢复后刷新 file tree、bump dataVersion、刷新 audit。
+- 🎯 **关键决策**: T3.3 先把 rollback 入口挂到最近应用结果摘要，覆盖 applied suggestion 工作流；audit timeline 中按历史事件恢复的入口留给 T3.4 Timeline 面板统一处理。冲突状态只允许 preview，不默认覆盖。
 
 ---
 
@@ -535,10 +535,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
-| M3 | Maintenance Workbench UI | 2 | 6 | 🚧 |
+| M3 | Maintenance Workbench UI | 3 | 6 | 🚧 |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **9** | **16** | **🚧** |
+| **总计** | | **10** | **16** | **🚧** |
 
 ---
 
