@@ -85,6 +85,119 @@ describe("memory ops lifecycle rules", () => {
     expect(suggestions[0].reasons.join(" ")).toContain("2 reinforcing audit events")
   })
 
+  it("counts retrieval result references as reinforcement signals", () => {
+    const page = wikiPage("attention", [
+      "---",
+      "type: concept",
+      "title: Attention",
+      "sources: [paper.md]",
+      "last_confirmed: 2026-05-01",
+      "reinforcement_count: 0",
+      "---",
+      "",
+      "# Attention",
+    ].join("\n"))
+
+    const suggestions = evaluateLifecycleSuggestions(
+      snapshot([page], {
+        auditEvents: [
+          {
+            timestamp: "2026-05-07T00:00:00.000Z",
+            action: "query.answer",
+            retrieval: {
+              results: [{ path: "wiki/concepts/attention.md", rank: 1 }],
+            },
+          },
+        ],
+      }),
+      { today: "2026-05-07" },
+    )
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "metadata-update",
+        title: "Update reinforcement count",
+        reasons: expect.arrayContaining(["1 reinforcing audit event references this page"]),
+        proposedOperation: expect.objectContaining({
+          fields: expect.objectContaining({ reinforcement_count: "1" }),
+        }),
+      }),
+    ])
+  })
+
+  it("marks low-confidence pages for review with confidence evidence", () => {
+    const page = wikiPage("unsupported-claim", [
+      "---",
+      "type: concept",
+      "title: Unsupported Claim",
+      "last_confirmed: 2026-05-07",
+      "---",
+      "",
+      "# Unsupported Claim",
+    ].join("\n"))
+
+    const suggestions = evaluateLifecycleSuggestions(snapshot([page]), {
+      today: "2026-05-07",
+    })
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "metadata-update",
+        severity: "warning",
+        title: "Mark low-confidence page for review",
+        reasons: expect.arrayContaining(["confidence 0.43 is below 0.45"]),
+        proposedOperation: expect.objectContaining({
+          fields: expect.objectContaining({
+            review_status: "needs-review",
+            confidence: "0.43",
+            confidence_reasons: expect.arrayContaining(["no explicit source"]),
+          }),
+        }),
+      }),
+    ])
+    expect(suggestions[0].proposedOperation).toBeDefined()
+    expect(page.content).not.toContain("review_status")
+  })
+
+  it("refreshes last_confirmed when recent reinforcement has no contradiction risk", () => {
+    const page = wikiPage("attention", [
+      "---",
+      "type: concept",
+      "title: Attention",
+      "sources: [paper.md]",
+      "last_confirmed: 2026-05-01",
+      "reinforcement_count: 4",
+      "---",
+      "",
+      "# Attention",
+    ].join("\n"))
+    page.evidence = evidence({
+      pagePath: "wiki/concepts/attention.md",
+      reinforcement: {
+        frontmatterCount: 4,
+        auditEventCount: 4,
+        totalCount: 4,
+        lastReinforcedAt: "2026-05-07T12:00:00.000Z",
+      },
+      sourceSupport: { sourceCount: 1, supportingRelationCount: 0 },
+    })
+
+    const suggestions = evaluateLifecycleSuggestions(snapshot([page]), {
+      today: "2026-05-07",
+    })
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "metadata-update",
+        title: "Refresh last confirmed date",
+        reasons: expect.arrayContaining(["latest reinforcement landed on 2026-05-07"]),
+        proposedOperation: expect.objectContaining({
+          fields: expect.objectContaining({ last_confirmed: "2026-05-07" }),
+        }),
+      }),
+    ])
+  })
+
   it("suggests promoting reinforced episodic pages to semantic memory", () => {
     const page = wikiPage("research-answer", [
       "---",
@@ -113,6 +226,60 @@ describe("memory ops lifecycle rules", () => {
       }),
     ])
     expect(suggestions[0].reasons.join(" ")).toContain("reinforcement")
+  })
+
+  it("suggests archiving stale unsupported pages instead of rewriting content", () => {
+    const page = wikiPage("stale-note", [
+      "---",
+      "type: note",
+      "title: Stale Note",
+      "lifecycle: semantic",
+      "last_confirmed: 2024-01-01",
+      "---",
+      "",
+      "# Stale Note",
+    ].join("\n"))
+    page.evidence = evidence({
+      pagePath: "wiki/concepts/stale-note.md",
+      staleness: {
+        lastConfirmed: "2024-01-01",
+        ageDays: 857,
+        stale: true,
+      },
+      risk: {
+        contradictionCount: 0,
+        supersededByCount: 0,
+        openReviewItemCount: 0,
+        flags: ["stale"],
+      },
+    })
+
+    const suggestions = evaluateLifecycleSuggestions(snapshot([page]), {
+      today: "2026-05-07",
+    })
+
+    expect(suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "metadata-update",
+        severity: "warning",
+        title: "Archive stale unsupported page",
+        reasons: expect.arrayContaining([
+          "stale page has no source support",
+          "no reinforcement signals",
+        ]),
+        proposedOperation: expect.objectContaining({
+          fields: expect.objectContaining({
+            lifecycle: "archived",
+            review_status: "stale",
+          }),
+        }),
+      }),
+    ]))
+    for (const suggestion of suggestions) {
+      expect(suggestion.reasons.length).toBeGreaterThan(0)
+      expect(suggestion.proposedOperation).toBeDefined()
+    }
+    expect(page.content).not.toContain("lifecycle: archived")
   })
 })
 
@@ -203,6 +370,31 @@ function wikiPage(id: string, content: string): MemoryOpsWikiPage {
     path: `/project/wiki/concepts/${id}.md`,
     content,
     frontmatter: null,
+  }
+}
+
+function evidence(
+  overrides: Partial<NonNullable<MemoryOpsWikiPage["evidence"]>>,
+): NonNullable<MemoryOpsWikiPage["evidence"]> {
+  return {
+    pagePath: overrides.pagePath ?? "wiki/concepts/page.md",
+    recentUse: overrides.recentUse ?? { eventCount: 0 },
+    reinforcement: overrides.reinforcement ?? {
+      frontmatterCount: 0,
+      auditEventCount: 0,
+      totalCount: 0,
+    },
+    sourceSupport: overrides.sourceSupport ?? {
+      sourceCount: 0,
+      supportingRelationCount: 0,
+    },
+    staleness: overrides.staleness ?? { stale: false },
+    risk: overrides.risk ?? {
+      contradictionCount: 0,
+      supersededByCount: 0,
+      openReviewItemCount: 0,
+      flags: [],
+    },
   }
 }
 

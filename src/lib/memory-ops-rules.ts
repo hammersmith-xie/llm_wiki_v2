@@ -1,9 +1,14 @@
 import {
   lifecycleMetadataFromFrontmatter,
+  type LifecycleMetadata,
   type ReviewStatus,
 } from "@/lib/lifecycle"
 import type { MetadataPatchOperation } from "@/lib/memory-ops-executor"
-import type { MemoryOpsProjectSnapshot, MemoryOpsWikiPage } from "@/lib/memory-ops"
+import type {
+  MemoryOpsPageEvidenceSummary,
+  MemoryOpsProjectSnapshot,
+  MemoryOpsWikiPage,
+} from "@/lib/memory-ops"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { normalizePath } from "@/lib/path-utils"
 import { WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
@@ -34,8 +39,10 @@ const REINFORCING_ACTION_PREFIXES = [
   "query.",
   "search.",
   "crystallize.",
+  "review.resolve",
   "memory_ops.apply",
 ]
+const LOW_CONFIDENCE_THRESHOLD = 0.45
 
 export function evaluateLifecycleSuggestions(
   snapshot: MemoryOpsProjectSnapshot,
@@ -50,11 +57,20 @@ export function evaluateLifecycleSuggestions(
     const staleSuggestion = staleMetadataSuggestion(page, frontmatter, metadata.reviewStatus, metadata.confidenceReasons)
     if (staleSuggestion) suggestions.push(staleSuggestion)
 
+    const lowConfidenceSuggestion = lowConfidenceSuggestionForPage(page, frontmatter, metadata)
+    if (lowConfidenceSuggestion) suggestions.push(lowConfidenceSuggestion)
+
+    const refreshSuggestion = lastConfirmedRefreshSuggestion(page, frontmatter)
+    if (refreshSuggestion) suggestions.push(refreshSuggestion)
+
     const reinforcementSuggestion = reinforcementCountSuggestion(snapshot, page, frontmatter)
     if (reinforcementSuggestion) suggestions.push(reinforcementSuggestion)
 
     const promotionSuggestion = promotionSuggestionForPage(page, frontmatter)
     if (promotionSuggestion) suggestions.push(promotionSuggestion)
+
+    const archiveSuggestion = archiveSuggestionForPage(page, frontmatter, metadata)
+    if (archiveSuggestion) suggestions.push(archiveSuggestion)
   }
 
   return suggestions
@@ -126,16 +142,80 @@ function staleMetadataSuggestion(
   }
 }
 
+function lowConfidenceSuggestionForPage(
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+  metadata: LifecycleMetadata,
+): MemoryOpsSuggestion | null {
+  if (metadata.reviewStatus !== "needs-review") return null
+  if (scalar(frontmatter?.review_status) === "needs-review") return null
+  if (metadata.confidence >= LOW_CONFIDENCE_THRESHOLD) return null
+
+  const confidence = formatScore(metadata.confidence)
+  const reason = `confidence ${confidence} is below ${formatScore(LOW_CONFIDENCE_THRESHOLD)}`
+  return {
+    id: suggestionId("lifecycle", page.path, "low-confidence"),
+    kind: "metadata-update",
+    severity: "warning",
+    targetPath: page.path,
+    title: "Mark low-confidence page for review",
+    detail: "Set review_status to needs-review and persist confidence evidence.",
+    reasons: [reason, ...metadata.confidenceReasons],
+    proposedOperation: {
+      kind: "metadata-patch",
+      targetPath: page.path,
+      fields: {
+        review_status: "needs-review",
+        confidence,
+        confidence_reasons: metadata.confidenceReasons,
+      },
+      reason: `Memory Ops lifecycle patrol: ${reason}`,
+    },
+  }
+}
+
+function lastConfirmedRefreshSuggestion(
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+): MemoryOpsSuggestion | null {
+  const evidence = page.evidence
+  if (!evidence?.reinforcement.lastReinforcedAt) return null
+  if (!hasSourceSupport(evidence)) return null
+  if (hasBlockingRisk(evidence)) return null
+
+  const latestConfirmed = evidence.reinforcement.lastReinforcedAt.slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(latestConfirmed)) return null
+  const current = scalar(frontmatter?.last_confirmed)
+  if (current && latestConfirmed <= current) return null
+
+  const reason = `latest reinforcement landed on ${latestConfirmed}`
+  return {
+    id: suggestionId("lifecycle", page.path, "last-confirmed", latestConfirmed),
+    kind: "metadata-update",
+    severity: "info",
+    targetPath: page.path,
+    title: "Refresh last confirmed date",
+    detail: `Set last_confirmed to ${latestConfirmed}.`,
+    reasons: [reason, "page has source support and no contradiction risk"],
+    proposedOperation: {
+      kind: "metadata-patch",
+      targetPath: page.path,
+      fields: { last_confirmed: latestConfirmed },
+      reason: `Memory Ops lifecycle patrol: ${reason}`,
+    },
+  }
+}
+
 function reinforcementCountSuggestion(
   snapshot: MemoryOpsProjectSnapshot,
   page: MemoryOpsWikiPage,
   frontmatter: Record<string, FrontmatterValue> | null,
 ): MemoryOpsSuggestion | null {
   const current = parseInteger(scalar(frontmatter?.reinforcement_count))
-  const count = countReinforcingAuditEvents(snapshot, page)
+  const count = page.evidence?.reinforcement.auditEventCount ?? countReinforcingAuditEvents(snapshot, page)
   if (count <= current) return null
 
-  const reason = `${count} reinforcing audit events reference this page`
+  const reason = `${count} reinforcing audit event${count === 1 ? "" : "s"} reference${count === 1 ? "s" : ""} this page`
   return {
     id: suggestionId("reinforcement", page.path, String(count)),
     kind: "metadata-update",
@@ -149,6 +229,45 @@ function reinforcementCountSuggestion(
       targetPath: page.path,
       fields: { reinforcement_count: String(count) },
       reason: `Memory Ops lifecycle patrol: ${reason}`,
+    },
+  }
+}
+
+function archiveSuggestionForPage(
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+  metadata: LifecycleMetadata,
+): MemoryOpsSuggestion | null {
+  if (scalar(frontmatter?.lifecycle) === "archived") return null
+
+  const evidence = page.evidence
+  const stale = evidence?.staleness.stale ?? metadata.reviewStatus === "stale"
+  if (!stale) return null
+  if (!isUnsupportedByEvidence(frontmatter, evidence)) return null
+  if (hasRecentUseOrReinforcement(frontmatter, evidence)) return null
+  if (hasBlockingRisk(evidence)) return null
+
+  const reasons = [
+    "stale page has no source support",
+    "no reinforcement signals",
+    "no recent use signals",
+  ]
+  return {
+    id: suggestionId("lifecycle", page.path, "archive"),
+    kind: "metadata-update",
+    severity: "warning",
+    targetPath: page.path,
+    title: "Archive stale unsupported page",
+    detail: "Set lifecycle to archived and keep review_status stale for traceability.",
+    reasons,
+    proposedOperation: {
+      kind: "metadata-patch",
+      targetPath: page.path,
+      fields: {
+        lifecycle: "archived",
+        review_status: "stale",
+      },
+      reason: `Memory Ops lifecycle patrol: ${reasons.join("; ")}`,
     },
   }
 }
@@ -196,12 +315,52 @@ function countReinforcingAuditEvents(
     if (!REINFORCING_ACTION_PREFIXES.some((prefix) => event.action.startsWith(prefix))) {
       continue
     }
-    const eventPaths = [event.pagePath, event.targetPath, event.sourcePath]
-      .filter((value): value is string => typeof value === "string" && value.length > 0)
-      .map((value) => normalizePath(value))
+    const eventPaths = auditEventPaths(event).map((value) =>
+      toProjectRelativePath(snapshot.projectPath, value),
+    )
     if (eventPaths.some((path) => pageKeys.has(path))) count++
   }
   return count
+}
+
+function auditEventPaths(
+  event: MemoryOpsProjectSnapshot["audit"]["events"][number],
+): string[] {
+  const directPaths = [event.pagePath, event.targetPath, event.sourcePath].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  )
+  const retrievalPaths =
+    event.retrieval?.results
+      ?.map((result) => result.path)
+      .filter((value): value is string => typeof value === "string" && value.length > 0) ?? []
+  return [...directPaths, ...retrievalPaths]
+}
+
+function hasSourceSupport(evidence: MemoryOpsPageEvidenceSummary): boolean {
+  return evidence.sourceSupport.sourceCount + evidence.sourceSupport.supportingRelationCount > 0
+}
+
+function hasBlockingRisk(evidence: MemoryOpsPageEvidenceSummary | undefined): boolean {
+  if (!evidence) return false
+  return evidence.risk.flags.some((flag) => flag !== "stale")
+}
+
+function isUnsupportedByEvidence(
+  frontmatter: Record<string, FrontmatterValue> | null,
+  evidence: MemoryOpsPageEvidenceSummary | undefined,
+): boolean {
+  if (evidence) return !hasSourceSupport(evidence)
+  return arrayValue(frontmatter?.sources).length === 0
+}
+
+function hasRecentUseOrReinforcement(
+  frontmatter: Record<string, FrontmatterValue> | null,
+  evidence: MemoryOpsPageEvidenceSummary | undefined,
+): boolean {
+  if (evidence) {
+    return evidence.recentUse.eventCount > 0 || evidence.reinforcement.totalCount > 0
+  }
+  return parseInteger(scalar(frontmatter?.reinforcement_count)) > 0
 }
 
 function toProjectRelativePath(projectPath: string, path: string): string {
@@ -229,6 +388,10 @@ function parseInteger(value: string | undefined): number {
   if (!value) return 0
   const parsed = Number.parseInt(value, 10)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function formatScore(score: number): string {
+  return score.toFixed(2)
 }
 
 function buildPageResolver(pages: readonly MemoryOpsWikiPage[]): {

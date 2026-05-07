@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 4 / 16
+**总体进度**: 🚧 5 / 16
 
 ---
 
@@ -157,7 +157,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 增强 lifecycle / retention 建议规则
+### Task 2.2 ✅ 增强 lifecycle / retention 建议规则
 
 **描述**: 增加 low-confidence、archive/deprioritize、last_confirmed refresh、reinforcement update、promotion/demotion 等建议。
 
@@ -172,15 +172,15 @@ graph TD
 - `src/lib/lifecycle.test.ts`
 
 **验收**:
-- [ ] stale/low-confidence/archive/promotion 建议均有 tests。
-- [ ] 所有建议都包含 reasons 和 proposedOperation。
-- [ ] 不自动修改正文。
+- [x] stale/low-confidence/archive/promotion 建议均有 tests。
+- [x] 所有建议都包含 reasons 和 proposedOperation。
+- [x] 不自动修改正文。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: query/search audit 的页面引用主要落在 `retrieval.results`，旧 reinforcement 统计只看 direct path，导致 query/search 不能回写 reinforcement。Archive/deprioritize 也需要避免覆盖 contradiction、supersession、open review 等需要人工判断的风险。
+- 🔧 **最终实现逻辑**: 增加 low-confidence review patch、last_confirmed refresh、retrieval-result reinforcement 计数、stale unsupported page archive/deprioritize；保留既有 stale 和 promotion 规则，所有 lifecycle 建议都带 reasons 和 metadata patch。
+- 🎯 **关键决策**: `last_confirmed` refresh 只在有 source support 且无 contradiction/supersession/open-review 风险时建议；archive 只处理无来源、无 recent use、无 reinforcement 的 stale 页面，把它作为 lifecycle demotion，而不是删除正文。
 
 ---
 
@@ -513,11 +513,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
-| M2 | Lifecycle and Relation Rules | 1 | 4 | 🚧 |
+| M2 | Lifecycle and Relation Rules | 2 | 4 | 🚧 |
 | M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **4** | **16** | **🚧** |
+| **总计** | | **5** | **16** | **🚧** |
 
 ---
 
