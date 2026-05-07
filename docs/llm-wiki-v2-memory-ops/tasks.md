@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 11 / 18
+**总体进度**: 🚧 12 / 18
 
 ---
 
@@ -356,9 +356,9 @@ graph TD
 
 **目标**: 把 Memory Ops 做成可用的现有界面扩展，而不是隐藏在库函数中。
 **依赖**: M2, M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ Add Memory Ops block in Maintenance settings
+### Task 4.1 ✅ Add Memory Ops block in Maintenance settings
 
 **描述**: 在 Settings → Maintenance 增加 Patrol 卡片，展示运行按钮、状态、summary、warnings 和最近 audit 摘要。
 
@@ -380,9 +380,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Maintenance 页原来只面向 dedup，缺少无需 LLM 的本地巡检入口；组件内 `summary` 非空不能让 TS 自动推断 `report` 非空，需要显式保护 warnings 分支。
+- 🔧 **最终实现逻辑**: 在 Maintenance 顶部增加 Memory Ops patrol 区块，支持无项目、运行中、失败、完成、空建议、warnings 和最近 audit 摘要状态；新增 `memory-ops-ui` helper 和中英文文案。
+- 🎯 **关键决策**: T4.1 只展示并运行 patrol，不提供 suggestion confirm/ignore；Memory Ops 不依赖 LLM，因此按钮只受 project/running 状态约束。
 
 ---
 
@@ -569,9 +569,9 @@ graph TD
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
-| M4 | UI Integration | 0 | 4 | ⏳ |
+| M4 | UI Integration | 1 | 4 | 🚧 |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **11** | **18** | **🚧** |
+| **总计** | | **12** | **18** | **🚧** |
 
 ---
 

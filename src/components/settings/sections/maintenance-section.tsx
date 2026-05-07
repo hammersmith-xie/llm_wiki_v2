@@ -9,13 +9,26 @@ import {
   Trash2,
   RotateCcw,
   Clock,
+  ShieldCheck,
+  History,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useWikiStore } from "@/stores/wiki-store"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
+import { readAuditTimeline, type AuditEvent } from "@/lib/audit-timeline"
 import { runDuplicateDetection } from "@/lib/dedup-runner"
 import { addNotDuplicate } from "@/lib/dedup-storage"
+import {
+  runMemoryOpsPatrol,
+  type MemoryOpsPatrolReport,
+} from "@/lib/memory-ops"
+import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import {
+  auditEventTargetLabel,
+  selectRecentAuditEvents,
+  summarizeMemoryOpsPatrolReport,
+} from "@/lib/memory-ops-ui"
 import {
   enqueueMerge,
   cancelTask,
@@ -47,11 +60,16 @@ export function MaintenanceSection() {
   const { t } = useTranslation()
   const llmConfig = useWikiStore((s) => s.llmConfig)
   const project = useWikiStore((s) => s.project)
+  const dataVersion = useWikiStore((s) => s.dataVersion)
 
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [groups, setGroups] = useState<GroupUiEntry[]>([])
   const [scanCompleted, setScanCompleted] = useState(false)
+  const [patrolRunning, setPatrolRunning] = useState(false)
+  const [patrolError, setPatrolError] = useState<string | null>(null)
+  const [patrolReport, setPatrolReport] = useState<MemoryOpsPatrolReport | null>(null)
+  const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
 
   // Poll the queue at 1Hz so the UI reflects pending → processing →
   // failed transitions and cross-window queue activity (e.g. a merge
@@ -66,6 +84,35 @@ export function MaintenanceSection() {
 
   const llmReady = hasUsableLlm(llmConfig)
   const projectReady = !!project
+
+  const refreshRecentAudit = useCallback(async () => {
+    if (!project) {
+      setRecentAuditEvents([])
+      return
+    }
+    const audit = await readAuditTimeline(project.path)
+    setRecentAuditEvents(selectRecentAuditEvents(audit.events, 3))
+  }, [project])
+
+  useEffect(() => {
+    void refreshRecentAudit()
+  }, [refreshRecentAudit, dataVersion])
+
+  const handlePatrol = useCallback(async () => {
+    if (!project) return
+    setPatrolRunning(true)
+    setPatrolError(null)
+    setPatrolReport(null)
+    try {
+      const report = await runMemoryOpsPatrol(project.path, { dataVersion })
+      setPatrolReport(report)
+      await refreshRecentAudit()
+    } catch (err) {
+      setPatrolError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPatrolRunning(false)
+    }
+  }, [project, dataVersion, refreshRecentAudit])
 
   const handleScan = useCallback(async () => {
     if (!project) return
@@ -202,10 +249,19 @@ export function MaintenanceSection() {
         <p className="mt-1 text-sm text-muted-foreground">
           {t("settings.sections.maintenance.description", {
             defaultValue:
-              "Tools for cleaning up the wiki — detect and merge duplicate entities/concepts that the LLM created under different names across re-ingests.",
+              "Tools for keeping the wiki healthy — run local patrols, review recent audit activity, and merge duplicate entities/concepts.",
           })}
         </p>
       </div>
+
+      <MemoryOpsPatrolBlock
+        projectReady={projectReady}
+        running={patrolRunning}
+        error={patrolError}
+        report={patrolReport}
+        recentAuditEvents={recentAuditEvents}
+        onRun={() => void handlePatrol()}
+      />
 
       <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
         <div className="flex items-center gap-2">
@@ -305,6 +361,212 @@ export function MaintenanceSection() {
           />
         )
       })}
+    </div>
+  )
+}
+
+function MemoryOpsPatrolBlock({
+  projectReady,
+  running,
+  error,
+  report,
+  recentAuditEvents,
+  onRun,
+}: {
+  projectReady: boolean
+  running: boolean
+  error: string | null
+  report: MemoryOpsPatrolReport | null
+  recentAuditEvents: readonly AuditEvent[]
+  onRun: () => void
+}) {
+  const { t } = useTranslation()
+  const summary = report ? summarizeMemoryOpsPatrolReport(report) : null
+  const suggestions = report?.suggestions.slice(0, 3) ?? []
+  const extraSuggestionCount = Math.max(0, (report?.suggestions.length ?? 0) - suggestions.length)
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">
+          {t("settings.sections.maintenance.memoryOps.title", {
+            defaultValue: "Memory Ops patrol",
+          })}
+        </h3>
+      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {t("settings.sections.maintenance.memoryOps.description", {
+          defaultValue:
+            "Runs a local, deterministic maintenance scan over wiki metadata, typed relations, review state, chat history, and audit events. It only creates suggestions; it does not rewrite wiki files.",
+        })}
+      </p>
+
+      {!projectReady && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("settings.sections.maintenance.noProject", {
+            defaultValue: "Open a project first.",
+          })}
+        </p>
+      )}
+
+      <Button onClick={onRun} disabled={running || !projectReady}>
+        {running ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("settings.sections.maintenance.memoryOps.running", {
+              defaultValue: "Running patrol…",
+            })}
+          </>
+        ) : (
+          <>
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {t("settings.sections.maintenance.memoryOps.runButton", {
+              defaultValue: "Run Memory Ops patrol",
+            })}
+          </>
+        )}
+      </Button>
+
+      {error && (
+        <div className="flex items-start gap-1.5 rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400">
+          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>
+            {t("settings.sections.maintenance.memoryOps.failed", {
+              defaultValue: "Patrol failed:",
+            })}{" "}
+            {error}
+          </div>
+        </div>
+      )}
+
+      {summary && (
+        <div className="space-y-2 border-t border-border/60 pt-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>
+              {t("settings.sections.maintenance.memoryOps.pages", {
+                defaultValue: "{{n}} pages",
+                n: summary.pageCount,
+              })}
+            </span>
+            <span>
+              {t("settings.sections.maintenance.memoryOps.suggestions", {
+                defaultValue: "{{n}} suggestions",
+                n: summary.suggestionCount,
+              })}
+            </span>
+            <span>
+              {t("settings.sections.maintenance.memoryOps.auditEvents", {
+                defaultValue: "{{n}} audit events",
+                n: summary.auditEventCount,
+              })}
+            </span>
+            <span>
+              {t("settings.sections.maintenance.memoryOps.warnings", {
+                defaultValue: "{{n}} warnings",
+                n: summary.warningCount,
+              })}
+            </span>
+          </div>
+
+          {summary.emptySuggestions ? (
+            <div className="flex items-start gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div>
+                {t("settings.sections.maintenance.memoryOps.noSuggestions", {
+                  defaultValue: "No Memory Ops suggestions found.",
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium">
+                {t("settings.sections.maintenance.memoryOps.suggestionPreview", {
+                  defaultValue: "Suggestion preview",
+                })}
+              </div>
+              {suggestions.map((suggestion) => (
+                <MemoryOpsSuggestionRow key={suggestion.id} suggestion={suggestion} />
+              ))}
+              {extraSuggestionCount > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  {t("settings.sections.maintenance.memoryOps.moreSuggestions", {
+                    defaultValue: "+ {{n}} more suggestions",
+                    n: extraSuggestionCount,
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {report && report.warnings.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                {t("settings.sections.maintenance.memoryOps.auditWarnings", {
+                  defaultValue: "Audit warnings",
+                })}
+              </div>
+              {report.warnings.slice(0, 3).map((warning) => (
+                <div
+                  key={`${warning.line}:${warning.message}`}
+                  className="text-xs text-amber-700 dark:text-amber-400"
+                >
+                  {t("settings.sections.maintenance.memoryOps.auditWarningLine", {
+                    defaultValue: "Line {{line}}: {{message}}",
+                    line: warning.line,
+                    message: warning.message,
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-1.5 border-t border-border/60 pt-3">
+        <div className="flex items-center gap-1.5 text-xs font-medium">
+          <History className="h-3.5 w-3.5 text-muted-foreground" />
+          {t("settings.sections.maintenance.memoryOps.recentAudit", {
+            defaultValue: "Recent audit activity",
+          })}
+        </div>
+        {recentAuditEvents.length === 0 ? (
+          <div className="text-xs text-muted-foreground">
+            {t("settings.sections.maintenance.memoryOps.noAudit", {
+              defaultValue: "No audit events yet.",
+            })}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {recentAuditEvents.map((event, idx) => (
+              <div
+                key={`${event.timestamp ?? idx}:${event.action}`}
+                className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+              >
+                <code className="font-mono">{event.action}</code>
+                <span className="text-muted-foreground">{auditEventTargetLabel(event)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MemoryOpsSuggestionRow({ suggestion }: { suggestion: MemoryOpsSuggestion }) {
+  const tone =
+    suggestion.severity === "warning"
+      ? "text-amber-700 dark:text-amber-400"
+      : "text-muted-foreground"
+
+  return (
+    <div className="text-xs">
+      <div className="font-medium">{suggestion.title}</div>
+      <div className={tone}>
+        <code className="font-mono">{suggestion.targetPath}</code>
+      </div>
+      <div className="text-muted-foreground">{suggestion.detail}</div>
     </div>
   )
 }

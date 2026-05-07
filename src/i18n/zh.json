@@ -213,9 +213,27 @@
       },
       "maintenance": {
         "title": "维护",
-        "description": "清理 wiki 的工具 —— 检测并合并 LLM 在多次再导入时用不同名字创建的重复实体 / 概念。",
+        "description": "保持 wiki 健康的工具 —— 运行本地巡检、查看最近审计记录，并合并重复实体 / 概念。",
         "noProject": "请先打开一个项目。",
         "noLlm": "请先配置 LLM 服务。",
+        "memoryOps": {
+          "title": "Memory Ops 巡检",
+          "description": "本地、确定性的维护扫描，会检查 wiki metadata、typed relations、待审阅状态、聊天历史和审计事件。它只生成建议，不会改写 wiki 文件。",
+          "runButton": "运行 Memory Ops 巡检",
+          "running": "巡检中…",
+          "failed": "巡检失败：",
+          "pages": "{{n}} 个页面",
+          "suggestions": "{{n}} 条建议",
+          "auditEvents": "{{n}} 条审计事件",
+          "warnings": "{{n}} 个警告",
+          "noSuggestions": "未发现 Memory Ops 建议。",
+          "suggestionPreview": "建议预览",
+          "moreSuggestions": "另有 {{n}} 条建议",
+          "auditWarnings": "审计警告",
+          "auditWarningLine": "第 {{line}} 行：{{message}}",
+          "recentAudit": "最近审计活动",
+          "noAudit": "暂无审计事件。"
+        },
         "dedup": {
           "title": "检测重复实体 / 概念",
           "description": "让 LLM 扫描全部 entity / concept 页面，把可能指向同一主题但用了不同名字的页面分组（中英对照、单复数、缩写与全称等）。每一组都需要你确认后才会合并。合并任务会进入串行队列依次执行，避免交叉引用被并发改写覆盖。",

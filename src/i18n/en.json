@@ -213,9 +213,27 @@
       },
       "maintenance": {
         "title": "Maintenance",
-        "description": "Tools for cleaning up the wiki — detect and merge duplicate entities/concepts that the LLM created under different names across re-ingests.",
+        "description": "Tools for keeping the wiki healthy — run local patrols, review recent audit activity, and merge duplicate entities/concepts.",
         "noProject": "Open a project first.",
         "noLlm": "Configure an LLM provider first.",
+        "memoryOps": {
+          "title": "Memory Ops patrol",
+          "description": "Runs a local, deterministic maintenance scan over wiki metadata, typed relations, review state, chat history, and audit events. It only creates suggestions; it does not rewrite wiki files.",
+          "runButton": "Run Memory Ops patrol",
+          "running": "Running patrol…",
+          "failed": "Patrol failed:",
+          "pages": "{{n}} pages",
+          "suggestions": "{{n}} suggestions",
+          "auditEvents": "{{n}} audit events",
+          "warnings": "{{n}} warnings",
+          "noSuggestions": "No Memory Ops suggestions found.",
+          "suggestionPreview": "Suggestion preview",
+          "moreSuggestions": "+ {{n}} more suggestions",
+          "auditWarnings": "Audit warnings",
+          "auditWarningLine": "Line {{line}}: {{message}}",
+          "recentAudit": "Recent audit activity",
+          "noAudit": "No audit events yet."
+        },
         "dedup": {
           "title": "Detect duplicate entities / concepts",
           "description": "Asks the LLM to scan all entity / concept pages and group ones that likely refer to the same topic under different names (English vs Chinese, plural vs singular, abbreviation vs full form). You confirm each group before merging. Merges are queued and run one at a time so cross-references stay consistent.",
