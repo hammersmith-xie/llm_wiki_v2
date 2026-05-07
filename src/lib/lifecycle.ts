@@ -1,6 +1,5 @@
-import { createDirectory, readFile, writeFile } from "@/commands/fs"
+import { appendAuditEvent } from "@/lib/audit-timeline"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
-import { normalizePath } from "@/lib/path-utils"
 import { WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
 
 export type LifecycleTier = "working" | "episodic" | "semantic" | "procedural" | "archived"
@@ -272,20 +271,7 @@ export async function appendLifecycleAuditEvent(
   projectPath: string,
   event: LifecycleAuditEvent,
 ): Promise<void> {
-  const pp = normalizePath(projectPath)
-  const dir = `${pp}/.llm-wiki`
-  const path = `${dir}/audit.jsonl`
-  const timestamp = event.timestamp ?? new Date().toISOString()
-  const line = JSON.stringify({ ...event, timestamp })
-  await createDirectory(dir).catch(() => {})
-  let existing = ""
-  try {
-    existing = await readFile(path)
-  } catch {
-    existing = ""
-  }
-  const next = existing.trim().length > 0 ? `${existing.replace(/\s*$/, "")}\n${line}\n` : `${line}\n`
-  await writeFile(path, next)
+  await appendAuditEvent(projectPath, { ...event })
 }
 
 function setFrontmatterFields(
