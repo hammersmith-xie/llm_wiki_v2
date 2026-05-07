@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 7 / 17
+**总体进度**: 🚧 8 / 17
 
 ---
 
@@ -249,9 +249,9 @@ graph TD
 
 **目标**: 建立轻量 event automation registry，扩展 crystallization digest，并提供本地 coordination summary。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ 实现 Wiki automation event registry
+### Task 3.1 ✅ 实现 Wiki automation event registry
 
 **描述**: 新建 `wiki-automation-events.ts`，统一 session/memory/schema/quality/digest 事件输入、audit 写入和 dirty counter。
 
@@ -268,16 +268,16 @@ graph TD
 - `src/lib/memory-ops.ts`
 
 **验收**:
-- [ ] 支持 session.start、session.end、memory.write、schema.scan、quality.scan、digest.preview、digest.save。
-- [ ] audit action/category 与现有 contract 兼容。
-- [ ] record helper best-effort，失败不阻断主流程。
-- [ ] 触发 dirty counter/cooldown 的行为有 tests。
+- [x] 支持 session.start、session.end、memory.write、schema.scan、quality.scan、digest.preview、digest.save。
+- [x] audit action/category 与现有 contract 兼容。
+- [x] record helper best-effort，失败不阻断主流程。
+- [x] 触发 dirty counter/cooldown 的行为有 tests。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: TypeScript 发现 maintenance false 分支后还有冗余 `!== false` 比较；已简化为 `input.maintenance ?? {}`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/wiki-automation-events.ts`，定义 `WikiAutomationEventType` 和 `recordWikiAutomationEvent`，统一构造 audit event、best-effort 写 audit、可选触发 `recordMemoryOpsMaintenanceEvent`；新增 `src/lib/wiki-automation-events.test.ts` 覆盖 session/memory/schema/digest 默认值、maintenance skip、audit/maintenance 错误返回。
+- 🎯 **关键决策**: Registry 只记录事件和 dirty marker，不触发全量 scan；preview 类事件可以 `maintenance: false`，避免把只读预览计为需要 patrol 的写入。
 
 ---
 
@@ -600,10 +600,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
-| M3 | Event and Digest Core | 0 | 4 | ⏳ |
+| M3 | Event and Digest Core | 1 | 4 | 🚧 |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **7** | **17** | **🚧** |
+| **总计** | | **8** | **17** | **🚧** |
 
 ---
 
