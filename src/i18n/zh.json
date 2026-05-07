@@ -54,6 +54,9 @@
     "saveToWiki": "保存到 Wiki",
     "saving": "保存中...",
     "saved": "已保存！",
+    "saveSuggested": "建议保存",
+    "refs": "{{count}} 个引用",
+    "refs_plural": "{{count}} 个引用",
     "writeToWiki": "写入 Wiki",
     "emptyHint": "提问或开始提取资料。",
     "sources": "来源"
@@ -81,7 +84,9 @@
   "review": {
     "title": "待审阅",
     "clearResolved": "清除已解决",
-    "allClear": "一切正常，无需审阅"
+    "allClear": "一切正常，无需审阅",
+    "dismiss": "关闭审阅项",
+    "saveSuggested": "建议保存"
   },
   "settings": {
     "title": "设置",

@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 17 / 18
+**总体进度**: ✅ 18 / 18
 
 ---
 
@@ -473,7 +473,7 @@ graph TD
 
 **目标**: 跑完整验证，并按中量级要求完成 5 轮最终审核。
 **依赖**: M4
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 5.1 ✅ Run focused tests and full mock suite
 
@@ -498,7 +498,7 @@ graph TD
 #### 备注
 
 - 🐛 **遇到的问题**: 本轮没有触碰 `src-tauri/` 或 Rust 文件，验证范围需要明确记录，避免把未运行的 `cargo test` 误报为已跑。
-- 🔧 **最终实现逻辑**: 新鲜跑通 `npm run typecheck`、10 个 focused Vitest 文件 40 条用例，以及 `npm run test:mocks` 全量 mock suite 88 个测试文件 1117 条用例。
+- 🔧 **最终实现逻辑**: 新鲜跑通 `npm run typecheck`、10 个 focused Vitest 文件 42 条用例，以及 `npm run test:mocks` 全量 mock suite 88 个测试文件 1119 条用例。
 - 🎯 **关键决策**: 按任务条件跳过 `cargo test`；本期改动集中在 TypeScript、React UI、i18n 和 docs，Rust 后端未变更。
 
 ---
@@ -531,7 +531,7 @@ graph TD
 
 ---
 
-### Task 5.3 ⏳ Phase 4 final review rounds
+### Task 5.3 ✅ Phase 4 final review rounds
 
 **描述**: 按中量级要求跑 5 轮最终审核，并为每轮写报告。
 
@@ -556,9 +556,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 安全/隐私轮发现 metadata operation 可接受项目外绝对路径和 `../` parent traversal；UX/a11y 轮发现新增 candidate 提示仍有硬编码英文和 Review 图标按钮缺少 accessible label。
+- 🔧 **最终实现逻辑**: 写入 5 轮审核报告；新增 `resolveMemoryOpsTargetPath` 并让 executor/preview/open target 统一做 project-root 边界校验；补齐 Chat/Review candidate i18n key 和 Review dismiss aria label。
+- 🎯 **关键决策**: 性能轮把 audit JSONL read+rewrite 记录为后续 FS append primitive 的低风险优化项，本期不引入 Rust FS command 变更。
 
 ---
 
@@ -570,8 +570,8 @@ graph TD
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
 | M4 | UI Integration | 4 | 4 | ✅ |
-| M5 | Verification + Final Review | 2 | 3 | 🚧 |
-| **总计** | | **17** | **18** | **🚧** |
+| M5 | Verification + Final Review | 3 | 3 | ✅ |
+| **总计** | | **18** | **18** | **✅** |
 
 ---
 
@@ -587,8 +587,8 @@ graph TD
 
 | Round | 视角 | 状态 | 报告 |
 |-------|------|------|------|
-| 1 | 功能 | ⏳ | `review-round-1.md` |
-| 2 | 类型 & 静态分析 | ⏳ | `review-round-2.md` |
-| 3 | 性能 | ⏳ | `review-round-3.md` |
-| 4 | 安全 | ⏳ | `review-round-4.md` |
-| 5 | UX & a11y | ⏳ | `review-round-5.md` |
+| 1 | 功能 | ✅ | `review-round-1.md` |
+| 2 | 类型 & 静态分析 | ✅ | `review-round-2.md` |
+| 3 | 性能 | ✅ | `review-round-3.md` |
+| 4 | 安全 | ✅ | `review-round-4.md` |
+| 5 | UX & a11y | ✅ | `review-round-5.md` |

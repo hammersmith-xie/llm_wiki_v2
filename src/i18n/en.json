@@ -54,6 +54,9 @@
     "saveToWiki": "Save to Wiki",
     "saving": "Saving...",
     "saved": "Saved!",
+    "saveSuggested": "Save suggested",
+    "refs": "{{count}} ref",
+    "refs_plural": "{{count}} refs",
     "writeToWiki": "Write to Wiki",
     "emptyHint": "Ask a question or start an ingest to begin.",
     "sources": "Sources"
@@ -81,7 +84,9 @@
   "review": {
     "title": "Review",
     "clearResolved": "Clear resolved",
-    "allClear": "All clear — nothing to review"
+    "allClear": "All clear — nothing to review",
+    "dismiss": "Dismiss review item",
+    "saveSuggested": "Save suggested"
   },
   "settings": {
     "title": "Settings",

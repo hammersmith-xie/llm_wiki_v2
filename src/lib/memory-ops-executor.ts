@@ -92,7 +92,7 @@ export async function applyMemoryOpsOperations(
 
   for (const operation of operations) {
     try {
-      const fullPath = resolveOperationPath(pp, operation.targetPath)
+      const fullPath = resolveMemoryOpsTargetPath(pp, operation.targetPath)
       const content = await readFile(fullPath)
       const plan = createMetadataPatchPlan({
         targetPath: operation.targetPath,
@@ -123,9 +123,17 @@ export async function applyMemoryOpsOperations(
   }
 }
 
-function resolveOperationPath(projectPath: string, targetPath: string): string {
+export function resolveMemoryOpsTargetPath(projectPath: string, targetPath: string): string {
+  const pp = normalizePath(projectPath).replace(/\/$/, "")
   const normalized = normalizePath(targetPath)
-  return isAbsolutePath(normalized) ? normalized : `${projectPath}/${normalized}`
+  if (normalized.split("/").includes("..")) {
+    throw new Error(`Memory Ops target path contains parent traversal: ${targetPath}`)
+  }
+  const resolved = isAbsolutePath(normalized) ? normalized : `${pp}/${normalized}`
+  if (resolved !== pp && !resolved.startsWith(`${pp}/`)) {
+    throw new Error(`Memory Ops target path escapes the project root: ${targetPath}`)
+  }
+  return resolved
 }
 
 function setFrontmatterFields(

@@ -116,4 +116,48 @@ describe("memory ops executor", () => {
       expect.stringContaining("review_status: stale"),
     )
   })
+
+  it("rejects metadata operations that escape the project root", async () => {
+    const result = await applyMemoryOpsOperations("/project", [
+      {
+        kind: "metadata-patch",
+        targetPath: "/tmp/outside.md",
+        fields: { review_status: "stale" },
+        reason: "outside project",
+      },
+    ])
+
+    expect(result.ok).toBe(false)
+    expect(result.results).toEqual([
+      {
+        targetPath: "/tmp/outside.md",
+        status: "error",
+        error: "Memory Ops target path escapes the project root: /tmp/outside.md",
+      },
+    ])
+    expect(mockReadFile).not.toHaveBeenCalled()
+    expect(mockWriteFile).not.toHaveBeenCalled()
+  })
+
+  it("rejects metadata operations that traverse out of the project root", async () => {
+    const result = await applyMemoryOpsOperations("/project", [
+      {
+        kind: "metadata-patch",
+        targetPath: "../outside.md",
+        fields: { review_status: "stale" },
+        reason: "path traversal",
+      },
+    ])
+
+    expect(result.ok).toBe(false)
+    expect(result.results).toEqual([
+      {
+        targetPath: "../outside.md",
+        status: "error",
+        error: "Memory Ops target path contains parent traversal: ../outside.md",
+      },
+    ])
+    expect(mockReadFile).not.toHaveBeenCalled()
+    expect(mockWriteFile).not.toHaveBeenCalled()
+  })
 })

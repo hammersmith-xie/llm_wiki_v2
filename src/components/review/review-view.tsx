@@ -1,4 +1,5 @@
 import { useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { queueResearch } from "@/lib/deep-research"
 import {
   AlertTriangle,
@@ -342,6 +343,7 @@ function ReviewCard({
   onResolve: (id: string, action: string) => void
   onDismiss: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const config = typeConfig[item.type]
   const Icon = config.icon
   const candidate = !item.resolved
@@ -367,8 +369,11 @@ function ReviewCard({
           <span className="font-medium">{item.title}</span>
         </div>
         <button
+          type="button"
           onClick={() => onDismiss(item.id)}
           className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted"
+          aria-label={t("review.dismiss")}
+          title={t("review.dismiss")}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -384,7 +389,7 @@ function ReviewCard({
 
       {candidate && (
         <div className="mb-3 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Save suggested</span>{" "}
+          <span className="font-medium text-foreground">{t("review.saveSuggested")}</span>{" "}
           {candidate.reasons.slice(0, 2).join(" · ")}
         </div>
       )}

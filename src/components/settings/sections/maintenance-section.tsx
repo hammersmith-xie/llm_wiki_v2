@@ -25,6 +25,7 @@ import { addNotDuplicate } from "@/lib/dedup-storage"
 import {
   applyMemoryOpsOperations,
   createMetadataPatchPlan,
+  resolveMemoryOpsTargetPath,
   type MetadataPatchPlan,
 } from "@/lib/memory-ops-executor"
 import {
@@ -33,7 +34,6 @@ import {
 } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
-import { isAbsolutePath, normalizePath } from "@/lib/path-utils"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
 import {
   enqueueMerge,
@@ -145,7 +145,9 @@ export function MaintenanceSection() {
       setSuggestionErrors((prev) => withoutKey(prev, suggestion.id))
       try {
         const operation = suggestion.proposedOperation
-        const content = await readFile(resolveProjectPath(project.path, operation.targetPath))
+        const content = await readFile(
+          resolveMemoryOpsTargetPath(project.path, operation.targetPath),
+        )
         const plan = createMetadataPatchPlan({
           targetPath: operation.targetPath,
           content,
@@ -237,7 +239,7 @@ export function MaintenanceSection() {
       if (!project) return
       setSuggestionErrors((prev) => withoutKey(prev, suggestion.id))
       try {
-        const path = resolveProjectPath(project.path, suggestion.targetPath)
+        const path = resolveMemoryOpsTargetPath(project.path, suggestion.targetPath)
         const content = await readFile(path)
         setSelectedFile(path)
         setFileContent(content)
@@ -523,11 +525,6 @@ function useRefInit<T>(init: () => T): { current: T } {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [ref] = useState<{ current: T }>(() => ({ current: init() }))
   return ref
-}
-
-function resolveProjectPath(projectPath: string, targetPath: string): string {
-  const normalized = normalizePath(targetPath)
-  return isAbsolutePath(normalized) ? normalized : `${normalizePath(projectPath)}/${normalized}`
 }
 
 function withoutKey<T>(record: Record<string, T>, key: string): Record<string, T> {

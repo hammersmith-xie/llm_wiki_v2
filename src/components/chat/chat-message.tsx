@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
@@ -204,6 +205,7 @@ function SaveToWikiButton({
   const setFileTree = useWikiStore((s) => s.setFileTree)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const { t } = useTranslation()
   const showCandidatePrompt = !!candidate
 
   const handleSave = useCallback(async () => {
@@ -314,10 +316,16 @@ function SaveToWikiButton({
       onClick={handleSave}
       disabled={saving}
       className="self-start inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-      title="Save to wiki"
+      title={t("chat.saveToWiki")}
     >
       <BookmarkPlus className="h-3 w-3" />
-      {saved ? "Saved!" : saving ? "Saving..." : showCandidatePrompt ? "Save suggested" : "Save to Wiki"}
+      {saved
+        ? t("chat.saved")
+        : saving
+          ? t("chat.saving")
+          : showCandidatePrompt
+            ? t("chat.saveSuggested")
+            : t("chat.saveToWiki")}
     </button>
   )
 }
@@ -327,13 +335,17 @@ function CrystallizationCandidateHint({
 }: {
   candidate: CrystallizationCandidate
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="max-w-full rounded border border-primary/20 bg-primary/5 px-2 py-1 text-[11px] text-muted-foreground">
-      <span className="font-medium text-foreground">Save suggested</span>
+      <span className="font-medium text-foreground">{t("chat.saveSuggested")}</span>
       <span>
         {" "}
         {candidate.reasons.slice(0, 2).join(" · ")}
-        {candidate.references.length > 0 ? ` · ${candidate.references.length} refs` : ""}
+        {candidate.references.length > 0
+          ? ` · ${t("chat.refs", { count: candidate.references.length })}`
+          : ""}
       </span>
     </div>
   )
