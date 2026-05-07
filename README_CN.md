@@ -36,6 +36,8 @@
 - **Louvain 社区检测** — 自动发现知识聚类，内聚度评分
 - **图谱洞察** — 惊奇连接与知识空白检测，一键触发 Deep Research
 - **向量语义搜索** — 可选的 embedding 检索，基于 LanceDB，支持任意 OpenAI 兼容端点
+- **LLM Wiki v2 本地切片** — 页面级生命周期、置信度信号、typed relationship 字段、图谱感知 RRF 搜索和 append-only audit
+- **Memory Ops 巡检** — 本地维护扫描 stale metadata、broken typed relations、安全 metadata 操作和 crystallization candidates
 - **持久化摄入队列** — 串行处理，崩溃恢复，取消/重试，进度可视化
 - **文件夹导入** — 递归导入保留目录结构，文件夹路径作为 LLM 分类上下文
 - **深度研究** — LLM 智能生成搜索主题，多查询网络搜索，研究结果自动摄入 Wiki
@@ -232,7 +234,19 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **重新生成** —— 一键重新生成最后一条回复（移除最后的助手+用户消息对，重新发送）
 - **保存到 Wiki** —— 将有价值的回答归档到 `wiki/queries/`，然后自动摄入提取实体/概念到知识网络
 
-### 9. 思维链 / 推理过程展示
+### 9. Memory Ops 巡检与审计时间线
+
+Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外部 memory server。Markdown 仍是 durable source of truth；Memory Ops 只从本地项目派生建议、metadata patch、audit event 和检索评估报告。
+
+- **统一审计时间线** —— `.llm-wiki/audit.jsonl` 记录 lifecycle、crystallization、patrol、ignore、metadata apply 等事件，写入前脱敏并容忍坏行
+- **确定性巡检入口** —— Settings -> Maintenance 可扫描 Wiki metadata、typed relation、review state、chat history 和 audit activity，不依赖 LLM 配置
+- **生命周期建议** —— stale、low-confidence、superseded、archivable、promotion candidate 以 metadata suggestion 呈现，不自动重写页面
+- **关系清理建议** —— broken typed relationship target 和 dangling supersession link 独立提示，不和普通 wikilink lint 混在一起
+- **Dry-run metadata 操作** —— 用户先看 frontmatter 字段级 diff，再确认执行 metadata-only 修改；ignore/apply 决策都会进入 audit
+- **Crystallization candidates** —— 高价值 chat、research、review 输出会低干扰提示 Save to Wiki，用户确认后复用现有 `wiki/queries/` 写入路径
+- **检索评估 harness** —— 用确定性场景覆盖 exact title、alias、typed relation、graph-only、vector-only 和 CJK query，再决定是否调检索权重
+
+### 10. 思维链 / 推理过程展示
 
 原始设计中没有。针对会输出 `<think>` 块的 LLM（DeepSeek、QwQ 等）：
 
@@ -240,7 +254,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **默认折叠** —— 生成完成后思维块隐藏，点击展开
 - **视觉分离** —— 思维内容以独特样式显示，与主回复分开
 
-### 10. KaTeX 数学公式渲染
+### 11. KaTeX 数学公式渲染
 
 原始设计中没有。跨所有视图的完整 LaTeX 数学支持：
 
@@ -249,7 +263,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **自动检测** —— 裸 `\begin{aligned}` 等 LaTeX 环境自动补上 `$$` 定界符
 - **Unicode 降级** —— 100+ 符号映射（α, ∑, →, ≤ 等）用于数学块外的简单行内符号
 
-### 11. 审核系统（异步人机协作）
+### 12. 审核系统（异步人机协作）
 
 原始设计建议在摄入时全程参与。我们新增了**异步审核队列**：
 
@@ -258,7 +272,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **摄入时生成搜索查询** —— LLM 预先为每个审核项生成优化的网络搜索查询
 - 用户可在方便时处理审核 —— 不阻塞摄入流程
 
-### 12. 深度研究
+### 13. 深度研究
 
 <p align="center">
   <img src="assets/1-deepresearch.jpg" width="100%" alt="深度研究">
@@ -276,7 +290,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **任务队列** —— 最多 3 个并发任务
 - **研究面板** —— 专用侧边面板，动态高度，实时流式进度
 
-### 13. 浏览器扩展（网页剪藏）
+### 14. 浏览器扩展（网页剪藏）
 
 <p align="center">
   <img src="assets/4-chrome_extension_webclipper.jpg" width="100%" alt="Chrome 扩展网页剪藏">
@@ -292,7 +306,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **剪藏监听** —— 每 3 秒轮询新剪藏，自动处理
 - **离线预览** —— 即使应用未运行也能显示提取的内容
 
-### 14. 多格式文档支持
+### 15. 多格式文档支持
 
 原始设计聚焦于纯文本/Markdown。我们支持保留文档语义的结构化提取：
 
@@ -306,7 +320,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 | 视频/音频 | 内置播放器 |
 | 网页剪藏 | Readability.js + Turndown.js → 干净的 Markdown |
 
-### 15. 文件删除级联清理
+### 16. 文件删除级联清理
 
 原始设计没有删除机制。我们新增了**智能级联删除**：
 
@@ -316,7 +330,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **索引清理** —— 被移除的页面从 index.md 中清除
 - **Wiki 链接清理** —— 指向已删除页面的失效 `[[wikilinks]]` 从其余 Wiki 页面中移除
 
-### 16. 可配置上下文窗口
+### 17. 可配置上下文窗口
 
 原始设计中没有。用户可配置 LLM 接收多少上下文：
 
@@ -324,7 +338,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **比例预算分配** —— 更大的窗口按比例获得更多 Wiki 内容
 - **60/20/5/15 分配** —— Wiki 页面 / 聊天历史 / 索引 / 系统提示
 
-### 17. 跨平台兼容
+### 18. 跨平台兼容
 
 原始设计与平台无关（抽象模式）。我们处理了具体的跨平台问题：
 
@@ -335,7 +349,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **Tauri v2** —— macOS、Windows、Linux 原生桌面
 - **GitHub Actions CI/CD** —— 自动构建 macOS（ARM + Intel）、Windows（.msi）、Linux（.deb / .AppImage）
 
-### 18. 其他新增
+### 19. 其他新增
 
 - **国际化** —— 中英文界面（react-i18next）
 - **设置持久化** —— LLM 提供商、API 密钥、模型、上下文大小、语言通过 Tauri Store 保存
@@ -399,7 +413,7 @@ npm run tauri build    # 生产构建
 5. 使用 **聊天** 查询你的知识库
 6. 浏览 **知识图谱** 查看关联
 7. 查看 **审核** 处理需要你关注的项目
-8. 定期运行 **Lint** 维护 Wiki 健康度
+8. 定期运行 **Lint** 和 **Settings -> Maintenance -> Memory Ops patrol** 维护 Wiki 健康度
 
 ## 项目结构
 
@@ -421,7 +435,7 @@ my-wiki/
 │   ├── synthesis/          # 跨资料分析
 │   └── comparisons/        # 并列对比
 ├── .obsidian/              # Obsidian 仓库配置（自动生成）
-└── .llm-wiki/              # 应用配置、聊天历史、审核项
+└── .llm-wiki/              # 应用配置、聊天历史、审核项、审计时间线
 ```
 
 ## Star History

@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 16 / 18
+**总体进度**: 🚧 17 / 18
 
 ---
 
@@ -503,7 +503,7 @@ graph TD
 
 ---
 
-### Task 5.2 ⏳ Update docs and completion audit
+### Task 5.2 ✅ Update docs and completion audit
 
 **描述**: 更新 README/plan 文档中对 Memory Ops 的说明，并写本期 completion audit。
 
@@ -525,9 +525,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README 需要补充 Rohit v2 落地能力，但不能把本期实现描述成外部 memory server、多 agent mesh 或自动破坏性维护系统。
+- 🔧 **最终实现逻辑**: 更新 README/README_CN 的功能亮点、Memory Ops 专节、快速开始和项目结构；新增 `completion-audit.md`，把每个需求点映射到实现文件和测试证据。
+- 🎯 **关键决策**: 文档明确 “Markdown 仍是 durable source of truth，Memory Ops 是本地派生维护层”；未运行 `cargo test` 的原因也写入 completion audit。
 
 ---
 
@@ -570,8 +570,8 @@ graph TD
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
 | M4 | UI Integration | 4 | 4 | ✅ |
-| M5 | Verification + Final Review | 1 | 3 | 🚧 |
-| **总计** | | **16** | **18** | **🚧** |
+| M5 | Verification + Final Review | 2 | 3 | 🚧 |
+| **总计** | | **17** | **18** | **🚧** |
 
 ---
 

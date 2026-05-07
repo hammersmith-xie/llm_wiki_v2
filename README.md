@@ -37,6 +37,7 @@
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
 - **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, confidence signals, typed relationship fields, graph-aware RRF search, and append-only audit events
+- **Memory Ops Patrol** — local maintenance scan for stale metadata, broken typed relations, safe metadata actions, and crystallization candidates
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
@@ -233,7 +234,19 @@ The original has a single query interface. We built **full multi-conversation su
 - **Regenerate** — re-generate the last response with one click (removes last assistant + user message pair, re-sends)
 - **Save to Wiki** — archive valuable answers to `wiki/queries/`, then auto-ingest to extract entities/concepts into the knowledge network
 
-### 9. Thinking / Reasoning Display
+### 9. Memory Ops Patrol and Audit Timeline
+
+Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer, not as an external memory server. Markdown remains the durable source of truth; Memory Ops only derives suggestions, metadata patches, audit events, and evaluation reports from the local project.
+
+- **Unified audit timeline** — `.llm-wiki/audit.jsonl` records lifecycle, crystallization, patrol, ignore, and metadata-apply events with redaction and bad-line tolerance
+- **Deterministic patrol runner** — Settings -> Maintenance can scan wiki metadata, typed relations, review state, chat history, and audit activity without requiring an LLM
+- **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
+- **Relation cleanup suggestions** — broken typed relationship targets and dangling supersession links are flagged separately from ordinary wikilink lint
+- **Dry-run metadata actions** — users preview field-level frontmatter diffs before applying metadata-only changes; ignore/apply decisions are audited
+- **Crystallization candidates** — high-value chat, research, and review outputs can prompt a low-noise Save to Wiki suggestion and reuse the existing `wiki/queries/` write path after confirmation
+- **Search evaluation harness** — deterministic scenarios cover exact title, alias, typed relation, graph-only, vector-only, and CJK query behavior before retrieval tuning
+
+### 10. Thinking / Reasoning Display
 
 Not in the original. For LLMs that emit `<think>` blocks (DeepSeek, QwQ, etc.):
 
@@ -241,7 +254,7 @@ Not in the original. For LLMs that emit `<think>` blocks (DeepSeek, QwQ, etc.):
 - **Collapsed by default** — thinking blocks hidden after completion, click to expand
 - **Visual separation** — thinking content shown in distinct style, separate from the main response
 
-### 10. KaTeX Math Rendering
+### 11. KaTeX Math Rendering
 
 Not in the original. Full LaTeX math support across all views:
 
@@ -250,7 +263,7 @@ Not in the original. Full LaTeX math support across all views:
 - **Auto-detection** — bare `\begin{aligned}` and other LaTeX environments automatically wrapped with `$$` delimiters
 - **Unicode fallback** — 100+ symbol mappings (α, ∑, →, ≤, etc.) for simple inline notation outside math blocks
 
-### 11. Review System (Async Human-in-the-Loop)
+### 12. Review System (Async Human-in-the-Loop)
 
 The original suggests staying involved during ingest. We added an **asynchronous review queue**:
 
@@ -259,7 +272,7 @@ The original suggests staying involved during ingest. We added an **asynchronous
 - **Search queries generated at ingest time** — LLM pre-generates optimized web search queries for each review item
 - User handles reviews at their convenience — doesn't block ingest
 
-### 12. Deep Research
+### 13. Deep Research
 
 <p align="center">
   <img src="assets/1-deepresearch.jpg" width="100%" alt="Deep Research">
@@ -277,7 +290,7 @@ Not in the original. When the LLM identifies knowledge gaps:
 - **Task queue** with 3 concurrent tasks
 - **Research Panel** — dedicated sidebar panel with dynamic height, real-time streaming progress
 
-### 13. Browser Extension (Web Clipper)
+### 14. Browser Extension (Web Clipper)
 
 <p align="center">
   <img src="assets/4-chrome_extension_webclipper.jpg" width="100%" alt="Chrome Extension Web Clipper">
@@ -293,7 +306,7 @@ The original mentions Obsidian Web Clipper. We built a **dedicated Chrome Extens
 - **Clip watcher** — polls every 3 seconds for new clips, processes automatically
 - **Offline preview** — shows extracted content even when app is not running
 
-### 14. Multi-format Document Support
+### 15. Multi-format Document Support
 
 The original focuses on text/markdown. We support structured extraction preserving document semantics:
 
@@ -307,7 +320,7 @@ The original focuses on text/markdown. We support structured extraction preservi
 | Video/Audio | Built-in player |
 | Web clips | Readability.js + Turndown.js → clean Markdown |
 
-### 15. File Deletion with Cascade Cleanup
+### 16. File Deletion with Cascade Cleanup
 
 The original has no deletion mechanism. We added **intelligent cascade deletion**:
 
@@ -317,7 +330,7 @@ The original has no deletion mechanism. We added **intelligent cascade deletion*
 - **Index cleanup** — removed pages are purged from index.md
 - **Wikilink cleanup** — dead `[[wikilinks]]` to deleted pages are removed from remaining wiki pages
 
-### 16. Configurable Context Window
+### 17. Configurable Context Window
 
 Not in the original. Users can configure how much context the LLM receives:
 
@@ -325,7 +338,7 @@ Not in the original. Users can configure how much context the LLM receives:
 - **Proportional budget allocation** — larger windows get proportionally more wiki content
 - **60/20/5/15 split** — wiki pages / chat history / index / system prompt
 
-### 17. Cross-Platform Compatibility
+### 18. Cross-Platform Compatibility
 
 The original is platform-agnostic (abstract pattern). We handle concrete cross-platform concerns:
 
@@ -336,7 +349,7 @@ The original is platform-agnostic (abstract pattern). We handle concrete cross-p
 - **Tauri v2** — native desktop on macOS, Windows, Linux
 - **GitHub Actions CI/CD** — automated builds for macOS (ARM + Intel), Windows (.msi), Linux (.deb / .AppImage)
 
-### 18. Other Additions
+### 19. Other Additions
 
 - **i18n** — English + Chinese interface (react-i18next)
 - **Settings persistence** — LLM provider, API key, model, context size, language saved via Tauri Store
@@ -400,7 +413,7 @@ npm run tauri build    # Production build
 5. Use **Chat** to query your knowledge base
 6. Browse the **Knowledge Graph** to see connections
 7. Check **Review** for items needing your attention
-8. Run **Lint** periodically to maintain wiki health
+8. Run **Lint** and **Settings -> Maintenance -> Memory Ops patrol** periodically to maintain wiki health
 
 ## Project Structure
 
@@ -422,7 +435,7 @@ my-wiki/
 │   ├── synthesis/          # Cross-source analysis
 │   └── comparisons/        # Side-by-side comparisons
 ├── .obsidian/              # Obsidian vault config (auto-generated)
-└── .llm-wiki/              # App config, chat history, review items
+└── .llm-wiki/              # App config, chat history, review items, audit timeline
 ```
 
 ## Star History
