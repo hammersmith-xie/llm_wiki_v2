@@ -24,6 +24,7 @@ import { runDuplicateDetection } from "@/lib/dedup-runner"
 import { addNotDuplicate } from "@/lib/dedup-storage"
 import {
   applyMemoryOpsOperations,
+  buildMemoryOpsPatchAuditEvent,
   createMetadataPatchPlan,
   resolveMemoryOpsTargetPath,
   type MetadataPatchPlan,
@@ -155,6 +156,18 @@ export function MaintenanceSection() {
           reason: operation.reason,
         })
         setDryRunPlans((prev) => ({ ...prev, [suggestion.id]: plan }))
+        await appendAuditEvent(project.path, buildMemoryOpsPatchAuditEvent({
+          action: "memory_ops.preview",
+          operation,
+          suggestionId: suggestion.id,
+          suggestionTitle: suggestion.title,
+          reasons: suggestion.reasons,
+          plan,
+        })).catch((err) => {
+          console.warn(
+            `[Memory Ops] preview audit failed: ${err instanceof Error ? err.message : err}`,
+          )
+        })
       } catch (err) {
         setSuggestionErrors((prev) => ({
           ...prev,
@@ -175,24 +188,21 @@ export function MaintenanceSection() {
       try {
         const result = await applyMemoryOpsOperations(project.path, [suggestion.proposedOperation])
         const first = result.results[0]
-        if (!first || first.status === "error") {
-          throw new Error(first?.error ?? "Memory Ops operation failed")
-        }
-
-        await appendAuditEvent(project.path, {
+        await appendAuditEvent(project.path, buildMemoryOpsPatchAuditEvent({
           action: "memory_ops.apply",
-          targetPath: suggestion.proposedOperation.targetPath,
-          after: {
-            suggestionId: suggestion.id,
-            status: first.status,
-            diff: first.plan?.diff ?? dryRunPlans[suggestion.id]?.diff ?? [],
-          },
-          reasons: [suggestion.title, ...suggestion.reasons],
-        }).catch((err) => {
+          operation: suggestion.proposedOperation,
+          suggestionId: suggestion.id,
+          suggestionTitle: suggestion.title,
+          reasons: suggestion.reasons,
+          result: first,
+        })).catch((err) => {
           console.warn(
             `[Memory Ops] apply audit failed: ${err instanceof Error ? err.message : err}`,
           )
         })
+        if (!first || first.status === "error") {
+          throw new Error(first?.error ?? "Memory Ops operation failed")
+        }
 
         const tree = await listDirectory(project.path)
         setFileTree(tree)
@@ -208,7 +218,7 @@ export function MaintenanceSection() {
         setWorkingSuggestionId(null)
       }
     },
-    [project, dryRunPlans, setFileTree, bumpDataVersion, refreshRecentAudit],
+    [project, setFileTree, bumpDataVersion, refreshRecentAudit],
   )
 
   const handleIgnoreSuggestion = useCallback(

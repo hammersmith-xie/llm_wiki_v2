@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "@/commands/fs"
+import type { AuditEvent, AuditChangeSummary } from "@/lib/audit-timeline"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { isAbsolutePath, normalizePath } from "@/lib/path-utils"
 
@@ -9,6 +10,7 @@ export interface MetadataPatchOperation {
   targetPath: string
   fields: Record<string, MetadataPatchValue>
   reason: string
+  scope?: "private" | "shared" | string
 }
 
 export interface MetadataFieldDiff {
@@ -28,6 +30,7 @@ export interface MetadataPatchPlan {
   kind: "metadata-patch"
   dryRun: true
   targetPath: string
+  scope?: "private" | "shared" | string
   changed: boolean
   diff: MetadataFieldDiff[]
   beforeContent: string
@@ -47,14 +50,18 @@ export interface ApplyOperationsResult {
   results: ApplyOperationResult[]
 }
 
+export type MemoryOpsPatchAuditAction = "memory_ops.preview" | "memory_ops.apply"
+
 export function createMetadataPatchPlan(input: {
   targetPath: string
   content: string
   fields: Record<string, MetadataPatchValue>
   reason: string
+  scope?: "private" | "shared" | string
 }): MetadataPatchPlan {
   const parsed = parseFrontmatter(input.content)
   const diff: MetadataFieldDiff[] = []
+  const scope = input.scope ?? scalar(parsed.frontmatter?.scope)
 
   for (const [field, after] of Object.entries(input.fields)) {
     const before = parsed.frontmatter?.[field]
@@ -70,6 +77,7 @@ export function createMetadataPatchPlan(input: {
     kind: "metadata-patch",
     dryRun: true,
     targetPath: input.targetPath,
+    scope,
     changed: diff.length > 0 && afterContent !== input.content,
     diff,
     beforeContent: input.content,
@@ -81,6 +89,47 @@ export function createMetadataPatchPlan(input: {
       reason: `Rollback metadata patch: ${input.reason}`,
     },
   }
+}
+
+export function buildMemoryOpsPatchAuditEvent(input: {
+  action: MemoryOpsPatchAuditAction
+  operation: MetadataPatchOperation
+  suggestionId: string
+  suggestionTitle: string
+  reasons?: readonly string[]
+  plan?: MetadataPatchPlan
+  result?: ApplyOperationResult
+}): AuditEvent {
+  const plan = input.plan ?? input.result?.plan
+  const status = patchAuditStatus(input.action, input.result)
+  const scope = input.operation.scope ?? plan?.scope
+  const includeDiff = scope !== "private"
+  const diff = plan?.diff ?? []
+  const changes: AuditChangeSummary = dropUndefined({
+    status,
+    diff: includeDiff ? diff : undefined,
+  })
+
+  return dropUndefined({
+    action: input.action,
+    actor: "user",
+    scope,
+    targetPath: input.operation.targetPath,
+    dryRun: input.action === "memory_ops.preview" ? true : undefined,
+    changes,
+    after: dropUndefined({
+      suggestionId: input.suggestionId,
+      status,
+      changed: plan?.changed,
+      diff: includeDiff ? diff : undefined,
+      error: input.result?.error,
+    }),
+    reasons: uniqueStrings([
+      input.suggestionTitle,
+      ...(input.reasons ?? []),
+      input.result?.error ?? "",
+    ]),
+  })
 }
 
 export async function applyMemoryOpsOperations(
@@ -99,6 +148,7 @@ export async function applyMemoryOpsOperations(
         content,
         fields: operation.fields,
         reason: operation.reason,
+        scope: operation.scope,
       })
 
       if (!plan.changed) {
@@ -121,6 +171,14 @@ export async function applyMemoryOpsOperations(
     ok: results.every((result) => result.status !== "error"),
     results,
   }
+}
+
+function patchAuditStatus(
+  action: MemoryOpsPatchAuditAction,
+  result: ApplyOperationResult | undefined,
+): NonNullable<AuditChangeSummary["status"]> {
+  if (action === "memory_ops.preview") return "dry-run"
+  return result?.status ?? "error"
 }
 
 export function resolveMemoryOpsTargetPath(projectPath: string, targetPath: string): string {
@@ -200,6 +258,31 @@ function frontmatterValuesEqual(
     return JSON.stringify(before ?? []) === JSON.stringify(after)
   }
   return String(before ?? "") === String(after)
+}
+
+function scalar(value: FrontmatterValue | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0]
+  return value || undefined
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
+
+function dropUndefined<T extends Record<string, unknown>>(value: T): T {
+  const out: Record<string, unknown> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry !== undefined) out[key] = entry
+  }
+  return out as T
 }
 
 function quoteYamlScalar(value: string): string {

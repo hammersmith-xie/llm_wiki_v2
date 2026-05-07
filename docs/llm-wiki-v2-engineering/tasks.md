@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 6 / 16
+**总体进度**: 🚧 7 / 16
 
 ---
 
@@ -35,7 +35,7 @@ graph TD
 
 **目标**: 先稳定事件 schema 和现状矩阵，后续规则都从同一套 audit/snapshot 输入派生。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 建立现有 v2 能力矩阵
 
@@ -212,7 +212,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ 强化 metadata patch executor 的 safety
+### Task 2.4 ✅ 强化 metadata patch executor 的 safety
 
 **描述**: 确认 metadata patch preview/apply 的 path sandbox、diff、rollback note、private scope 行为，并补缺口。
 
@@ -227,15 +227,15 @@ graph TD
 - `src/components/settings/sections/maintenance-section.tsx`
 
 **验收**:
-- [ ] target path 不能逃逸项目根。
-- [ ] dry-run diff 和 apply result 都可审计。
-- [ ] private scope 不写正文 diff 到 audit。
+- [x] target path 不能逃逸项目根。
+- [x] dry-run diff 和 apply result 都可审计。
+- [x] private scope 不写正文 diff 到 audit。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 原 UI 只在 apply 成功后手写 `memory_ops.apply` audit，preview 没有 dry-run audit；apply 失败会在写 audit 前抛错，无法审计失败结果。
+- 🔧 **最终实现逻辑**: `createMetadataPatchPlan` 派生 `scope`，新增 `buildMemoryOpsPatchAuditEvent` 统一生成 preview/apply audit event；Settings preview 写 `memory_ops.preview`，apply 无论成功/失败都先记录 result audit，再更新 UI。
+- 🎯 **关键决策**: private scope 的 audit event 在 helper 层不带 diff，同时继续依赖 audit redaction 做最终兜底；executor 仍只处理 metadata patch，不把正文 before/after 放进 audit。
 
 ---
 
@@ -513,11 +513,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
-| M2 | Lifecycle and Relation Rules | 3 | 4 | 🚧 |
+| M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
 | M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **6** | **16** | **🚧** |
+| **总计** | | **7** | **16** | **🚧** |
 
 ---
 

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   applyMemoryOpsOperations,
+  buildMemoryOpsPatchAuditEvent,
   createMetadataPatchPlan,
 } from "./memory-ops-executor"
+import { redactAuditEvent } from "@/lib/audit-redaction"
 
 vi.mock("@/commands/fs", () => ({
   readFile: vi.fn(),
@@ -56,6 +58,47 @@ describe("memory ops executor", () => {
       reason: "Rollback metadata patch: stale patrol",
     })
     expect(mockWriteFile).not.toHaveBeenCalled()
+  })
+
+  it("builds an auditable dry-run event from a metadata patch plan", () => {
+    const plan = createMetadataPatchPlan({
+      targetPath: "wiki/concepts/attention.md",
+      content: "---\ntitle: Attention\nreview_status: ok\n---\n\n# Attention",
+      fields: { review_status: "stale" },
+      reason: "stale patrol",
+    })
+
+    const event = buildMemoryOpsPatchAuditEvent({
+      action: "memory_ops.preview",
+      operation: {
+        kind: "metadata-patch",
+        targetPath: "wiki/concepts/attention.md",
+        fields: { review_status: "stale" },
+        reason: "stale patrol",
+      },
+      suggestionId: "suggestion-1",
+      suggestionTitle: "Mark stale page",
+      reasons: ["last confirmed 400 days ago"],
+      plan,
+    })
+
+    expect(event).toMatchObject({
+      action: "memory_ops.preview",
+      actor: "user",
+      targetPath: "wiki/concepts/attention.md",
+      dryRun: true,
+      changes: {
+        status: "dry-run",
+        diff: [{ field: "review_status", before: "ok", after: "stale" }],
+      },
+      after: {
+        suggestionId: "suggestion-1",
+        status: "dry-run",
+        changed: true,
+        diff: [{ field: "review_status", before: "ok", after: "stale" }],
+      },
+      reasons: ["Mark stale page", "last confirmed 400 days ago"],
+    })
   })
 
   it("returns an unchanged dry-run plan when fields already match", () => {
@@ -115,6 +158,90 @@ describe("memory ops executor", () => {
       "/project/wiki/a.md",
       expect.stringContaining("review_status: stale"),
     )
+  })
+
+  it("builds an auditable apply event from an operation result", async () => {
+    mockReadFile.mockResolvedValueOnce("---\ntitle: A\nreview_status: ok\n---\n\nA")
+    mockWriteFile.mockResolvedValueOnce(undefined)
+
+    const operation = {
+      kind: "metadata-patch" as const,
+      targetPath: "wiki/a.md",
+      fields: { review_status: "stale" },
+      reason: "stale patrol",
+    }
+    const result = await applyMemoryOpsOperations("/project", [operation])
+
+    const event = buildMemoryOpsPatchAuditEvent({
+      action: "memory_ops.apply",
+      operation,
+      suggestionId: "suggestion-1",
+      suggestionTitle: "Mark stale page",
+      reasons: ["last confirmed 400 days ago"],
+      result: result.results[0],
+    })
+
+    expect(event).toMatchObject({
+      action: "memory_ops.apply",
+      actor: "user",
+      targetPath: "wiki/a.md",
+      changes: {
+        status: "applied",
+        diff: [{ field: "review_status", before: "ok", after: "stale" }],
+      },
+      after: {
+        suggestionId: "suggestion-1",
+        status: "applied",
+        changed: true,
+        diff: [{ field: "review_status", before: "ok", after: "stale" }],
+      },
+    })
+  })
+
+  it("omits private-scope diff and body content from patch audit events", () => {
+    const content = [
+      "---",
+      "title: Private Claim",
+      "scope: private",
+      "review_status: ok",
+      "---",
+      "",
+      "private body should not enter audit",
+    ].join("\n")
+    const plan = createMetadataPatchPlan({
+      targetPath: "wiki/private/claim.md",
+      content,
+      fields: { review_status: "stale" },
+      reason: "private stale patrol",
+    })
+
+    const event = buildMemoryOpsPatchAuditEvent({
+      action: "memory_ops.preview",
+      operation: {
+        kind: "metadata-patch",
+        targetPath: "wiki/private/claim.md",
+        fields: { review_status: "stale" },
+        reason: "private stale patrol",
+      },
+      suggestionId: "private-suggestion",
+      suggestionTitle: "Mark private stale page",
+      reasons: ["private reason"],
+      plan,
+    })
+    const serialized = JSON.stringify(event)
+    const redacted = redactAuditEvent(event)
+
+    expect(plan.scope).toBe("private")
+    expect(event.scope).toBe("private")
+    expect(event.changes?.diff).toBeUndefined()
+    expect(serialized).not.toContain("private body should not enter audit")
+    expect(JSON.stringify(redacted)).not.toContain("Private Claim")
+    expect(redacted).toMatchObject({
+      action: "memory_ops.preview",
+      scope: "private",
+      targetPath: "wiki/private/claim.md",
+      redacted: true,
+    })
   })
 
   it("rejects metadata operations that escape the project root", async () => {
