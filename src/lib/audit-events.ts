@@ -115,8 +115,19 @@ export async function appendReviewResolveAuditEvent(
 }
 
 function streamsForSearchResult(result: SearchResult): string[] {
-  const streams = new Set<string>(["lexical"])
-  if (result.graphPath && result.graphPath.length > 0) streams.add("graph")
+  const streams = new Set<string>()
+  const retrieval = result.retrieval
+  if (retrieval) {
+    if (retrieval.token) streams.add("token")
+    if (retrieval.bm25) streams.add("bm25")
+    if (retrieval.vector) streams.add("vector")
+    if (retrieval.graph) streams.add("graph")
+  }
+
+  if (streams.size === 0) {
+    streams.add("lexical")
+    if (result.graphPath && result.graphPath.length > 0) streams.add("graph")
+  }
   return [...streams]
 }
 

@@ -35,6 +35,13 @@ describe("audit event helpers", () => {
           titleMatch: true,
           score: 0.034,
           graphPath: ["search", "typed-graph"],
+          retrieval: {
+            rrfScore: 0.034,
+            token: { rank: 1, rawScore: 31, rrf: 0.0164 },
+            bm25: { rank: 1, rawScore: 9.2, rrf: 0 },
+            vector: { rank: 3, rawScore: 0.82, rrf: 0.0158 },
+            graph: { rank: 2, rawScore: 4, rrf: 0.0161, path: ["search", "typed-graph"] },
+          },
           images: [],
         },
       ],
@@ -47,7 +54,9 @@ describe("audit event helpers", () => {
       retrieval: {
         query: "hybrid search",
         streams: [
-          { name: "lexical", resultCount: 1 },
+          { name: "token", resultCount: 1 },
+          { name: "bm25", resultCount: 1 },
+          { name: "vector", resultCount: 1 },
           { name: "graph", resultCount: 1 },
         ],
         results: [
@@ -57,7 +66,7 @@ describe("audit event helpers", () => {
             snippet: "BM25 + vector + graph",
             rank: 1,
             score: 0.034,
-            streams: ["lexical", "graph"],
+            streams: ["token", "bm25", "vector", "graph"],
           },
         ],
       },
