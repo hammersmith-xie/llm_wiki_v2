@@ -347,6 +347,103 @@ describe("memory ops relation cleanup rules", () => {
     ])
   })
 
+  it("suggests reciprocal metadata for single-sided supersession links", () => {
+    const newer = wikiPage("new-claim", [
+      "---",
+      "type: concept",
+      "title: New Claim",
+      "sources: [paper-a.md, paper-b.md]",
+      "confidence: \"0.90\"",
+      "last_confirmed: 2026-05-01",
+      "supersedes: [old-claim]",
+      "---",
+      "",
+      "# New Claim",
+    ].join("\n"))
+    const older = wikiPage("old-claim", [
+      "---",
+      "type: concept",
+      "title: Old Claim",
+      "sources: [paper-old.md]",
+      "confidence: \"0.40\"",
+      "last_confirmed: 2025-01-01",
+      "---",
+      "",
+      "# Old Claim",
+    ].join("\n"))
+
+    const suggestions = evaluateRelationCleanupSuggestions(snapshot([newer, older]))
+
+    expect(suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "metadata-update",
+        severity: "info",
+        targetPath: "/project/wiki/concepts/old-claim.md",
+        title: "Add reciprocal supersession link",
+        detail: expect.stringContaining("2 sources"),
+        relation: expect.objectContaining({
+          field: "superseded_by",
+          target: "new-claim",
+        }),
+        proposedOperation: expect.objectContaining({
+          fields: expect.objectContaining({
+            superseded_by: ["new-claim"],
+          }),
+        }),
+      }),
+    ]))
+    const reciprocal = suggestions.find((item) => item.title === "Add reciprocal supersession link")
+    expect(reciprocal?.detail).toContain("confidence 0.90")
+    expect(reciprocal?.detail).toContain("last_confirmed 2026-05-01")
+  })
+
+  it("creates review-only contradiction suggestions with evidence context", () => {
+    const source = wikiPage("current-claim", [
+      "---",
+      "type: concept",
+      "title: Current Claim",
+      "sources: [paper-a.md, paper-b.md]",
+      "confidence: \"0.88\"",
+      "last_confirmed: 2026-05-01",
+      "contradicts: [legacy-claim]",
+      "---",
+      "",
+      "# Current Claim",
+    ].join("\n"))
+    const target = wikiPage("legacy-claim", [
+      "---",
+      "type: concept",
+      "title: Legacy Claim",
+      "sources: [paper-old.md]",
+      "confidence: \"0.41\"",
+      "last_confirmed: 2024-01-01",
+      "---",
+      "",
+      "# Legacy Claim",
+    ].join("\n"))
+
+    const suggestions = evaluateRelationCleanupSuggestions(snapshot([source, target]))
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "review-action",
+        severity: "warning",
+        targetPath: "/project/wiki/concepts/current-claim.md",
+        title: "Review contradiction pair",
+        relation: expect.objectContaining({
+          field: "contradicts",
+          target: "legacy-claim",
+        }),
+      }),
+    ])
+    expect(suggestions[0].detail).toContain("2 sources")
+    expect(suggestions[0].detail).toContain("confidence 0.88")
+    expect(suggestions[0].detail).toContain("last_confirmed 2026-05-01")
+    expect(suggestions[0].detail).toContain("1 source")
+    expect(suggestions[0].reasons.join(" ")).toContain("human review")
+    expect(suggestions[0].proposedOperation).toBeUndefined()
+  })
+
   it("does not duplicate structural lint for ordinary body wikilinks", () => {
     const page = wikiPage("attention", [
       "---",

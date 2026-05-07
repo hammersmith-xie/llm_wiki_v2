@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 5 / 16
+**总体进度**: 🚧 6 / 16
 
 ---
 
@@ -184,7 +184,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ 增强 contradiction / supersession resolver
+### Task 2.3 ✅ 增强 contradiction / supersession resolver
 
 **描述**: 针对 `contradicts`、`supersedes`、`superseded_by` 生成关系修复、反向字段补齐和人工 review 建议。
 
@@ -200,15 +200,15 @@ graph TD
 - `src/lib/memory-ops-rules.test.ts`
 
 **验收**:
-- [ ] dangling target、alias candidate、single-sided supersession 分别覆盖。
-- [ ] contradiction 只建议 review，不静默裁决。
-- [ ] suggestion detail 能说明 recency/source/confidence 依据。
+- [x] dangling target、alias candidate、single-sided supersession 分别覆盖。
+- [x] contradiction 只建议 review，不静默裁决。
+- [x] suggestion detail 能说明 recency/source/confidence 依据。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 旧 resolver 对已解析关系直接跳过，所以 single-sided supersession 和 resolved contradiction 都不会产生建议。`objectContaining({ proposedOperation: undefined })` 对缺失字段不稳定，测试改为单独断言 `toBeUndefined()`。
+- 🔧 **最终实现逻辑**: resolver 增加 resolved relation 分支；`supersedes` / `superseded_by` 生成 reciprocal metadata patch，`contradicts` 生成 `review-action` suggestion；detail 和 reasons 带 sources、confidence、last_confirmed。
+- 🎯 **关键决策**: contradiction 不生成 metadata patch，也不自动裁决哪一页更新，只进入 review-only；supersession 只补显式反向字段，保留正文内容和用户最终确认入口。
 
 ---
 
@@ -513,11 +513,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
-| M2 | Lifecycle and Relation Rules | 2 | 4 | 🚧 |
+| M2 | Lifecycle and Relation Rules | 3 | 4 | 🚧 |
 | M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **5** | **16** | **🚧** |
+| **总计** | | **6** | **16** | **🚧** |
 
 ---
 

@@ -11,9 +11,12 @@ import type {
 } from "@/lib/memory-ops"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { normalizePath } from "@/lib/path-utils"
-import { WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
+import {
+  WIKI_TYPED_RELATION_ARRAY_FIELDS,
+  type WikiTypedRelationArrayField,
+} from "@/lib/wiki-frontmatter-fields"
 
-export type MemoryOpsSuggestionKind = "metadata-update" | "relation-cleanup"
+export type MemoryOpsSuggestionKind = "metadata-update" | "relation-cleanup" | "review-action"
 export type MemoryOpsSuggestionSeverity = "info" | "warning"
 
 export interface MemoryOpsRelationIssue {
@@ -86,7 +89,15 @@ export function evaluateRelationCleanupSuggestions(
     const frontmatter = page.frontmatter ?? parseFrontmatter(page.content).frontmatter
     for (const field of WIKI_TYPED_RELATION_ARRAY_FIELDS) {
       for (const target of arrayValue(frontmatter?.[field])) {
-        if (resolver.has(page.id, target)) continue
+        const resolvedTargetId = resolver.resolve(page.id, target)
+        if (resolvedTargetId) {
+          const targetPage = resolver.pageById(resolvedTargetId)
+          const suggestion = targetPage
+            ? resolvedRelationSuggestion(page, frontmatter, field, targetPage, resolver)
+            : null
+          if (suggestion) suggestions.push(suggestion)
+          continue
+        }
         const candidate = resolver.findCandidate(page.id, target)
         const supersession = field === "supersedes" || field === "superseded_by"
         suggestions.push({
@@ -272,6 +283,130 @@ function archiveSuggestionForPage(
   }
 }
 
+function resolvedRelationSuggestion(
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+  field: WikiTypedRelationArrayField,
+  targetPage: MemoryOpsWikiPage,
+  resolver: PageResolver,
+): MemoryOpsSuggestion | null {
+  if (field === "contradicts") {
+    return contradictionReviewSuggestion(page, frontmatter, targetPage)
+  }
+
+  if (field === "supersedes") {
+    return reciprocalSupersessionSuggestion({
+      sourcePage: page,
+      sourceFrontmatter: frontmatter,
+      patchPage: targetPage,
+      patchField: "superseded_by",
+      patchValue: page.id,
+      resolver,
+    })
+  }
+
+  if (field === "superseded_by") {
+    return reciprocalSupersessionSuggestion({
+      sourcePage: page,
+      sourceFrontmatter: frontmatter,
+      patchPage: targetPage,
+      patchField: "supersedes",
+      patchValue: page.id,
+      resolver,
+    })
+  }
+
+  return null
+}
+
+function reciprocalSupersessionSuggestion(input: {
+  sourcePage: MemoryOpsWikiPage
+  sourceFrontmatter: Record<string, FrontmatterValue> | null
+  patchPage: MemoryOpsWikiPage
+  patchField: "supersedes" | "superseded_by"
+  patchValue: string
+  resolver: PageResolver
+}): MemoryOpsSuggestion | null {
+  const patchFrontmatter =
+    input.patchPage.frontmatter ?? parseFrontmatter(input.patchPage.content).frontmatter
+  if (
+    relationFieldReferencesPage(
+      input.patchPage,
+      patchFrontmatter,
+      input.patchField,
+      input.patchValue,
+      input.resolver,
+    )
+  ) {
+    return null
+  }
+
+  const nextValues = uniqueStrings([
+    ...arrayValue(patchFrontmatter?.[input.patchField]),
+    input.patchValue,
+  ])
+  const detail = [
+    "Supersession is one-sided.",
+    describePageEvidence("source page", input.sourcePage, input.sourceFrontmatter),
+    describePageEvidence("target page", input.patchPage, patchFrontmatter),
+  ].join(" ")
+
+  return {
+    id: suggestionId("relation", "reciprocal", input.patchPage.path, input.patchField, input.patchValue),
+    kind: "metadata-update",
+    severity: "info",
+    targetPath: input.patchPage.path,
+    title: "Add reciprocal supersession link",
+    detail,
+    reasons: [
+      "supersession should be explicit on both pages",
+      describePageEvidence("source page", input.sourcePage, input.sourceFrontmatter),
+    ],
+    proposedOperation: {
+      kind: "metadata-patch",
+      targetPath: input.patchPage.path,
+      fields: { [input.patchField]: nextValues },
+      reason: "Memory Ops relation patrol: add reciprocal supersession link",
+    },
+    relation: {
+      field: input.patchField,
+      target: input.patchValue,
+    },
+  }
+}
+
+function contradictionReviewSuggestion(
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+  targetPage: MemoryOpsWikiPage,
+): MemoryOpsSuggestion {
+  const targetFrontmatter =
+    targetPage.frontmatter ?? parseFrontmatter(targetPage.content).frontmatter
+  const detail = [
+    "Contradiction requires human review before any metadata patch.",
+    describePageEvidence("source page", page, frontmatter),
+    describePageEvidence("target page", targetPage, targetFrontmatter),
+  ].join(" ")
+
+  return {
+    id: suggestionId("relation", "contradiction", page.path, targetPage.id),
+    kind: "review-action",
+    severity: "warning",
+    targetPath: page.path,
+    title: "Review contradiction pair",
+    detail,
+    reasons: [
+      "contradiction relationships require human review",
+      describePageEvidence("source page", page, frontmatter),
+      describePageEvidence("target page", targetPage, targetFrontmatter),
+    ],
+    relation: {
+      field: "contradicts",
+      target: targetPage.id,
+    },
+  }
+}
+
 function promotionSuggestionForPage(
   page: MemoryOpsWikiPage,
   frontmatter: Record<string, FrontmatterValue> | null,
@@ -363,6 +498,33 @@ function hasRecentUseOrReinforcement(
   return parseInteger(scalar(frontmatter?.reinforcement_count)) > 0
 }
 
+function relationFieldReferencesPage(
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+  field: "supersedes" | "superseded_by",
+  expectedPageId: string,
+  resolver: PageResolver,
+): boolean {
+  return arrayValue(frontmatter?.[field]).some(
+    (target) => resolver.resolve(page.id, target) === expectedPageId,
+  )
+}
+
+function describePageEvidence(
+  label: string,
+  page: MemoryOpsWikiPage,
+  frontmatter: Record<string, FrontmatterValue> | null,
+): string {
+  const sourceCount = arrayValue(frontmatter?.sources).length
+  const confidence = scalar(frontmatter?.confidence) ?? "unknown"
+  const lastConfirmed =
+    scalar(frontmatter?.last_confirmed) ??
+    scalar(frontmatter?.updated) ??
+    scalar(frontmatter?.created) ??
+    "unknown"
+  return `${label} ${page.id}: ${sourceCount} source${sourceCount === 1 ? "" : "s"}, confidence ${confidence}, last_confirmed ${lastConfirmed}.`
+}
+
 function toProjectRelativePath(projectPath: string, path: string): string {
   const pp = normalizePath(projectPath).replace(/\/$/, "")
   const normalized = normalizePath(path)
@@ -384,6 +546,18 @@ function arrayValue(value: FrontmatterValue | undefined): string[] {
   return []
 }
 
+function uniqueStrings(values: readonly string[]): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    out.push(trimmed)
+  }
+  return out
+}
+
 function parseInteger(value: string | undefined): number {
   if (!value) return 0
   const parsed = Number.parseInt(value, 10)
@@ -394,12 +568,17 @@ function formatScore(score: number): string {
   return score.toFixed(2)
 }
 
-function buildPageResolver(pages: readonly MemoryOpsWikiPage[]): {
-  has: (sourceId: string, target: string) => boolean
+interface PageResolver {
+  resolve: (sourceId: string, target: string) => string | undefined
+  pageById: (pageId: string) => MemoryOpsWikiPage | undefined
   findCandidate: (sourceId: string, target: string) => string | undefined
-} {
+}
+
+function buildPageResolver(pages: readonly MemoryOpsWikiPage[]): PageResolver {
   const exact = new Map<string, string>()
+  const byId = new Map<string, MemoryOpsWikiPage>()
   for (const page of pages) {
+    byId.set(page.id, page)
     const frontmatter = page.frontmatter ?? parseFrontmatter(page.content).frontmatter
     const keys = [
       page.id,
@@ -416,10 +595,11 @@ function buildPageResolver(pages: readonly MemoryOpsWikiPage[]): {
 
   const entries = [...exact.entries()]
   return {
-    has: (sourceId, target) => {
+    resolve: (sourceId, target) => {
       const resolved = exact.get(normalizeRelationKey(target))
-      return !!resolved && resolved !== sourceId
+      return resolved && resolved !== sourceId ? resolved : undefined
     },
+    pageById: (pageId) => byId.get(pageId),
     findCandidate: (sourceId, target) => {
       const normalizedTarget = normalizeRelationKey(target)
       const candidates = entries
