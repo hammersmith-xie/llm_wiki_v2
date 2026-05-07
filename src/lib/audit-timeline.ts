@@ -2,15 +2,65 @@ import { appendFile, createDirectory, readFile } from "@/commands/fs"
 import { redactAuditEvent } from "@/lib/audit-redaction"
 import { normalizePath } from "@/lib/path-utils"
 
+export const AUDIT_SCHEMA_VERSION = 1
+
+export type AuditEventCategory =
+  | "query"
+  | "search"
+  | "ingest"
+  | "review"
+  | "crystallize"
+  | "memory_ops"
+  | "lifecycle"
+  | "other"
+
+export type AuditEventActor = "user" | "system" | "agent"
+
+export interface AuditRetrievalStreamSummary {
+  name: string
+  resultCount: number
+}
+
+export interface AuditRetrievalResultSummary {
+  path: string
+  title?: string
+  snippet?: string
+  rank?: number
+  score?: number
+  streams?: string[]
+}
+
+export interface AuditRetrievalSummary {
+  query?: string
+  streams?: AuditRetrievalStreamSummary[]
+  results?: AuditRetrievalResultSummary[]
+}
+
+export interface AuditChangeDiffSummary {
+  field: string
+  before?: unknown
+  after?: unknown
+}
+
+export interface AuditChangeSummary {
+  status?: "dry-run" | "applied" | "ignored" | "error" | string
+  diff?: AuditChangeDiffSummary[]
+}
+
 export interface AuditEvent {
+  schemaVersion?: typeof AUDIT_SCHEMA_VERSION
   timestamp?: string
   action: string
+  category?: AuditEventCategory
+  actor?: AuditEventActor
   pagePath?: string
   targetPath?: string
   sourcePath?: string
   before?: Record<string, unknown>
   after?: Record<string, unknown>
   reasons?: string[]
+  retrieval?: AuditRetrievalSummary
+  changes?: AuditChangeSummary
   scope?: "private" | "shared" | string
   dryRun?: boolean
   [key: string]: unknown
@@ -112,10 +162,15 @@ export function filterAuditEvents(
 }
 
 function normalizeAuditEvent(event: AuditEvent): AuditEvent {
-  return redactAuditEvent({
+  const base: AuditEvent = {
+    schemaVersion: AUDIT_SCHEMA_VERSION,
     timestamp: event.timestamp ?? new Date().toISOString(),
+    category: event.category ?? categoryFromAction(event.action),
     ...event,
-  })
+  }
+  const pathNormalized = normalizePathFields(base) as AuditEvent
+  const reasonNormalized = normalizeReasons(pathNormalized)
+  return redactAuditEvent(reasonNormalized)
 }
 
 function isAuditEvent(value: unknown): value is AuditEvent {
@@ -131,4 +186,59 @@ function eventPaths(event: AuditEvent): string[] {
   return [event.pagePath, event.targetPath, event.sourcePath].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
   )
+}
+
+function categoryFromAction(action: string): AuditEventCategory {
+  const prefix = action.split(".")[0]
+  if (
+    prefix === "query" ||
+    prefix === "search" ||
+    prefix === "ingest" ||
+    prefix === "review" ||
+    prefix === "crystallize" ||
+    prefix === "lifecycle"
+  ) {
+    return prefix
+  }
+  if (prefix === "memory_ops") return "memory_ops"
+  return "other"
+}
+
+function normalizeReasons(event: AuditEvent): AuditEvent {
+  if (!Array.isArray(event.reasons)) return event
+  const seen = new Set<string>()
+  const reasons: string[] = []
+  for (const reason of event.reasons) {
+    const trimmed = String(reason).trim()
+    if (!trimmed || seen.has(trimmed)) continue
+    seen.add(trimmed)
+    reasons.push(trimmed)
+  }
+  if (reasons.length > 0) return { ...event, reasons }
+  const { reasons: _reasons, ...rest } = event
+  return rest
+}
+
+function normalizePathFields(value: unknown, key?: string): unknown {
+  if (typeof value === "string") {
+    return isPathKey(key) ? normalizePath(value) : value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizePathFields(item, key))
+  }
+
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [childKey, childValue] of Object.entries(value)) {
+      out[childKey] = normalizePathFields(childValue, childKey)
+    }
+    return out
+  }
+
+  return value
+}
+
+function isPathKey(key: string | undefined): boolean {
+  return key === "pagePath" || key === "targetPath" || key === "sourcePath" || key === "path"
 }

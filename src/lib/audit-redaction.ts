@@ -22,8 +22,11 @@ export function redactSensitiveText(input: string): string {
 export function redactAuditEvent(event: AuditEvent): AuditEvent {
   if (event.scope === "private") {
     const summary: AuditEvent = {
+      schemaVersion: event.schemaVersion,
       timestamp: event.timestamp,
       action: event.action,
+      category: event.category,
+      actor: event.actor,
       scope: event.scope,
       ...definedPathFields(event),
       reasons: redactUnknown(event.reasons) as string[] | undefined,

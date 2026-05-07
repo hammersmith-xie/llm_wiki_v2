@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 1 / 16
+**总体进度**: 🚧 2 / 16
 
 ---
 
@@ -66,7 +66,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 定义统一 audit event contract
+### Task 1.2 ✅ 定义统一 audit event contract
 
 **描述**: 抽象 Memory Ops 事件命名、path 字段、scope、reason、diff summary 和 retriever metadata。
 
@@ -82,15 +82,15 @@ graph TD
 - `src/lib/audit-redaction.test.ts`
 
 **验收**:
-- [ ] audit event type 覆盖 query/search/ingest/review/crystallize/patrol/apply/ignore。
-- [ ] private scope 和 secret redaction 有测试。
-- [ ] 坏行容忍行为保持不变。
+- [x] audit event type 覆盖 query/search/ingest/review/crystallize/patrol/apply/ignore。
+- [x] private scope 和 secret redaction 有测试。
+- [x] 坏行容忍行为保持不变。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 红灯测试暴露两类缺口：旧 audit JSON 没有 schema/category/path normalization，private scope redaction 会丢掉 contract 字段；typecheck 还发现 retrieval result summary 需要允许 snippet 字段。
+- 🔧 **最终实现逻辑**: 在 `audit-timeline.ts` 增加 schema version、category、actor、retrieval、changes 等统一类型，append 时补 `schemaVersion: 1`、按 action 推导 category、归一化 path 字段、去重 reasons，再进入 redaction；在 `audit-redaction.ts` 保留 private summary 的 schema/category/actor。
+- 🎯 **关键决策**: 保持 append-only JSONL 和坏行容忍不变；对旧事件读取不做强制迁移，只规范新写入事件。
 
 ---
 
@@ -512,12 +512,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Contract and Audit Foundation | 1 | 3 | 🚧 |
+| M1 | Contract and Audit Foundation | 2 | 3 | 🚧 |
 | M2 | Lifecycle and Relation Rules | 0 | 4 | ⏳ |
 | M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **1** | **16** | **🚧** |
+| **总计** | | **2** | **16** | **🚧** |
 
 ---
 

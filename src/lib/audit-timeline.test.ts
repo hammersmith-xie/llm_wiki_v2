@@ -39,8 +39,17 @@ describe("audit timeline", () => {
     expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
     expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
-      "{\"timestamp\":\"2026-05-07T00:00:00.000Z\",\"action\":\"memory_ops.patrol\",\"targetPath\":\"wiki/concepts/a.md\",\"reasons\":[\"manual patrol\"]}\n",
+      expect.stringContaining("\"action\":\"memory_ops.patrol\""),
     )
+    const event = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
+    expect(event).toMatchObject({
+      schemaVersion: 1,
+      timestamp: "2026-05-07T00:00:00.000Z",
+      category: "memory_ops",
+      action: "memory_ops.patrol",
+      targetPath: "wiki/concepts/a.md",
+      reasons: ["manual patrol"],
+    })
     expect(mockReadFile).not.toHaveBeenCalled()
     expect(mockWriteFile).not.toHaveBeenCalled()
   })
@@ -58,6 +67,72 @@ describe("audit timeline", () => {
     const written = String(mockAppendFile.mock.calls[0][1])
     expect(written).not.toContain("sk-proj-abc")
     expect(written).toContain("OPENAI_API_KEY=[REDACTED:secret]")
+  })
+
+  it("normalizes the unified audit contract before appending", async () => {
+    await appendAuditEvent("/project", {
+      timestamp: "2026-05-07T00:00:00.000Z",
+      action: "search.run",
+      actor: "system",
+      targetPath: "wiki\\concepts\\search.md",
+      pagePath: "wiki/concepts/search.md",
+      sourcePath: "raw\\sources\\paper.pdf",
+      reasons: ["  query used wiki pages  ", "query used wiki pages", ""],
+      retrieval: {
+        query: "hybrid search",
+        streams: [
+          { name: "lexical", resultCount: 4 },
+          { name: "graph", resultCount: 2 },
+        ],
+        results: [
+          {
+            path: "wiki\\concepts\\hybrid-search.md",
+            title: "Hybrid Search",
+            rank: 1,
+            score: 0.032,
+            streams: ["lexical", "graph"],
+          },
+        ],
+      },
+      changes: {
+        status: "dry-run",
+        diff: [{ field: "review_status", before: "ok", after: "stale" }],
+      },
+    })
+
+    const written = String(mockAppendFile.mock.calls[0][1])
+    const event = JSON.parse(written)
+
+    expect(event).toMatchObject({
+      schemaVersion: 1,
+      action: "search.run",
+      category: "search",
+      actor: "system",
+      targetPath: "wiki/concepts/search.md",
+      pagePath: "wiki/concepts/search.md",
+      sourcePath: "raw/sources/paper.pdf",
+      reasons: ["query used wiki pages"],
+      retrieval: {
+        query: "hybrid search",
+        streams: [
+          { name: "lexical", resultCount: 4 },
+          { name: "graph", resultCount: 2 },
+        ],
+        results: [
+          {
+            path: "wiki/concepts/hybrid-search.md",
+            title: "Hybrid Search",
+            rank: 1,
+            score: 0.032,
+            streams: ["lexical", "graph"],
+          },
+        ],
+      },
+      changes: {
+        status: "dry-run",
+        diff: [{ field: "review_status", before: "ok", after: "stale" }],
+      },
+    })
   })
 
   it("reads valid events while reporting bad jsonl lines", async () => {

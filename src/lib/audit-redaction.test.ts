@@ -56,19 +56,29 @@ describe("audit redaction", () => {
 
   it("collapses private-scope audit details to a minimal summary", () => {
     const output = redactAuditEvent({
+      schemaVersion: 1,
       timestamp: "2026-05-07T00:00:00.000Z",
       action: "memory_ops.apply",
+      category: "memory_ops",
+      actor: "user",
       scope: "private",
       targetPath: "wiki/private/personal.md",
       detail: "personal details",
       before: { body: "old private body" },
       after: { body: "new private body" },
+      retrieval: {
+        query: "private customer email alice@example.com",
+        results: [{ path: "wiki/private/personal.md", snippet: "do not keep this" }],
+      },
       reasons: ["manual confirmation"],
     })
 
     expect(output).toEqual({
+      schemaVersion: 1,
       timestamp: "2026-05-07T00:00:00.000Z",
       action: "memory_ops.apply",
+      category: "memory_ops",
+      actor: "user",
       scope: "private",
       targetPath: "wiki/private/personal.md",
       reasons: ["manual confirmation"],
