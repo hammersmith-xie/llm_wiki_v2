@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 8 / 16
+**总体进度**: 🚧 9 / 16
 
 ---
 
@@ -272,7 +272,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ 实现本地 BM25 scorer
+### Task 3.2 ✅ 实现本地 BM25 scorer
 
 **描述**: 在不新增依赖的前提下实现字段加权 BM25：filename/title/aliases/keywords/body。
 
@@ -287,16 +287,16 @@ graph TD
 - `src/test-helpers/scenarios/search-scenarios.ts`
 
 **验收**:
-- [ ] BM25 排名有确定性测试。
-- [ ] 中文 tokenization 使用现有 tokenizer。
-- [ ] 小项目和空项目无异常。
-- [ ] 不依赖 vector search。
+- [x] BM25 排名有确定性测试。
+- [x] 中文 tokenization 使用现有 tokenizer。
+- [x] 小项目和空项目无异常。
+- [x] 不依赖 vector search。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: BM25 需要 term frequency，不能直接复用 `tokenizeQuery` 的去重结果作为文档 field tokens；否则正文重复词不会饱和计分。
+- 🔧 **最终实现逻辑**: 新增 `rankBm25Documents`，按 filename/title/aliases/keywords/body 分字段计算 BM25；每个 hit 返回 rank、fieldScores、matchedTokensByField 和 queryTokens。
+- 🎯 **关键决策**: 本任务只实现本地 BM25 scorer，不替换默认 `searchWiki` 排序；T3.3 再把 BM25/vector/graph contribution 接到 RRF explanation，降低排序回归风险。
 
 ---
 
@@ -514,10 +514,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
-| M3 | Retrieval and Evaluation | 1 | 4 | 🚧 |
+| M3 | Retrieval and Evaluation | 2 | 4 | 🚧 |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **8** | **16** | **🚧** |
+| **总计** | | **9** | **16** | **🚧** |
 
 ---
 
