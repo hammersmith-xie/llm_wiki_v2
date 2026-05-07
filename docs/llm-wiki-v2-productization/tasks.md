@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 10 / 16
+**总体进度**: 🚧 11 / 16
 
 ---
 
@@ -339,7 +339,7 @@ graph TD
 
 ---
 
-### Task 3.4 ⏳ 增加 Audit Timeline Explorer 面板
+### Task 3.4 ✅ 增加 Audit Timeline Explorer 面板
 
 **描述**: 在 Maintenance 中加入 Timeline 面板，展示可过滤 audit events 和 warnings，并支持打开目标文件。
 
@@ -363,9 +363,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 维护页原先只保留最近 3 条 audit events，无法支撑 timeline explorer；需要缓存完整 timeline，同时不影响 Memory Ops 近期摘要。
+- 🔧 **最终实现逻辑**: 新增 `AuditTimelinePanel`，用 `filterAuditTimelineEvents` / `summarizeAuditTimelineEvent` 实现 category/action/path/scope/status/text/limit 过滤、bad-line warning 展示和事件摘要；`MaintenanceSection` 读取完整 audit events/warnings，并提供打开 target/retrieval result path 的入口。
+- 🎯 **关键决策**: 本任务只做 Timeline 的浏览和打开文件，不在历史 audit event 上反推出 rollback 操作；rollback 的历史化入口可在后续基于 audit payload 能力增强。
 
 ---
 
@@ -535,10 +535,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
-| M3 | Maintenance Workbench UI | 3 | 6 | 🚧 |
+| M3 | Maintenance Workbench UI | 4 | 6 | 🚧 |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **10** | **16** | **🚧** |
+| **总计** | | **11** | **16** | **🚧** |
 
 ---
 

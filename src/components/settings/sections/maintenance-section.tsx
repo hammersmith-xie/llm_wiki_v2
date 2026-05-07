@@ -19,6 +19,7 @@ import {
   appendAuditEvent,
   readAuditTimeline,
   type AuditEvent,
+  type AuditTimelineWarning,
 } from "@/lib/audit-timeline"
 import { runDuplicateDetection } from "@/lib/dedup-runner"
 import { addNotDuplicate } from "@/lib/dedup-storage"
@@ -52,6 +53,7 @@ import {
 } from "@/lib/memory-ops"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
+import { AuditTimelinePanel } from "./audit-timeline-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
 import {
   enqueueMerge,
@@ -99,6 +101,9 @@ export function MaintenanceSection() {
   const [patrolError, setPatrolError] = useState<string | null>(null)
   const [patrolReport, setPatrolReport] = useState<MemoryOpsPatrolReport | null>(null)
   const [maintenanceStatus, setMaintenanceStatus] = useState<MemoryOpsMaintenanceStatus | null>(null)
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([])
+  const [auditWarnings, setAuditWarnings] = useState<AuditTimelineWarning[]>([])
+  const [auditOpenError, setAuditOpenError] = useState<string | null>(null)
   const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
   const [ignoredSuggestionIds, setIgnoredSuggestionIds] = useState<Set<string>>(
     () => new Set(),
@@ -139,10 +144,16 @@ export function MaintenanceSection() {
 
   const refreshRecentAudit = useCallback(async () => {
     if (!project) {
+      setAuditEvents([])
+      setAuditWarnings([])
+      setAuditOpenError(null)
       setRecentAuditEvents([])
       return
     }
     const audit = await readAuditTimeline(project.path)
+    setAuditEvents(audit.events)
+    setAuditWarnings(audit.warnings)
+    setAuditOpenError(null)
     setRecentAuditEvents(selectRecentAuditEvents(audit.events, 3))
   }, [project])
 
@@ -525,6 +536,23 @@ export function MaintenanceSection() {
     [project, setSelectedFile, setFileContent, setActiveView],
   )
 
+  const handleOpenAuditPath = useCallback(
+    async (path: string) => {
+      if (!project) return
+      setAuditOpenError(null)
+      try {
+        const fullPath = resolveMemoryOpsTargetPath(project.path, path)
+        const content = await readFile(fullPath)
+        setSelectedFile(fullPath)
+        setFileContent(content)
+        setActiveView("wiki")
+      } catch (err) {
+        setAuditOpenError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [project, setSelectedFile, setFileContent, setActiveView],
+  )
+
   const handleScan = useCallback(async () => {
     if (!project) return
     setScanning(true)
@@ -697,6 +725,15 @@ export function MaintenanceSection() {
         onApply={(suggestion) => void handleApplySuggestion(suggestion)}
         onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
         onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
+      />
+
+      <AuditTimelinePanel
+        projectReady={projectReady}
+        events={auditEvents}
+        warnings={auditWarnings}
+        openError={auditOpenError}
+        onRefresh={() => void refreshRecentAudit()}
+        onOpenPath={(path) => void handleOpenAuditPath(path)}
       />
 
       <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">

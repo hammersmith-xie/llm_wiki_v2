@@ -289,6 +289,55 @@
           "rollbackRestored": "已恢复到变更前内容。",
           "rollbackAuditFailed": "回滚审计写入失败：{{error}}"
         },
+        "auditTimeline": {
+          "title": "审计时间线",
+          "description": "查看本地审计事件，覆盖搜索、问答、导入、审阅、生命周期更新和 Memory Ops 变更。",
+          "refresh": "刷新",
+          "warningTitle": "{{n}} 行审计记录格式异常",
+          "warningLine": "第 {{line}} 行：{{message}}",
+          "filters": "过滤器",
+          "category": "分类",
+          "action": "Action",
+          "actionPlaceholder": "memory_ops.apply",
+          "path": "路径",
+          "scope": "Scope",
+          "status": "状态",
+          "text": "文本",
+          "textPlaceholder": "原因、标题、查询",
+          "limit": "数量上限",
+          "clearFilters": "清除过滤",
+          "matchingEvents": "显示 {{shown}} / {{total}} 条事件",
+          "empty": "没有符合过滤条件的审计事件。",
+          "openTarget": "打开",
+          "reason": "原因：{{reason}}",
+          "diff": "Diff 字段：{{fields}}",
+          "categories": {
+            "all": "全部",
+            "memory_ops": "Memory Ops",
+            "search": "搜索",
+            "query": "问答",
+            "ingest": "导入",
+            "review": "审阅",
+            "crystallize": "晶化",
+            "lifecycle": "生命周期",
+            "other": "其他"
+          },
+          "scopes": {
+            "all": "全部",
+            "shared": "Shared",
+            "private": "Private"
+          },
+          "statuses": {
+            "all": "全部",
+            "dry-run": "Dry run",
+            "applied": "已应用",
+            "ignored": "已忽略",
+            "error": "错误",
+            "restored": "已恢复",
+            "conflict": "冲突",
+            "missing": "缺失"
+          }
+        },
         "dedup": {
           "title": "检测重复实体 / 概念",
           "description": "让 LLM 扫描全部 entity / concept 页面，把可能指向同一主题但用了不同名字的页面分组（中英对照、单复数、缩写与全称等）。每一组都需要你确认后才会合并。合并任务会进入串行队列依次执行，避免交叉引用被并发改写覆盖。",

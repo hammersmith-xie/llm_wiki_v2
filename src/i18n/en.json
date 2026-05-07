@@ -289,6 +289,55 @@
           "rollbackRestored": "Rollback restored the previous content.",
           "rollbackAuditFailed": "Rollback audit failed: {{error}}"
         },
+        "auditTimeline": {
+          "title": "Audit timeline",
+          "description": "Explore local audit events across search, queries, ingest, reviews, lifecycle updates, and Memory Ops changes.",
+          "refresh": "Refresh",
+          "warningTitle": "{{n}} malformed audit lines",
+          "warningLine": "Line {{line}}: {{message}}",
+          "filters": "Filters",
+          "category": "Category",
+          "action": "Action",
+          "actionPlaceholder": "memory_ops.apply",
+          "path": "Path",
+          "scope": "Scope",
+          "status": "Status",
+          "text": "Text",
+          "textPlaceholder": "reason, title, query",
+          "limit": "Limit",
+          "clearFilters": "Clear filters",
+          "matchingEvents": "{{shown}} of {{total}} events",
+          "empty": "No audit events match these filters.",
+          "openTarget": "Open",
+          "reason": "Reason: {{reason}}",
+          "diff": "Diff fields: {{fields}}",
+          "categories": {
+            "all": "All",
+            "memory_ops": "Memory Ops",
+            "search": "Search",
+            "query": "Query",
+            "ingest": "Ingest",
+            "review": "Review",
+            "crystallize": "Crystallize",
+            "lifecycle": "Lifecycle",
+            "other": "Other"
+          },
+          "scopes": {
+            "all": "All",
+            "shared": "Shared",
+            "private": "Private"
+          },
+          "statuses": {
+            "all": "All",
+            "dry-run": "Dry run",
+            "applied": "Applied",
+            "ignored": "Ignored",
+            "error": "Error",
+            "restored": "Restored",
+            "conflict": "Conflict",
+            "missing": "Missing"
+          }
+        },
         "dedup": {
           "title": "Detect duplicate entities / concepts",
           "description": "Asks the LLM to scan all entity / concept pages and group ones that likely refer to the same topic under different names (English vs Chinese, plural vs singular, abbreviation vs full form). You confirm each group before merging. Merges are queued and run one at a time so cross-references stay consistent.",
