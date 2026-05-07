@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 5 / 17
+**总体进度**: 🚧 6 / 17
 
 ---
 
@@ -186,7 +186,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ 聚合 SchemaQualityScanReport
+### Task 2.3 ✅ 聚合 SchemaQualityScanReport
 
 **描述**: 新建 `schema-quality.ts`，组合 contract load、drift findings、quality scores、warnings 和 summary。
 
@@ -202,16 +202,16 @@ graph TD
 - `src/lib/audit-timeline.ts`
 
 **验收**:
-- [ ] 空项目、旧项目、坏 schema、正常项目均稳定返回 report。
-- [ ] report summary 包含 contract version、finding counts、quality distribution。
-- [ ] run helper 写 `memory_ops.schema_quality` audit event。
-- [ ] audit 写失败不丢 scan result。
+- [x] 空项目、旧项目、坏 schema、正常项目均稳定返回 report。
+- [x] report summary 包含 contract version、finding counts、quality distribution。
+- [x] run helper 写 `memory_ops.schema_quality` audit event。
+- [x] audit 写失败不丢 scan result。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无测试失败；audit mock 需要保持 best-effort 行为可断言，避免 scan report 和 audit 写入强耦合。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/schema-quality.ts`，组合 contract parse/fallback、`scanSchemaDrift` 和 `evaluatePagesQuality`，输出 `SchemaQualityScanReport`、summary 和 `memory_ops.schema_quality` audit event；新增 `src/lib/schema-quality.test.ts` 覆盖正常 schema、缺失 schema fallback、紧凑 audit、audit 成功和 audit 失败。
+- 🎯 **关键决策**: 本任务不遍历磁盘、不接 UI、不生成 Memory Ops suggestions；调用方传入已读 schema/pages。Audit event 只记录 summary、top finding 和低分页面路径/分数，不携带正文。
 
 ---
 
@@ -599,11 +599,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
-| M2 | Drift and Quality Core | 2 | 4 | 🚧 |
+| M2 | Drift and Quality Core | 3 | 4 | 🚧 |
 | M3 | Event and Digest Core | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **5** | **17** | **🚧** |
+| **总计** | | **6** | **17** | **🚧** |
 
 ---
 
