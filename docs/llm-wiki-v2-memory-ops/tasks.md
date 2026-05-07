@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 5 / 18
+**总体进度**: 🚧 6 / 18
 
 ---
 
@@ -181,7 +181,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ Wire patrol runner and activity status
+### Task 2.3 ✅ Wire patrol runner and activity status
 
 **描述**: 聚合 scanner + rules + audit，暴露 `runMemoryOpsPatrol(projectPath, options)`，并把运行状态接入 Activity store。
 
@@ -202,9 +202,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Activity store 原来没有维护任务类型，patrol 如果复用 lint/query 会让 UI 语义不清。
+- 🔧 **最终实现逻辑**: `runMemoryOpsPatrol` 组合 snapshot scanner 与 lifecycle rules，返回 report/stats/warnings/suggestions，运行时写入 `memory_ops.patrol` audit event，并更新 Activity 状态。
+- 🎯 **关键决策**: Activity type 新增 `maintenance`；audit 写失败视为 patrol 失败并标记 error，确保“完成的 patrol 必有 audit 痕迹”。
 
 ---
 
@@ -567,11 +567,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
-| M2 | Patrol Runner + Lifecycle Rules | 2 | 4 | 🚧 |
+| M2 | Patrol Runner + Lifecycle Rules | 3 | 4 | 🚧 |
 | M3 | Crystallization Candidates + Search Evaluation | 0 | 4 | ⏳ |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **5** | **18** | **🚧** |
+| **总计** | | **6** | **18** | **🚧** |
 
 ---
 

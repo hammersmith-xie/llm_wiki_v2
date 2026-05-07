@@ -1,20 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { FileNode } from "@/types/wiki"
-import { scanMemoryOpsProject } from "./memory-ops"
+import { scanMemoryOpsProject, runMemoryOpsPatrol } from "./memory-ops"
+import { useActivityStore } from "@/stores/activity-store"
 
 vi.mock("@/commands/fs", () => ({
+  createDirectory: vi.fn(async () => {}),
   listDirectory: vi.fn(),
   readFile: vi.fn(),
+  writeFile: vi.fn(async () => {}),
 }))
 
-import { listDirectory, readFile } from "@/commands/fs"
+import { createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
 
+const mockCreateDirectory = vi.mocked(createDirectory)
 const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
+const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
+  mockCreateDirectory.mockReset()
   mockListDirectory.mockReset()
   mockReadFile.mockReset()
+  mockWriteFile.mockReset()
+  useActivityStore.setState({ items: [] })
 })
 
 describe("memory ops project scanner", () => {
@@ -135,6 +143,66 @@ describe("memory ops project scanner", () => {
       chatMessageCount: 1,
       auditEventCount: 1,
       auditWarningCount: 1,
+    })
+  })
+
+  it("runs a patrol, records activity, and appends an audit summary", async () => {
+    mockListDirectory.mockResolvedValue([
+      {
+        name: "old.md",
+        path: "/project/wiki/concepts/old.md",
+        is_dir: false,
+      },
+    ])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/old.md") {
+        return [
+          "---",
+          "type: concept",
+          "title: Old",
+          "sources: [paper.md]",
+          "last_confirmed: 2025-01-01",
+          "---",
+          "",
+          "# Old",
+        ].join("\n")
+      }
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      throw new Error(`missing ${path}`)
+    })
+
+    const report = await runMemoryOpsPatrol("/project", {
+      dataVersion: 9,
+      today: "2026-05-07",
+    })
+
+    expect(report.snapshot.dataVersion).toBe(9)
+    expect(report.suggestions).toHaveLength(1)
+    expect(report.stats.suggestionCount).toBe(1)
+    expect(useActivityStore.getState().items[0]).toMatchObject({
+      type: "maintenance",
+      title: "Memory Ops patrol",
+      status: "done",
+    })
+    expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"memory_ops.patrol\""),
+    )
+  })
+
+  it("marks the patrol activity as error when audit writing fails", async () => {
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockRejectedValue(new Error("missing"))
+    mockWriteFile.mockRejectedValueOnce(new Error("disk full"))
+
+    await expect(runMemoryOpsPatrol("/project")).rejects.toThrow("disk full")
+
+    expect(useActivityStore.getState().items[0]).toMatchObject({
+      type: "maintenance",
+      title: "Memory Ops patrol",
+      status: "error",
+      detail: expect.stringContaining("disk full"),
     })
   })
 })
