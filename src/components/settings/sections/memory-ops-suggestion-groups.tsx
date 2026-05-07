@@ -17,12 +17,21 @@ import {
   type MemoryOpsSuggestionCategory,
   type MemoryOpsSuggestionGroup,
 } from "@/lib/memory-ops-ui"
+import { isBatchApplicableMemoryOpsSuggestion } from "@/lib/memory-ops-batch"
 
 interface MemoryOpsSuggestionGroupsProps {
   groups: MemoryOpsSuggestionGroup[]
   dryRunPlans: Record<string, MetadataPatchPlan>
   suggestionErrors: Record<string, string>
   workingSuggestionId: string | null
+  selectedSuggestionIds: ReadonlySet<string>
+  batchWorking: boolean
+  onToggleSelection: (suggestion: MemoryOpsSuggestion) => void
+  onSelectCategory: (suggestions: MemoryOpsSuggestion[]) => void
+  onClearSelection: () => void
+  onBatchPreview: () => void
+  onBatchApply: () => void
+  onBatchIgnore: () => void
   onPreview: (suggestion: MemoryOpsSuggestion) => void
   onApply: (suggestion: MemoryOpsSuggestion) => void
   onIgnore: (suggestion: MemoryOpsSuggestion) => void
@@ -34,13 +43,29 @@ export function MemoryOpsSuggestionGroups({
   dryRunPlans,
   suggestionErrors,
   workingSuggestionId,
+  selectedSuggestionIds,
+  batchWorking,
+  onToggleSelection,
+  onSelectCategory,
+  onClearSelection,
+  onBatchPreview,
+  onBatchApply,
+  onBatchIgnore,
   onPreview,
   onApply,
   onIgnore,
   onOpen,
 }: MemoryOpsSuggestionGroupsProps) {
   return (
-    <>
+    <div className="space-y-2">
+      <BatchToolbar
+        selectedCount={selectedSuggestionIds.size}
+        batchWorking={batchWorking}
+        onClearSelection={onClearSelection}
+        onBatchPreview={onBatchPreview}
+        onBatchApply={onBatchApply}
+        onBatchIgnore={onBatchIgnore}
+      />
       {groups.map((group) => (
         <SuggestionCategoryGroup
           key={group.category}
@@ -49,13 +74,58 @@ export function MemoryOpsSuggestionGroups({
           dryRunPlans={dryRunPlans}
           suggestionErrors={suggestionErrors}
           workingSuggestionId={workingSuggestionId}
+          selectedSuggestionIds={selectedSuggestionIds}
+          batchWorking={batchWorking}
+          onToggleSelection={onToggleSelection}
+          onSelectCategory={onSelectCategory}
           onPreview={onPreview}
           onApply={onApply}
           onIgnore={onIgnore}
           onOpen={onOpen}
         />
       ))}
-    </>
+    </div>
+  )
+}
+
+function BatchToolbar({
+  selectedCount,
+  batchWorking,
+  onClearSelection,
+  onBatchPreview,
+  onBatchApply,
+  onBatchIgnore,
+}: {
+  selectedCount: number
+  batchWorking: boolean
+  onClearSelection: () => void
+  onBatchPreview: () => void
+  onBatchApply: () => void
+  onBatchIgnore: () => void
+}) {
+  const { t } = useTranslation()
+  if (selectedCount === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
+      <span className="text-muted-foreground">
+        {t("settings.sections.maintenance.memoryOps.batchSelected", { n: selectedCount })}
+      </span>
+      <Button size="sm" variant="ghost" onClick={onClearSelection} disabled={batchWorking}>
+        {t("settings.sections.maintenance.memoryOps.clearSelection")}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onBatchIgnore} disabled={batchWorking}>
+        {t("settings.sections.maintenance.memoryOps.ignoreSelected")}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onBatchPreview} disabled={batchWorking}>
+        {batchWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {t("settings.sections.maintenance.memoryOps.previewSelected")}
+      </Button>
+      <Button size="sm" onClick={onBatchApply} disabled={batchWorking}>
+        {batchWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {t("settings.sections.maintenance.memoryOps.applySelected")}
+      </Button>
+    </div>
   )
 }
 
@@ -65,6 +135,10 @@ function SuggestionCategoryGroup({
   dryRunPlans,
   suggestionErrors,
   workingSuggestionId,
+  selectedSuggestionIds,
+  batchWorking,
+  onToggleSelection,
+  onSelectCategory,
   onPreview,
   onApply,
   onIgnore,
@@ -75,6 +149,10 @@ function SuggestionCategoryGroup({
   dryRunPlans: Record<string, MetadataPatchPlan>
   suggestionErrors: Record<string, string>
   workingSuggestionId: string | null
+  selectedSuggestionIds: ReadonlySet<string>
+  batchWorking: boolean
+  onToggleSelection: (suggestion: MemoryOpsSuggestion) => void
+  onSelectCategory: (suggestions: MemoryOpsSuggestion[]) => void
   onPreview: (suggestion: MemoryOpsSuggestion) => void
   onApply: (suggestion: MemoryOpsSuggestion) => void
   onIgnore: (suggestion: MemoryOpsSuggestion) => void
@@ -83,6 +161,7 @@ function SuggestionCategoryGroup({
   const { t } = useTranslation()
   const visibleSuggestions = suggestions.slice(0, 4)
   const extraSuggestionCount = Math.max(0, suggestions.length - visibleSuggestions.length)
+  const selectableSuggestions = visibleSuggestions.filter(isBatchApplicableMemoryOpsSuggestion)
 
   return (
     <div className="space-y-1.5 border-t border-border/60 pt-2 first:border-t-0 first:pt-0">
@@ -92,6 +171,17 @@ function SuggestionCategoryGroup({
           {t(`settings.sections.maintenance.memoryOps.categories.${category}`)}
         </span>
         <span className="text-muted-foreground">({suggestions.length})</span>
+        {selectableSuggestions.length > 0 && (
+          <Button
+            size="xs"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => onSelectCategory(selectableSuggestions)}
+            disabled={batchWorking}
+          >
+            {t("settings.sections.maintenance.memoryOps.selectCategory")}
+          </Button>
+        )}
       </div>
       {visibleSuggestions.map((suggestion) => (
         <MemoryOpsSuggestionRow
@@ -100,6 +190,9 @@ function SuggestionCategoryGroup({
           plan={dryRunPlans[suggestion.id]}
           error={suggestionErrors[suggestion.id]}
           working={workingSuggestionId === suggestion.id}
+          selected={selectedSuggestionIds.has(suggestion.id)}
+          batchWorking={batchWorking}
+          onToggleSelection={() => onToggleSelection(suggestion)}
           onPreview={() => onPreview(suggestion)}
           onApply={() => onApply(suggestion)}
           onIgnore={() => onIgnore(suggestion)}
@@ -132,6 +225,9 @@ function MemoryOpsSuggestionRow({
   plan,
   error,
   working,
+  selected,
+  batchWorking,
+  onToggleSelection,
   onPreview,
   onApply,
   onIgnore,
@@ -141,6 +237,9 @@ function MemoryOpsSuggestionRow({
   plan: MetadataPatchPlan | undefined
   error: string | undefined
   working: boolean
+  selected: boolean
+  batchWorking: boolean
+  onToggleSelection: () => void
   onPreview: () => void
   onApply: () => void
   onIgnore: () => void
@@ -152,13 +251,29 @@ function MemoryOpsSuggestionRow({
       ? "text-amber-700 dark:text-amber-400"
       : "text-muted-foreground"
   const canApply = !!suggestion.proposedOperation
+  const canBatch = isBatchApplicableMemoryOpsSuggestion(suggestion)
   const canConfirm = !!plan && canApply && !working
 
   return (
     <div className="min-w-0 space-y-2 border-t border-border/50 pt-2 text-xs first:border-t-0 first:pt-0">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <label className="inline-flex shrink-0 items-center gap-1 text-muted-foreground">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5"
+            checked={selected}
+            disabled={!canBatch || batchWorking}
+            onChange={onToggleSelection}
+            aria-label={t("settings.sections.maintenance.memoryOps.selectSuggestion")}
+          />
+        </label>
         <div className="min-w-0 break-words font-medium">{suggestion.title}</div>
         <span className={tone}>{suggestion.severity}</span>
+        {!canBatch && (
+          <span className="text-muted-foreground">
+            {t("settings.sections.maintenance.memoryOps.notBatchApplicable")}
+          </span>
+        )}
       </div>
       <div className={`${tone} min-w-0`}>
         <code className="break-all font-mono">{suggestion.targetPath}</code>

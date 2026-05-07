@@ -263,7 +263,15 @@
           "previewDiff": "预览 diff",
           "applyMetadata": "应用 metadata",
           "applying": "应用中…",
-          "reviewOnly": "仅供审阅的建议"
+          "reviewOnly": "仅供审阅的建议",
+          "selectSuggestion": "选择建议",
+          "selectCategory": "选择可见项",
+          "batchSelected": "已选 {{n}} 条",
+          "clearSelection": "清除",
+          "ignoreSelected": "忽略所选",
+          "previewSelected": "预览所选",
+          "applySelected": "应用所选",
+          "notBatchApplicable": "不支持批量"
         },
         "dedup": {
           "title": "检测重复实体 / 概念",

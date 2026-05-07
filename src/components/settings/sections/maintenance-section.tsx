@@ -30,6 +30,11 @@ import {
   type MetadataPatchPlan,
 } from "@/lib/memory-ops-executor"
 import {
+  applyMemoryOpsBatch,
+  ignoreMemoryOpsBatch,
+  previewMemoryOpsBatch,
+} from "@/lib/memory-ops-batch"
+import {
   getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
   type MemoryOpsMaintenanceStatus,
@@ -94,6 +99,10 @@ export function MaintenanceSection() {
   const [dryRunPlans, setDryRunPlans] = useState<Record<string, MetadataPatchPlan>>({})
   const [suggestionErrors, setSuggestionErrors] = useState<Record<string, string>>({})
   const [workingSuggestionId, setWorkingSuggestionId] = useState<string | null>(null)
+  const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [batchWorking, setBatchWorking] = useState(false)
 
   // Poll the queue at 1Hz so the UI reflects pending → processing →
   // failed transitions and cross-window queue activity (e.g. a merge
@@ -143,6 +152,7 @@ export function MaintenanceSection() {
     setAppliedSuggestionIds(new Set())
     setDryRunPlans({})
     setSuggestionErrors({})
+    setSelectedSuggestionIds(new Set())
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
@@ -224,6 +234,7 @@ export function MaintenanceSection() {
         setFileTree(tree)
         bumpDataVersion()
         setAppliedSuggestionIds((prev) => new Set(prev).add(suggestion.id))
+        setSelectedSuggestionIds((prev) => withoutSetValue(prev, suggestion.id))
         await refreshRecentAudit()
       } catch (err) {
         setSuggestionErrors((prev) => ({
@@ -241,6 +252,7 @@ export function MaintenanceSection() {
     async (suggestion: MemoryOpsSuggestion) => {
       if (!project) return
       setIgnoredSuggestionIds((prev) => new Set(prev).add(suggestion.id))
+      setSelectedSuggestionIds((prev) => withoutSetValue(prev, suggestion.id))
       await appendAuditEvent(project.path, {
         action: "memory_ops.ignore",
         targetPath: suggestion.targetPath,
@@ -259,6 +271,125 @@ export function MaintenanceSection() {
     },
     [project, refreshRecentAudit],
   )
+
+  const selectedMemoryOpsSuggestions = useCallback((): MemoryOpsSuggestion[] => {
+    if (!patrolReport) return []
+    return patrolReport.suggestions.filter((suggestion) =>
+      selectedSuggestionIds.has(suggestion.id),
+    )
+  }, [patrolReport, selectedSuggestionIds])
+
+  const handleToggleSuggestionSelection = useCallback((suggestion: MemoryOpsSuggestion) => {
+    setSelectedSuggestionIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(suggestion.id)) next.delete(suggestion.id)
+      else next.add(suggestion.id)
+      return next
+    })
+  }, [])
+
+  const handleSelectSuggestionCategory = useCallback((suggestions: MemoryOpsSuggestion[]) => {
+    setSelectedSuggestionIds((prev) => {
+      const next = new Set(prev)
+      for (const suggestion of suggestions) next.add(suggestion.id)
+      return next
+    })
+  }, [])
+
+  const handleClearSuggestionSelection = useCallback(() => {
+    setSelectedSuggestionIds(new Set())
+  }, [])
+
+  const handleBatchPreview = useCallback(async () => {
+    if (!project) return
+    const suggestions = selectedMemoryOpsSuggestions()
+    if (suggestions.length === 0) return
+    setBatchWorking(true)
+    setSuggestionErrors({})
+    try {
+      const result = await previewMemoryOpsBatch(project.path, suggestions)
+      const nextPlans: Record<string, MetadataPatchPlan> = {}
+      const nextErrors: Record<string, string> = {}
+      for (const item of result.items) {
+        if (item.plan) nextPlans[item.suggestionId] = item.plan
+        if (item.error) nextErrors[item.suggestionId] = item.error
+      }
+      setDryRunPlans((prev) => ({ ...prev, ...nextPlans }))
+      setSuggestionErrors(nextErrors)
+      await refreshRecentAudit()
+    } finally {
+      setBatchWorking(false)
+    }
+  }, [project, selectedMemoryOpsSuggestions, refreshRecentAudit])
+
+  const handleBatchApply = useCallback(async () => {
+    if (!project) return
+    const suggestions = selectedMemoryOpsSuggestions()
+    if (suggestions.length === 0) return
+    setBatchWorking(true)
+    setSuggestionErrors({})
+    try {
+      const result = await applyMemoryOpsBatch(project.path, suggestions)
+      const nextErrors: Record<string, string> = {}
+      const handledIds: string[] = []
+      let wroteFiles = false
+      for (const item of result.items) {
+        if (item.status === "applied") wroteFiles = true
+        if (item.status === "applied" || item.status === "unchanged") handledIds.push(item.suggestionId)
+        if (item.error) nextErrors[item.suggestionId] = item.error
+      }
+      if (wroteFiles) {
+        const tree = await listDirectory(project.path)
+        setFileTree(tree)
+        bumpDataVersion()
+      }
+      setAppliedSuggestionIds((prev) => {
+        const next = new Set(prev)
+        for (const id of handledIds) next.add(id)
+        return next
+      })
+      setSelectedSuggestionIds((prev) => {
+        const next = new Set(prev)
+        for (const id of handledIds) next.delete(id)
+        return next
+      })
+      setSuggestionErrors(nextErrors)
+      await refreshRecentAudit()
+    } finally {
+      setBatchWorking(false)
+    }
+  }, [project, selectedMemoryOpsSuggestions, setFileTree, bumpDataVersion, refreshRecentAudit])
+
+  const handleBatchIgnore = useCallback(async () => {
+    if (!project) return
+    const suggestions = selectedMemoryOpsSuggestions()
+    if (suggestions.length === 0) return
+    setBatchWorking(true)
+    setSuggestionErrors({})
+    try {
+      const result = await ignoreMemoryOpsBatch(project.path, suggestions)
+      const ignoredIds: string[] = []
+      const nextErrors: Record<string, string> = {}
+      for (const item of result.items) {
+        if (item.status === "ignored") ignoredIds.push(item.suggestionId)
+        if (item.error) nextErrors[item.suggestionId] = item.error
+      }
+      setIgnoredSuggestionIds((prev) => {
+        const next = new Set(prev)
+        for (const id of ignoredIds) next.add(id)
+        return next
+      })
+      setSelectedSuggestionIds((prev) => {
+        const next = new Set(prev)
+        for (const id of ignoredIds) next.delete(id)
+        return next
+      })
+      setSuggestionErrors(nextErrors)
+      await refreshRecentAudit()
+    } finally {
+      setBatchWorking(false)
+    }
+  }, [project, selectedMemoryOpsSuggestions, refreshRecentAudit])
 
   const handleOpenSuggestion = useCallback(
     async (suggestion: MemoryOpsSuggestion) => {
@@ -432,6 +563,14 @@ export function MaintenanceSection() {
         dryRunPlans={dryRunPlans}
         suggestionErrors={suggestionErrors}
         workingSuggestionId={workingSuggestionId}
+        selectedSuggestionIds={selectedSuggestionIds}
+        batchWorking={batchWorking}
+        onToggleSelection={handleToggleSuggestionSelection}
+        onSelectCategory={handleSelectSuggestionCategory}
+        onClearSelection={handleClearSuggestionSelection}
+        onBatchPreview={() => void handleBatchPreview()}
+        onBatchApply={() => void handleBatchApply()}
+        onBatchIgnore={() => void handleBatchIgnore()}
         onRun={() => void handlePatrol()}
         onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
         onApply={(suggestion) => void handleApplySuggestion(suggestion)}
@@ -558,6 +697,13 @@ function withoutKey<T>(record: Record<string, T>, key: string): Record<string, T
   if (!(key in record)) return record
   const next = { ...record }
   delete next[key]
+  return next
+}
+
+function withoutSetValue<T>(set: ReadonlySet<T>, value: T): Set<T> {
+  if (!set.has(value)) return new Set(set)
+  const next = new Set(set)
+  next.delete(value)
   return next
 }
 

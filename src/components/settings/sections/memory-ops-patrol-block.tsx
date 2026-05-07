@@ -31,7 +31,15 @@ interface MemoryOpsPatrolBlockProps {
   dryRunPlans: Record<string, MetadataPatchPlan>
   suggestionErrors: Record<string, string>
   workingSuggestionId: string | null
+  selectedSuggestionIds: ReadonlySet<string>
+  batchWorking: boolean
   onRun: () => void
+  onToggleSelection: (suggestion: MemoryOpsSuggestion) => void
+  onSelectCategory: (suggestions: MemoryOpsSuggestion[]) => void
+  onClearSelection: () => void
+  onBatchPreview: () => void
+  onBatchApply: () => void
+  onBatchIgnore: () => void
   onPreview: (suggestion: MemoryOpsSuggestion) => void
   onApply: (suggestion: MemoryOpsSuggestion) => void
   onIgnore: (suggestion: MemoryOpsSuggestion) => void
@@ -50,7 +58,15 @@ export function MemoryOpsPatrolBlock({
   dryRunPlans,
   suggestionErrors,
   workingSuggestionId,
+  selectedSuggestionIds,
+  batchWorking,
   onRun,
+  onToggleSelection,
+  onSelectCategory,
+  onClearSelection,
+  onBatchPreview,
+  onBatchApply,
+  onBatchIgnore,
   onPreview,
   onApply,
   onIgnore,
@@ -155,6 +171,14 @@ export function MemoryOpsPatrolBlock({
                 dryRunPlans={dryRunPlans}
                 suggestionErrors={suggestionErrors}
                 workingSuggestionId={workingSuggestionId}
+                selectedSuggestionIds={selectedSuggestionIds}
+                batchWorking={batchWorking}
+                onToggleSelection={onToggleSelection}
+                onSelectCategory={onSelectCategory}
+                onClearSelection={onClearSelection}
+                onBatchPreview={onBatchPreview}
+                onBatchApply={onBatchApply}
+                onBatchIgnore={onBatchIgnore}
                 onPreview={onPreview}
                 onApply={onApply}
                 onIgnore={onIgnore}

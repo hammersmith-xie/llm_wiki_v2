@@ -263,7 +263,15 @@
           "previewDiff": "Preview diff",
           "applyMetadata": "Apply metadata",
           "applying": "Applying…",
-          "reviewOnly": "Review-only suggestion"
+          "reviewOnly": "Review-only suggestion",
+          "selectSuggestion": "Select suggestion",
+          "selectCategory": "Select visible",
+          "batchSelected": "{{n}} selected",
+          "clearSelection": "Clear",
+          "ignoreSelected": "Ignore selected",
+          "previewSelected": "Preview selected",
+          "applySelected": "Apply selected",
+          "notBatchApplicable": "not batch-applicable"
         },
         "dedup": {
           "title": "Detect duplicate entities / concepts",

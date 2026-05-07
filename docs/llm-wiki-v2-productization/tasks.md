@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 7 / 16
+**总体进度**: 🚧 8 / 16
 
 ---
 
@@ -250,9 +250,9 @@ graph TD
 
 **目标**: 把 batch、rollback、policy、timeline、search health 编排进 Settings -> Maintenance。
 **依赖**: M1, M2
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ 为建议卡增加 selection 和 batch action UI
+### Task 3.1 ✅ 为建议卡增加 selection 和 batch action UI
 
 **描述**: 扩展 Memory Ops suggestion groups，支持 checkbox selection、Batch Preview、Apply Selected、Ignore Selected。
 
@@ -269,16 +269,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 只可选择 batch-applicable suggestions，review-only 项显示不可批量处理原因。
-- [ ] Batch preview 后显示逐项 diff/error。
-- [ ] Apply selected 后更新 applied/ignored 状态和 file tree。
-- [ ] 执行中、空选择、部分失败状态文案完整。
+- [x] 只可选择 batch-applicable suggestions，review-only 项显示不可批量处理原因。
+- [x] Batch preview 后显示逐项 diff/error。
+- [x] Apply selected 后更新 applied/ignored 状态和 file tree。
+- [x] 执行中、空选择、部分失败状态文案完整。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 项目没有现成 checkbox UI 组件；使用原生 checkbox 保持键盘可达，并避免引入新组件依赖。
+- 🔧 **最终实现逻辑**: `MemoryOpsSuggestionGroups` 增加 selection checkbox、category visible-select 和批量 toolbar；`MaintenanceSection` 接入 `previewMemoryOpsBatch`、`applyMemoryOpsBatch`、`ignoreMemoryOpsBatch`，并同步 dry-run plans、errors、applied/ignored ids、file tree 和 audit refresh。
+- 🎯 **关键决策**: T3.1 只显示批量操作入口和逐项结果；完整 batch result 摘要留给 T3.2，避免一次 UI 改动过大。
 
 ---
 
@@ -535,10 +535,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 4 | 4 | ✅ |
-| M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
+| M3 | Maintenance Workbench UI | 1 | 6 | 🚧 |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **7** | **16** | **🚧** |
+| **总计** | | **8** | **16** | **🚧** |
 
 ---
 
