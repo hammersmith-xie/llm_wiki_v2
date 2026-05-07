@@ -564,7 +564,7 @@ graph TD
 
 ---
 
-### Task 5.2 🚧 五轮最终审核与 completion audit
+### Task 5.2 ✅ 五轮最终审核与 completion audit
 
 **描述**: 按中型项目执行 5 轮最终审核：功能、类型/静态分析、性能、安全、UX/a11y，并补齐发现。
 
@@ -582,15 +582,15 @@ graph TD
 - `docs/llm-wiki-v2-schema-automation/completion-audit.md`
 
 **验收**:
-- [ ] 5 轮 review reports 存在。
-- [ ] 每轮发现修复或明确记录为 follow-up/非目标。
-- [ ] completion audit 对照 F1-F8。
+- [x] 5 轮 review reports 存在。
+- [x] 每轮发现修复或明确记录为 follow-up/非目标。
+- [x] completion audit 对照 F1-F8。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Round 3 发现 project-level schema scan 串行读取文件和 page quality 重复解析 frontmatter 两个 P2 性能问题，已修复；Round 4 依赖审计受环境限制，`npm audit` 被当前镜像 audit endpoint 拒绝，`cargo audit` 未安装。
+- 🔧 **最终实现逻辑**: 生成 `review-round-1.md` 到 `review-round-5.md`，按功能、类型/静态分析、性能、安全、UX/a11y 五个视角审核；新增 `completion-audit.md` 对照 F1-F8，总结验证命令、限制和最终结论。
+- 🎯 **关键决策**: 依赖审计环境限制不阻塞本阶段收口，但在安全报告和 completion audit 中明确记录；Round 3 的性能修复保持行为等价，只优化主动 scan 的 I/O 并发和解析成本。
 
 ---
 
@@ -602,8 +602,8 @@ graph TD
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
 | M3 | Event and Digest Core | 4 | 4 | ✅ |
 | M4 | Maintenance UI and Documentation | 5 | 5 | ✅ |
-| M5 | Verification and Final Review | 1 | 2 | 🚧 |
-| **总计** | | **17** | **17** | **🚧** |
+| M5 | Verification and Final Review | 2 | 2 | ✅ |
+| **总计** | | **17** | **17** | **✅** |
 
 ---
 
@@ -612,6 +612,7 @@ graph TD
 | 日期 | 变更 |
 |------|------|
 | 2026-05-07 | 初稿，17 个任务 |
+| 2026-05-07 | 完成 17 个任务、五轮最终审核和 completion audit |
 
 ---
 
@@ -619,8 +620,8 @@ graph TD
 
 | Round | 视角 | 状态 | 报告 |
 |-------|------|------|------|
-| 1 | 功能 | ⏳ | <-> |
-| 2 | 类型 & 静态分析 | ⏳ | <-> |
-| 3 | 性能 | ⏳ | <-> |
-| 4 | 安全 | ⏳ | <-> |
-| 5 | UX & a11y | ⏳ | <-> |
+| 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
+| 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
+| 3 | 性能 | ✅ | [review-round-3.md](./review-round-3.md) |
+| 4 | 安全 | ✅ | [review-round-4.md](./review-round-4.md) |
+| 5 | UX & a11y | ✅ | [review-round-5.md](./review-round-5.md) |
