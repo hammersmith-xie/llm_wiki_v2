@@ -16,6 +16,10 @@ export async function writeFile(path: string, contents: string): Promise<void> {
   return invoke<void>("write_file", { path, contents })
 }
 
+export async function appendFile(path: string, contents: string): Promise<void> {
+  return invoke<void>("append_file", { path, contents })
+}
+
 export async function listDirectory(path: string): Promise<FileNode[]> {
   return invoke<FileNode[]>("list_directory", { path })
 }

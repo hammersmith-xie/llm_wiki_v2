@@ -4,20 +4,23 @@ import { scanMemoryOpsProject, runMemoryOpsPatrol } from "./memory-ops"
 import { useActivityStore } from "@/stores/activity-store"
 
 vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(async () => {}),
   createDirectory: vi.fn(async () => {}),
   listDirectory: vi.fn(),
   readFile: vi.fn(),
   writeFile: vi.fn(async () => {}),
 }))
 
-import { createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
+import { appendFile, createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
 
+const mockAppendFile = vi.mocked(appendFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
 const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
+  mockAppendFile.mockReset()
   mockCreateDirectory.mockReset()
   mockListDirectory.mockReset()
   mockReadFile.mockReset()
@@ -185,7 +188,7 @@ describe("memory ops project scanner", () => {
       status: "done",
     })
     expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
-    expect(mockWriteFile).toHaveBeenCalledWith(
+    expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"memory_ops.patrol\""),
     )
@@ -194,7 +197,7 @@ describe("memory ops project scanner", () => {
   it("marks the patrol activity as error when audit writing fails", async () => {
     mockListDirectory.mockResolvedValue([])
     mockReadFile.mockRejectedValue(new Error("missing"))
-    mockWriteFile.mockRejectedValueOnce(new Error("disk full"))
+    mockAppendFile.mockRejectedValueOnce(new Error("disk full"))
 
     await expect(runMemoryOpsPatrol("/project")).rejects.toThrow("disk full")
 

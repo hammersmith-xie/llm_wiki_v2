@@ -3,18 +3,21 @@ import { writeCrystallizedQueryPage } from "./crystallize"
 import { writeConfirmedCrystallizationCandidate } from "./crystallize-candidates"
 
 vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(async () => {}),
   readFile: vi.fn(async () => ""),
   writeFile: vi.fn(async () => {}),
   createDirectory: vi.fn(async () => {}),
 }))
 
-import { readFile, writeFile, createDirectory } from "@/commands/fs"
+import { appendFile, readFile, writeFile, createDirectory } from "@/commands/fs"
 
+const mockAppendFile = vi.mocked(appendFile)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
 
 beforeEach(() => {
+  mockAppendFile.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
   mockCreateDirectory.mockReset()
@@ -60,7 +63,7 @@ describe("writeCrystallizedQueryPage", () => {
     expect(pageContent).toContain('reinforcement_count: "2"')
 
     expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
-    expect(mockWriteFile).toHaveBeenCalledWith(
+    expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"crystallize.query\""),
     )
@@ -89,7 +92,7 @@ describe("writeCrystallizedQueryPage", () => {
       },
     })
 
-    const auditCall = mockWriteFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    const auditCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
     expect(auditCall?.[1]).toContain('"candidate"')
     expect(auditCall?.[1]).toContain('"score":0.84')
     expect(auditCall?.[1]).toContain('"contains conclusion signal"')
@@ -127,7 +130,7 @@ describe("writeCrystallizedQueryPage", () => {
       "/project/wiki/queries/retrieval-notes.md",
       expect.stringContaining('origin: "chat-candidate"'),
     )
-    const auditCall = mockWriteFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    const auditCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
     expect(auditCall?.[1]).toContain('"candidate"')
     expect(auditCall?.[1]).toContain('"sourceId":"m-1"')
   })

@@ -1,4 +1,6 @@
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::io::Read as IoRead;
 use std::path::Path;
 
@@ -937,6 +939,28 @@ pub async fn write_file(path: String, contents: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn append_file(path: String, contents: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_guarded("append_file", || {
+            let p = Path::new(&path);
+            if let Some(parent) = p.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create parent dirs for '{}': {}", path, e))?;
+            }
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .map_err(|e| format!("Failed to open file for append '{}': {}", path, e))?;
+            file.write_all(contents.as_bytes())
+                .map_err(|e| format!("Failed to append file '{}': {}", path, e))
+        })
+    })
+    .await
+    .map_err(|e| format!("append_file blocking task join error: {e}"))?
+}
+
+#[tauri::command]
 pub async fn list_directory(path: String) -> Result<Vec<FileNode>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         run_guarded("list_directory", || {
@@ -1403,6 +1427,33 @@ mod tests {
     async fn read_file_returns_err_on_missing_file_instead_of_panicking() {
         let result = read_file("/nonexistent/path/that/does/not/exist.pdf".to_string()).await;
         assert!(result.is_err() || result.is_ok()); // must at least return
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn append_file_appends_without_rewriting_existing_content() {
+        let dir = std::env::temp_dir().join(format!(
+            "append-file-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let path = dir.join(".llm-wiki").join("audit.jsonl");
+        let path_string = path.to_string_lossy().to_string();
+
+        append_file(path_string.clone(), "{\"action\":\"first\"}\n".to_string())
+            .await
+            .unwrap();
+        append_file(path_string.clone(), "{\"action\":\"second\"}\n".to_string())
+            .await
+            .unwrap();
+
+        let content = fs::read_to_string(&path).unwrap();
+        let _ = fs::remove_dir_all(&dir);
+        assert_eq!(
+            content,
+            "{\"action\":\"first\"}\n{\"action\":\"second\"}\n"
+        );
     }
 
     /// Ad-hoc probe: run the production PDF extraction path against every

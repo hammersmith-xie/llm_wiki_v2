@@ -1,4 +1,4 @@
-import { createDirectory, readFile, writeFile } from "@/commands/fs"
+import { appendFile, createDirectory, readFile } from "@/commands/fs"
 import { redactAuditEvent } from "@/lib/audit-redaction"
 import { normalizePath } from "@/lib/path-utils"
 
@@ -44,21 +44,10 @@ export async function appendAuditEvent(
   const dir = `${pp}/.llm-wiki`
   const path = auditTimelinePath(pp)
   const normalized = normalizeAuditEvent(event)
-  const line = JSON.stringify(normalized)
+  const line = `${JSON.stringify(normalized)}\n`
 
   await createDirectory(dir).catch(() => {})
-  let existing = ""
-  try {
-    existing = await readFile(path)
-  } catch {
-    existing = ""
-  }
-
-  const next =
-    existing.trim().length > 0
-      ? `${existing.replace(/\s*$/, "")}\n${line}\n`
-      : `${line}\n`
-  await writeFile(path, next)
+  await appendFile(path, line)
 }
 
 export async function readAuditTimeline(

@@ -7,18 +7,21 @@ import {
 } from "./lifecycle"
 
 vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(async () => {}),
   createDirectory: vi.fn(async () => {}),
   readFile: vi.fn(async () => ""),
   writeFile: vi.fn(async () => {}),
 }))
 
-import { createDirectory, readFile, writeFile } from "@/commands/fs"
+import { appendFile, createDirectory, readFile, writeFile } from "@/commands/fs"
 
+const mockAppendFile = vi.mocked(appendFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
+  mockAppendFile.mockClear()
   mockCreateDirectory.mockClear()
   mockReadFile.mockClear()
   mockWriteFile.mockClear()
@@ -138,10 +141,11 @@ describe("lifecycle metadata", () => {
     })
 
     expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
-    expect(mockWriteFile).toHaveBeenCalledWith(
+    expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"lifecycle.enrich\""),
     )
-    expect(mockWriteFile.mock.calls[0][1]).toContain("{\"old\":true}")
+    expect(mockReadFile).not.toHaveBeenCalled()
+    expect(mockWriteFile).not.toHaveBeenCalled()
   })
 })

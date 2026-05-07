@@ -7,27 +7,28 @@ import {
 import { appendLifecycleAuditEvent } from "./lifecycle"
 
 vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(async () => {}),
   createDirectory: vi.fn(async () => {}),
   readFile: vi.fn(async () => ""),
   writeFile: vi.fn(async () => {}),
 }))
 
-import { createDirectory, readFile, writeFile } from "@/commands/fs"
+import { appendFile, createDirectory, readFile, writeFile } from "@/commands/fs"
 
+const mockAppendFile = vi.mocked(appendFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
+  mockAppendFile.mockReset()
   mockCreateDirectory.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
 })
 
 describe("audit timeline", () => {
-  it("appends an audit event to the project jsonl timeline", async () => {
-    mockReadFile.mockResolvedValueOnce("{\"action\":\"existing\"}\n")
-
+  it("appends an audit event to the project jsonl timeline without rewriting history", async () => {
     await appendAuditEvent("/project", {
       timestamp: "2026-05-07T00:00:00.000Z",
       action: "memory_ops.patrol",
@@ -36,19 +37,15 @@ describe("audit timeline", () => {
     })
 
     expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
-    expect(mockWriteFile).toHaveBeenCalledWith(
+    expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
-      [
-        "{\"action\":\"existing\"}",
-        "{\"timestamp\":\"2026-05-07T00:00:00.000Z\",\"action\":\"memory_ops.patrol\",\"targetPath\":\"wiki/concepts/a.md\",\"reasons\":[\"manual patrol\"]}",
-        "",
-      ].join("\n"),
+      "{\"timestamp\":\"2026-05-07T00:00:00.000Z\",\"action\":\"memory_ops.patrol\",\"targetPath\":\"wiki/concepts/a.md\",\"reasons\":[\"manual patrol\"]}\n",
     )
+    expect(mockReadFile).not.toHaveBeenCalled()
+    expect(mockWriteFile).not.toHaveBeenCalled()
   })
 
   it("redacts secrets before appending an audit event", async () => {
-    mockReadFile.mockResolvedValueOnce("")
-
     await appendAuditEvent("/project", {
       timestamp: "2026-05-07T00:00:00.000Z",
       action: "memory_ops.apply",
@@ -58,7 +55,7 @@ describe("audit timeline", () => {
       },
     })
 
-    const written = String(mockWriteFile.mock.calls[0][1])
+    const written = String(mockAppendFile.mock.calls[0][1])
     expect(written).not.toContain("sk-proj-abc")
     expect(written).toContain("OPENAI_API_KEY=[REDACTED:secret]")
   })
@@ -118,7 +115,7 @@ describe("audit timeline", () => {
       reasons: ["test"],
     })
 
-    expect(mockWriteFile).toHaveBeenCalledWith(
+    expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"lifecycle.enrich\""),
     )
