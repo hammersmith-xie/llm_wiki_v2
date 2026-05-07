@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 4 / 16
+**总体进度**: 🚧 5 / 16
 
 ---
 
@@ -160,7 +160,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 实现 audit timeline 过滤和摘要纯函数
+### Task 2.2 ✅ 实现 audit timeline 过滤和摘要纯函数
 
 **描述**: 新建 UI-agnostic helper，用于按 action/category/path/scope/status/text/time range 过滤 audit events，并生成展示摘要。
 
@@ -176,16 +176,16 @@ graph TD
 - `src/lib/memory-ops-ui.ts`
 
 **验收**:
-- [ ] 过滤 category/action/path/scope/status/text/time range。
-- [ ] 支持 bad-line warnings 摘要。
-- [ ] private event 摘要不显示被收缩字段。
-- [ ] 默认最近事件排序稳定。
+- [x] 过滤 category/action/path/scope/status/text/time range。
+- [x] 支持 bad-line warnings 摘要。
+- [x] private event 摘要不显示被收缩字段。
+- [x] 默认最近事件排序稳定。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Timeline 过滤需要同时匹配直接 target/page/source path 和 retrieval result path，否则 search/query 事件无法按引用页面定位。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/audit-timeline-ui.ts`，提供 filter/sort/summary/warning summary helpers；过滤支持 category、action、path、scope、status、text、date range 和 limit。
+- 🎯 **关键决策**: helper 保持 UI-agnostic，只返回摘要字符串和原事件引用；不在此层读取文件或触发审计写入。
 
 ---
 
@@ -534,11 +534,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
-| M2 | Policy, Timeline, Search Health Core | 1 | 4 | 🚧 |
+| M2 | Policy, Timeline, Search Health Core | 2 | 4 | 🚧 |
 | M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **4** | **16** | **🚧** |
+| **总计** | | **5** | **16** | **🚧** |
 
 ---
 
