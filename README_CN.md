@@ -37,7 +37,7 @@
 - **图谱洞察** — 惊奇连接与知识空白检测，一键触发 Deep Research
 - **向量语义搜索** — 可选的 embedding 检索，基于 LanceDB，支持任意 OpenAI 兼容端点
 - **LLM Wiki v2 本地切片** — 页面级生命周期、置信度信号、typed relationship 字段、图谱感知 RRF 检索、BM25 证据和 append-only audit
-- **Memory Ops 工作台** — 本地维护巡检、批量 metadata 治理、回滚、审计时间线浏览、生命周期策略调参和搜索健康度检查
+- **Memory Ops 工作台** — 本地维护巡检、Schema 与质量扫描、批量 metadata 治理、回滚、审计时间线浏览、生命周期策略调参、搜索健康度检查、digest 预览和协同摘要
 - **持久化摄入队列** — 串行处理，崩溃恢复，取消/重试，进度可视化
 - **文件夹导入** — 递归导入保留目录结构，文件夹路径作为 LLM 分类上下文
 - **深度研究** — LLM 智能生成搜索主题，多查询网络搜索，研究结果自动摄入 Wiki
@@ -244,6 +244,11 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 
 Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外部 memory server。Markdown 仍是 durable source of truth；Memory Ops 只从本地项目派生建议、metadata patch、audit event 和检索评估报告。
 
+- **Schema-as-product contract** —— 新项目的 `schema.md` 内置机器可读 `llm-wiki-schema-contract` block；旧项目没有该 block 时会使用默认 contract fallback，并在扫描摘要里提示
+- **Schema 与质量扫描** —— Settings -> Maintenance 可解析 contract，扫描 `wiki/**/*.md` 的 frontmatter drift、typed relation 问题、路径/类型不匹配和确定性页面质量维度
+- **Schema findings 接入 Memory Ops 建议** —— 安全的 metadata-only finding 复用现有 preview/apply/ignore 和批量治理流程；review-only finding 只提示，不会变成自动 patch
+- **巡检展示最近扫描摘要** —— Memory Ops patrol 会展示最近一次已保存的 Schema 与质量摘要，包括 finding 数、warning、低质量页、平均质量分和建议数，但不会在巡检时重复运行昂贵的 schema scan
+- **事件 hooks** —— `session.start/end`、`memory.write`、`schema.scan`、`quality.scan`、`digest.preview` 和 `digest.save` 只写 best-effort audit event 与 maintenance marker，不在高频路径触发重扫描
 - **统一审计时间线** —— `.llm-wiki/audit.jsonl` 记录 lifecycle、crystallization、patrol、ignore、metadata apply 等事件，写入前脱敏并容忍坏行
 - **事实源边界** —— 巡检读取 Wiki 页面、typed graph state、review state、chat history 和 audit activity；原始资料仍是不可变输入，不作为后台重扫描目标
 - **确定性巡检入口** —— Settings -> Maintenance 可扫描本地项目状态，不依赖 LLM 配置
@@ -256,8 +261,13 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **审计时间线浏览器** —— Settings -> Maintenance 支持按 category、action、path、scope、status、文本过滤 audit，显示坏行警告，并可打开目标文件
 - **生命周期策略面板** —— 可按项目调整 half-life、低置信度、promotion 和归档阈值；保存后会使用新策略重新巡检
 - **搜索健康度面板** —— 可运行内置 smoke eval，覆盖精确标题、alias/keyword、中文、typed graph 和冲突降权检索，并查看失败详情和最新 `.llm-wiki/search-eval-report.json`
-- **Crystallization candidates** —— 高价值 chat、research、review 输出会低干扰提示 Save to Wiki，用户确认后复用现有 `wiki/queries/` 写入路径
+- **Crystallization candidates 与 digest 预览** —— 高价值 chat、research、review 输出会低干扰提示 Save to Wiki，展示 lessons/decisions/entities/relation candidates，并可在确认后保存为 query 或 synthesis 页面
+- **协同摘要** —— Settings -> Maintenance 会汇总本地 actor activity、最近 audit 事件、待审阅项、blocked schema findings 和 private-to-shared promotion candidates，并支持打开目标或过滤时间线；它只来自本地 audit，不是云同步或团队权限系统
 - **检索评估 harness** —— 可通过测试或 Search Health 面板运行确定性场景，再决定是否调检索权重
+
+#### Schema Contract 迁移
+
+旧项目无需手动迁移即可打开。如果 `schema.md` 没有机器可读 contract block，Schema 与质量扫描会回退到内置 v1 contract，并在扫描摘要里提示 fallback。要采用显式 contract，可用当前版本创建一个新项目，将其中的 `llm-wiki-schema-contract` fenced block 复制到旧项目的 `schema.md`，然后运行 Schema 与质量扫描，并在应用任何 metadata 建议前先 preview。
 
 ### 10. 思维链 / 推理过程展示
 

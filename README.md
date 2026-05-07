@@ -37,7 +37,7 @@
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
 - **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, and append-only audit events
-- **Memory Ops Workbench** — local maintenance patrol, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, and search health checks
+- **Memory Ops Workbench** — local maintenance patrol, schema/quality scans, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, search health checks, digest preview, and coordination summary
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
@@ -244,6 +244,11 @@ The original has a single query interface. We built **full multi-conversation su
 
 Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer, not as an external memory server. Markdown remains the durable source of truth; Memory Ops only derives suggestions, metadata patches, audit events, and evaluation reports from the local project.
 
+- **Schema-as-product contract** — new projects include a machine-readable `llm-wiki-schema-contract` block inside `schema.md`; old projects without the block use the default contract fallback and surface a warning during scan
+- **Schema & Quality scan** — Settings -> Maintenance can parse the contract, scan `wiki/**/*.md` for frontmatter drift, typed relation issues, path/type mismatches, and deterministic page quality dimensions
+- **Schema findings as Memory Ops suggestions** — safe metadata-only findings reuse the existing preview/apply/ignore and batch governance flow; review-only findings stay visible without becoming automatic patches
+- **Latest scan in patrol** — Memory Ops patrol shows the latest saved Schema & Quality summary, including finding counts, warnings, low-quality pages, average quality, and suggestion count, without rerunning the expensive schema scan during patrol
+- **Event hooks** — `session.start/end`, `memory.write`, `schema.scan`, `quality.scan`, `digest.preview`, and `digest.save` write best-effort audit events and maintenance markers without high-frequency rescans
 - **Unified audit timeline** — `.llm-wiki/audit.jsonl` records lifecycle, crystallization, patrol, ignore, and metadata-apply events with redaction and bad-line tolerance
 - **Source-of-truth boundary** — patrol reads wiki pages, typed graph state, review state, chat history, and audit activity; raw documents remain immutable inputs, not a background rescan target
 - **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM
@@ -256,8 +261,13 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Audit Timeline Explorer** — Settings -> Maintenance includes filterable audit browsing by category, action, path, scope, status, and text, including bad-line warnings and target-file opening
 - **Lifecycle Policy panel** — local half-life, low-confidence, promotion, and archive thresholds can be tuned per project; saving reruns patrol with the new policy
 - **Search Health panel** — users can run built-in smoke evals for exact title, alias/keyword, CJK, typed graph, and contradiction-deprioritize retrieval, then inspect failures and the latest `.llm-wiki/search-eval-report.json`
-- **Crystallization candidates** — high-value chat, research, and review outputs can prompt a low-noise Save to Wiki suggestion and reuse the existing `wiki/queries/` write path after confirmation
+- **Crystallization candidates and digest preview** — high-value chat, research, and review outputs can prompt a low-noise Save to Wiki suggestion, show lessons/decisions/entities/relation candidates, and save a confirmed digest as a query or synthesis page
+- **Coordination summary** — Settings -> Maintenance summarizes local actor activity, recent audit events, pending reviews, blocked schema findings, and private-to-shared promotion candidates, with target opening and timeline filtering; it is local audit-derived context, not cloud sync or team permissions
 - **Search evaluation harness** — deterministic scenarios can be run from tests or the Search Health panel before retrieval tuning
+
+#### Schema Contract Migration
+
+Existing projects do not need a manual migration before opening. If `schema.md` does not contain a machine-readable contract block, Schema & Quality scan falls back to the built-in v1 contract and reports that fallback in the scan summary. To adopt the explicit contract, create a new project from the current template and copy the `llm-wiki-schema-contract` fenced block into the older project's `schema.md`, then run Schema & Quality scan and preview any generated metadata suggestions before applying them.
 
 ### 10. Thinking / Reasoning Display
 

@@ -1,9 +1,9 @@
 # 需求文档 - LLM Wiki v2 Schema 与事件自动化闭环
 
-**版本**: v0.1
+**版本**: v0.2
 **日期**: 2026-05-07
 **作者**: user + AI
-**状态**: 评审中
+**状态**: M4 文档收口，M5 待验证
 **关联任务列表**: [tasks.md](./tasks.md)
 
 ---
@@ -24,8 +24,17 @@
 | Frontmatter compliance | `frontmatter.ts` 能解析并修复常见 LLM YAML 问题；`wiki-frontmatter-fields.ts` 集中 typed relation 字段。 | 没有统一校验每页必填字段、枚举值、数组字段、typed relation slug、过期 schema version。 | 增加纯函数 validator，输出 Memory Ops suggestions 和 audit。 |
 | Event automation | ingest/search/query/review/crystallize/Memory Ops 已有 audit；maintenance dirty counter 已有 cooldown。 | session start/end、memory write、schema drift、quality scan、crystallization digest 事件不统一。 | 增加 event hook registry 和轻量 trigger，只写 audit/建议/dirty marker，不在高频路径跑重扫描。 |
 | Quality scoring | `lifecycle.ts` 可补 `quality_score`，Memory Ops 能基于 confidence/staleness 生成建议。 | 质量评分仍偏 metadata 补齐，缺少结构质量、引用质量、关系质量、可检索性等可解释维度。 | 增加 deterministic page quality evaluator 和低分 review/metadata suggestions。 |
-| Crystallization | Chat/Deep Research/Review 可以显式 Save to Wiki，候选评分和 audit 已存在。 | 保存结果主要是 query page，缺少 digest 内部的 lessons/decisions/entities/relations 抽取建议。 | 做 non-LLM-first digest planner，生成可预览结构化建议；确认后复用现有写入/metadata patch 能力。 |
-| Collaboration slice | `scope: private/shared` 已存在，audit actor 支持 user/system/agent。 | 没有本地 work coordination、agent activity summary、schema owner/change trail。 | 增加 `.llm-wiki/worklog.jsonl` 或 audit-derived coordination summary，不做云同步或 ACL。 |
+| Crystallization | Chat/Deep Research/Review 可以显式 Save to Wiki，候选评分和 audit 已存在。 | 保存结果主要是 query page，缺少 digest 内部的 lessons/decisions/entities/relations 抽取建议。 | 做 non-LLM-first digest planner，生成可预览结构化建议；确认后复用现有写入能力，metadata patch 继续走 Memory Ops。 |
+| Collaboration slice | `scope: private/shared` 已存在，audit actor 支持 user/system/agent。 | 没有本地 work coordination、agent activity summary、schema owner/change trail。 | 增加 audit-derived coordination summary，不做云同步、ACL 或额外 worklog 持久化。 |
+
+### 1.2 实施状态
+
+- M1-M4.4 已完成：schema contract、drift/quality 核心、Memory Ops 映射、event registry、digest planner、Maintenance UI、patrol schema summary、digest preview 和 coordination summary 已落地。
+- T4.5 当前收口文档和迁移说明；M5 仍需 focused tests、typecheck、mock regression、Rust scaffold test 和 5 轮最终审核。
+- 旧项目没有 contract block 时使用内置 `llm-wiki-v2-default` v1 fallback，不阻塞打开项目或运行 Memory Ops；Schema & Quality scan 会展示 fallback warning。
+- Schema & Quality scan 会保存最近一次 summary；Memory Ops patrol 只读取这个 summary，不在巡检路径重读 `schema.md` 和 `wiki/**/*.md` 做昂贵扫描。
+- Digest preview 是 dry-run；确认保存时写入 query/synthesis page 并记录 audit。Relation/metadata patch 目前作为候选展示，实际修改仍走 Memory Ops executor 的 preview/apply/ignore。
+- Coordination summary 基于 audit events、review items 和最近 schema findings 汇总本地状态；不写 worklog 文件，也不引入外部 memory server、云同步或团队权限。
 
 ---
 
@@ -39,8 +48,8 @@
 - ✅ 将 schema drift 和 quality findings 接入 Memory Ops，生成可解释 suggestions、preview/apply metadata patch 或 review-only action。
 - ✅ 增加轻量 event hook registry，统一 session start/end、memory write、schema scan、quality scan、crystallization digest 和 search health 等事件命名。
 - ✅ 增加 deterministic page quality evaluator，输出结构质量、引用质量、关系质量、检索质量和治理质量评分。
-- ✅ 扩展 crystallization digest：从高价值输出中生成 lessons/decisions/entities/relations 候选，用户确认后写入 Wiki 或 metadata patch。
-- ✅ 增加本地协作/agent activity summary：基于 audit/worklog 汇总最近 actor、操作、阻塞项和 shared/private promotion 候选。
+- ✅ 扩展 crystallization digest：从高价值输出中生成 lessons/decisions/entities/relations 候选，用户确认后写入 Wiki；metadata relation patch 仍经 Memory Ops 确认流程处理。
+- ✅ 增加本地协作/agent activity summary：基于 audit、review state 和最近 schema findings 汇总 actor、操作、阻塞项和 shared/private promotion 候选。
 - ✅ 更新 Maintenance UI、README/README_CN、schema templates、i18n 和测试。
 
 ### 2.2 范围外
@@ -58,9 +67,20 @@
 - 用户能在 Settings -> Maintenance 运行 Schema & Quality scan，看到 schema drift、frontmatter compliance、quality score 和 coordination summary。
 - 每条 finding 都有 reasons、severity、target path 和 suggested action；metadata 修复必须支持 preview/apply/ignore 并写 audit。
 - Event hook registry 覆盖 session start/end、memory write、schema scan、quality scan、crystallization digest，且高频路径不触发全量扫描。
-- Crystallization digest 能从 saved output 生成 lessons/decisions/entities/relations 候选，不自动保存，确认后复用现有 Wiki 写入或 metadata patch。
+- Crystallization digest 能从 saved output 生成 lessons/decisions/entities/relations 候选，preview 不写文件，确认后复用现有 Wiki 写入；metadata patch 候选不静默应用。
 - `npm run typecheck`、focused Vitest suites、`npm run test:mocks` 通过；若 Rust scaffold 改动，`cd src-tauri && cargo test` 通过。
 - README、README_CN、TS templates、Rust scaffold 和 schema contract tests 对齐，不声明范围外能力。
+
+### 2.4 旧项目迁移 / Fallback 指南
+
+旧项目无需迁移即可打开和使用。系统按以下路径处理旧项目：
+
+1. 如果 `schema.md` 含 `llm-wiki-schema-contract` fenced block，Schema & Quality scan 解析该 contract。
+2. 如果 `schema.md` 没有 contract block 或 block 损坏，扫描使用内置默认 contract，并在 warnings 和最近 scan summary 中提示 fallback。
+3. 用户可以继续运行 Memory Ops patrol；patrol 只展示最近一次 Schema & Quality scan summary，不会因为缺 contract 阻断其它维护能力。
+4. 要显式迁移，先备份旧项目或用版本控制确认工作树，再用当前版本新建一个项目，把新 `schema.md` 中的 `llm-wiki-schema-contract` fenced block 复制到旧项目 `schema.md`。
+5. 运行 Schema & Quality scan，逐条 preview schema/metadata suggestions；只应用确认过的 metadata patch，review-only finding 保持人工处理。
+6. 迁移不需要外部数据库、memory server、云同步或团队权限；相关状态仍保存在本地 Markdown、`.llm-wiki/audit.jsonl` 和本地 project store summary。
 
 ---
 
@@ -125,10 +145,10 @@
 1. 系统基于现有 crystallization candidate 评分识别高价值输出。
 2. 用户点击 digest preview。
 3. 系统生成 lessons、decisions、entities、typed relations 和 target page 建议。
-4. 用户选择保存为 query/synthesis page，或只应用 metadata relation patch。
-5. 系统写入 Wiki 或 patch，并记录 audit。
+4. 用户选择保存为 query/synthesis page；relation/metadata patch 候选只展示，不在 digest UI 里静默应用。
+5. 系统写入 Wiki 并记录 audit；需要修改 metadata 时继续走 Memory Ops preview/apply/ignore。
 
-**预期结果**: 探索结果不只是保存成一篇页面，还能强化图谱和 schema contract。
+**预期结果**: 探索结果不只是保存成一篇页面，还能给后续图谱和 schema 维护提供候选信号。
 
 ### 3.5 场景 5: 用户查看本地协作/agent activity 状态
 
@@ -270,14 +290,14 @@
 
 ### F7: Local coordination summary
 
-**描述**: 基于 audit/worklog 提供本地 actor activity 和 work coordination summary。
+**描述**: 基于 audit、review state 和最近 schema findings 提供本地 actor activity 和 work coordination summary。
 
 **输入**: audit events、review items、schema findings、Memory Ops suggestions。
 
 **行为**:
 - 汇总 actor/action/path/scope/status。
 - 展示 recent schema changes、blocked findings、pending review、private/shared promotion candidates。
-- 可选写 `.llm-wiki/worklog.jsonl`，但不能替代 audit。
+- 不写额外 worklog 文件；summary 可随 audit/review/schema state 重新计算。
 
 **输出**: `CoordinationSummary`。
 
@@ -336,7 +356,7 @@
 
 ### 5.5 可观测性
 
-- 关键操作进入 `.llm-wiki/audit.jsonl`：schema scan、quality scan、digest preview/save、coordination summary refresh、schema contract migration。
+- 关键操作进入 `.llm-wiki/audit.jsonl`：schema scan、quality scan、digest preview/save、memory write、session start/end。
 - Scan report 可在 UI 中定位到 target path 和 reasons。
 - 测试 report 要覆盖 drift finding counts 和 quality summary。
 
@@ -451,7 +471,7 @@ src/components/settings/sections/
 
 - [ ] 是否允许 digest planner 在用户点击 preview 后调用 LLM 做二次结构化抽取？默认建议本期先 deterministic，保留可选开关。
 - [ ] Schema contract block 使用 JSON 还是 YAML？默认建议 YAML，和 frontmatter/schema 文档风格一致。
-- [ ] Coordination summary 是否需要单独 `.llm-wiki/worklog.jsonl`，还是完全从 audit 派生？默认建议先 audit-derived，减少持久化面。
+- [x] Coordination summary 是否需要单独 `.llm-wiki/worklog.jsonl`，还是完全从 audit 派生？结论：本期完全从 audit/review/schema state 派生，减少持久化面。
 
 ---
 
@@ -469,3 +489,4 @@ src/components/settings/sections/
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-05-07 | v0.1 | 初稿，定义 schema contract、event automation、quality、digest 和 coordination 本地闭环。 |
+| 2026-05-07 | v0.2 | 记录 M4 实施状态，补充旧项目 fallback/migration 指南，并澄清 digest、coordination 和 audit 的实际落地边界。 |

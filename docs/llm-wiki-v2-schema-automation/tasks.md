@@ -495,7 +495,7 @@ graph TD
 
 ---
 
-### Task 4.5 ⏳ 更新 README、README_CN、migration guide 和 i18n parity
+### Task 4.5 ✅ 更新 README、README_CN、migration guide 和 i18n parity
 
 **描述**: 更新项目文档说明 v2.3 schema-as-product 和事件自动化能力，补齐 i18n 文案。
 
@@ -513,16 +513,16 @@ graph TD
 - `src/i18n/i18n-parity.test.ts`
 
 **验收**:
-- [ ] 文档说明 schema contract、scan、event hooks、digest、coordination summary。
-- [ ] 旧项目 migration/fallback 说明清楚。
-- [ ] 不声明范围外 external memory server / cloud collaboration。
-- [ ] i18n parity test 通过。
+- [x] 文档说明 schema contract、scan、event hooks、digest、coordination summary。
+- [x] 旧项目 migration/fallback 说明清楚。
+- [x] 不声明范围外 external memory server / cloud collaboration。
+- [x] i18n parity test 通过。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README 需要同时解释 Rohit v2 工程化能力和当前本地产品边界，避免把 schema automation 误读成外部 memory server、云同步或团队权限系统；requirements 里也有早期计划阶段的 worklog / metadata patch 表述，需要按实际实现校准。
+- 🔧 **最终实现逻辑**: 更新 README 和 README_CN 的 Memory Ops 段落，补充 schema-as-product contract、Schema & Quality scan、latest scan summary、event hooks、digest preview、coordination summary 和旧项目 Schema Contract Migration；requirements 升到 v0.2，新增实施状态、fallback/migration 指南，并澄清 digest 保存与 coordination summary 的真实边界。
+- 🎯 **关键决策**: 文档只描述当前 deterministic、本地、人工确认的能力。旧项目无 contract block 时不阻塞使用，scan 使用默认 contract 并提示 warning；digest UI 只直接保存 query/synthesis page，relation/metadata patch 仍交给 Memory Ops executor。
 
 ---
 
@@ -601,9 +601,9 @@ graph TD
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
 | M3 | Event and Digest Core | 4 | 4 | ✅ |
-| M4 | Maintenance UI and Documentation | 4 | 5 | 🚧 |
+| M4 | Maintenance UI and Documentation | 5 | 5 | ✅ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **15** | **17** | **🚧** |
+| **总计** | | **16** | **17** | **🚧** |
 
 ---
 
