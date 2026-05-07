@@ -9,6 +9,7 @@ import { streamChat, type ChatMessage as LLMMessage } from "@/lib/llm-client"
 import { executeIngestWrites } from "@/lib/ingest"
 import { listDirectory, readFile, deleteFile } from "@/commands/fs"
 import { searchWiki } from "@/lib/search"
+import { appendQueryAuditEvent } from "@/lib/audit-events"
 import { buildRetrievalGraph, getRelatedNodes } from "@/lib/graph-relevance"
 import { normalizePath, getFileName, getRelativePath } from "@/lib/path-utils"
 import { getOutputLanguage, buildLanguageReminder } from "@/lib/output-language"
@@ -169,6 +170,7 @@ export function ChatPanel() {
       const systemMessages: LLMMessage[] = []
       let queryRefs: { title: string; path: string }[] = []
       let langReminder: string | undefined
+      const auditProjectPath = project ? normalizePath(project.path) : null
       // Pure greetings ("hi", "你好", "嗨") don't warrant running the whole
       // retrieval pipeline — it's slow, costs context, and drags in random
       // wiki pages the user clearly didn't ask about. Short-circuit with a
@@ -415,6 +417,14 @@ export function ChatPanel() {
           onDone: () => {
             closeReasoning()
             finalizeStream(accumulated, queryRefs)
+            if (auditProjectPath && !greetingOnly) {
+              appendQueryAuditEvent(auditProjectPath, {
+                query: text,
+                referencedPages: queryRefs,
+              }).catch((err) => {
+                console.warn(`[audit] query.answer failed: ${err instanceof Error ? err.message : err}`)
+              })
+            }
             abortRef.current = null
             // save-worthy detection removed — user has direct "Save to Wiki" button on each message
           },

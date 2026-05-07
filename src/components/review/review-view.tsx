@@ -9,6 +9,7 @@ import { useReviewStore } from "@/stores/review-store"
 import { useWikiStore } from "@/stores/wiki-store"
 import { writeFile, readFile, listDirectory, deleteFile } from "@/commands/fs"
 import { normalizePath } from "@/lib/path-utils"
+import { appendReviewResolveAuditEvent } from "@/lib/audit-events"
 import { writeCrystallizedQueryPage } from "@/lib/crystallize"
 import {
   scoreCrystallizationCandidate,
@@ -32,6 +33,19 @@ export function ReviewView() {
 
   const handleResolve = useCallback(async (id: string, action: string) => {
     const pp = project ? normalizePath(project.path) : ""
+    const reviewItem = items.find((i) => i.id === id)
+    const resolveWithAudit = (resolvedAction: string, outcome: string = "resolved") => {
+      resolveItem(id, resolvedAction)
+      if (!project || !reviewItem) return
+      appendReviewResolveAuditEvent(pp, {
+        item: reviewItem,
+        resolvedAction,
+        outcome,
+      }).catch((err) => {
+        console.warn(`[audit] review.resolve failed: ${err instanceof Error ? err.message : err}`)
+      })
+    }
+
     // Deep Research — must be checked FIRST before any fuzzy matching
     if (action === "__deep_research__" && project) {
       const searchConfig = useWikiStore.getState().searchApiConfig
@@ -45,9 +59,9 @@ export function ReviewView() {
         // Use pre-generated search queries if available, otherwise fall back to title
         const topic = item.title.replace(/^(Save to Wiki|Create|Research)[:\s]*/i, "").trim() || item.description.split("\n")[0]
         queueResearch(pp, topic, llmConfig, searchConfig, item.searchQueries)
-        resolveItem(id, "Queued for research")
+        resolveWithAudit("Queued for research", "queued")
       } else {
-        resolveItem(id, action)
+        resolveWithAudit(action)
       }
       return
     }
@@ -134,10 +148,10 @@ export function ReviewView() {
           )
         }
 
-        resolveItem(id, "Saved to Wiki")
+        resolveWithAudit("Saved to Wiki", "saved")
       } catch (err) {
         console.error("Failed to save to wiki from review:", err)
-        resolveItem(id, "Save failed")
+        resolveWithAudit("Save failed", "error")
       }
     } else if (action.startsWith("open:") && project) {
       // Open a page for editing
@@ -157,7 +171,7 @@ export function ReviewView() {
           // try next
         }
       }
-      resolveItem(id, action)
+      resolveWithAudit(action, "opened")
     } else if (action.startsWith("delete:") && project) {
       // Delete a file
       const filePath = action.slice(7)
@@ -165,10 +179,10 @@ export function ReviewView() {
         await deleteFile(filePath)
         const tree = await listDirectory(pp)
         setFileTree(tree)
-        resolveItem(id, "Deleted")
+        resolveWithAudit("Deleted", "deleted")
       } catch (err) {
         console.error("Failed to delete:", err)
-        resolveItem(id, "Delete failed")
+        resolveWithAudit("Delete failed", "error")
       }
     } else if (actionLooksLikeResearch(action) && project) {
       // Actions with "research" trigger deep research, not just page creation
@@ -186,9 +200,9 @@ export function ReviewView() {
         const llmConfig = useWikiStore.getState().llmConfig
         const topic = action.replace(/^research\s*/i, "").trim() || item.description.split("\n")[0]
         queueResearch(pp, topic, llmConfig, searchConfig)
-        resolveItem(id, "Queued for deep research")
+        resolveWithAudit("Queued for deep research", "queued")
       } else {
-        resolveItem(id, action)
+        resolveWithAudit(action)
       }
     } else if (
       (action.startsWith("__create_page__:") || actionLooksLikeCreate(action))
@@ -248,16 +262,16 @@ export function ReviewView() {
           setFileTree(tree)
           useWikiStore.getState().bumpDataVersion()
 
-          resolveItem(id, `Created: wiki/${dir}/${fileName}`)
+          resolveWithAudit(`Created: wiki/${dir}/${fileName}`, "created")
         } catch (err) {
           console.error("Failed to create page from review:", err)
-          resolveItem(id, "Create failed")
+          resolveWithAudit("Create failed", "error")
         }
       } else {
-        resolveItem(id, action)
+        resolveWithAudit(action)
       }
     } else {
-      resolveItem(id, action)
+      resolveWithAudit(action)
     }
   }, [project, items, resolveItem, setFileTree])
 

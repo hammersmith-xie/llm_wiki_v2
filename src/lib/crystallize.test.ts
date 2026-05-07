@@ -67,6 +67,15 @@ describe("writeCrystallizedQueryPage", () => {
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"crystallize.query\""),
     )
+    const auditCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    const auditEvent = JSON.parse(String(auditCall?.[1]))
+    expect(auditEvent).toMatchObject({
+      schemaVersion: 1,
+      category: "crystallize",
+      action: "crystallize.query",
+      actor: "system",
+      pagePath: "wiki/queries/answer.md",
+    })
   })
 
   it("records candidate score and reasons in the crystallize audit event", async () => {

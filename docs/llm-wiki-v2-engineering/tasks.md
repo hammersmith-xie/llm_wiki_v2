@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 2 / 16
+**总体进度**: 🚧 3 / 16
 
 ---
 
@@ -94,7 +94,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 接入 query/search/review/crystallize 事件写入
+### Task 1.3 ✅ 接入 query/search/review/crystallize 事件写入
 
 **描述**: 在关键用户操作结束后写入统一 audit event，避免每个模块自定义零散结构。
 
@@ -111,16 +111,16 @@ graph TD
 - `src/lib/deep-research.ts`
 
 **验收**:
-- [ ] query/search 写入引用页面和 retriever summary。
-- [ ] review resolve / save 写入 audit。
-- [ ] crystallize 保持现有 audit，并符合新 contract。
-- [ ] 高频 query 不触发全量 patrol。
+- [x] query/search 写入引用页面和 retriever summary。
+- [x] review resolve / save 写入 audit。
+- [x] crystallize 保持现有 audit，并符合新 contract。
+- [x] 高频 query 不触发全量 patrol。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Search UI 是按 Enter 显式搜索，不是输入即搜；因此可以记录 `search.run`。ChatPanel 的 stream callback 不能 await audit 写入，需 fire-and-forget 并吞掉 audit 失败。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/audit-events.ts`，封装 `appendSearchAuditEvent`、`appendQueryAuditEvent`、`appendReviewResolveAuditEvent`；SearchView 在显式搜索完成后记录 search event，ChatPanel 在回答完成后记录 query event，ReviewView 用 `resolveWithAudit` 统一记录 review resolve，crystallize audit 补 `actor: "system"`。
+- 🎯 **关键决策**: 不在 `searchWiki()` 内隐式写 audit，避免未来高频调用或评估测试污染 timeline；只在明确用户操作完成处记录。
 
 ---
 
@@ -512,12 +512,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Contract and Audit Foundation | 2 | 3 | 🚧 |
+| M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 0 | 4 | ⏳ |
 | M3 | Retrieval and Evaluation | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Governance | 0 | 3 | ⏳ |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **2** | **16** | **🚧** |
+| **总计** | | **3** | **16** | **🚧** |
 
 ---
 

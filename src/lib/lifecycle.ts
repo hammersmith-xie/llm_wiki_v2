@@ -1,4 +1,5 @@
 import { appendAuditEvent } from "@/lib/audit-timeline"
+import type { AuditEventActor } from "@/lib/audit-timeline"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
 
@@ -44,6 +45,7 @@ export interface LifecycleLintIssue {
 export interface LifecycleAuditEvent {
   timestamp?: string
   action: string
+  actor?: AuditEventActor
   pagePath: string
   sourcePath?: string
   before?: Record<string, unknown>

@@ -3,6 +3,7 @@ import { Search, FileText, ImageIcon, X, ArrowUpRight, GitBranch } from "lucide-
 import { useWikiStore } from "@/stores/wiki-store"
 import { readFile } from "@/commands/fs"
 import { searchWiki, tokenizeQuery, type SearchResult, type ImageRef } from "@/lib/search"
+import { appendSearchAuditEvent } from "@/lib/audit-events"
 import { useTranslation } from "react-i18next"
 import { normalizePath } from "@/lib/path-utils"
 import { resolveMarkdownImageSrc } from "@/lib/markdown-image-resolver"
@@ -52,8 +53,12 @@ export function SearchView() {
       setSearching(true)
       setHasSearched(true)
       try {
-        const found = await searchWiki(normalizePath(project.path), q)
+        const pp = normalizePath(project.path)
+        const found = await searchWiki(pp, q)
         setResults(found)
+        appendSearchAuditEvent(pp, { query: q, results: found }).catch((err) => {
+          console.warn(`[audit] search.run failed: ${err instanceof Error ? err.message : err}`)
+        })
       } catch (err) {
         console.error("Search failed:", err)
         setResults([])

@@ -76,6 +76,7 @@ export async function writeCrystallizedQueryPage(
   await writeFile(filePath, enriched.content)
   await appendLifecycleAuditEvent(pp, {
     action: "crystallize.query",
+    actor: "system",
     pagePath: relativePath,
     sourcePath: input.origin,
     after: {
