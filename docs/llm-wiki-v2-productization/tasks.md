@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 5 / 16
+**总体进度**: 🚧 6 / 16
 
 ---
 
@@ -189,7 +189,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ 实现 Search Health runner 和报告持久化
+### Task 2.3 ✅ 实现 Search Health runner 和报告持久化
 
 **描述**: 封装现有 search eval harness，提供手动运行 search health 的 helper，写 audit，保存最近报告 artifact。
 
@@ -205,16 +205,16 @@ graph TD
 - `src/lib/search-health.test.ts` (新建)
 
 **验收**:
-- [ ] 无 scenarios 时返回 empty state，不报错。
-- [ ] 有 scenarios 时返回 pass/fail summary 和 stream counts。
-- [ ] 写入 `memory_ops.search_health` audit event。
-- [ ] 可写 `.llm-wiki/search-eval-report.json`，写失败不阻断 UI summary。
+- [x] 无 scenarios 时返回 empty state，不报错。
+- [x] 有 scenarios 时返回 pass/fail summary 和 stream counts。
+- [x] 写入 `memory_ops.search_health` audit event。
+- [x] 可写 `.llm-wiki/search-eval-report.json`，写失败不阻断 UI summary。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Search Health 报告写盘失败不能吞掉 eval 结果，否则 UI 只能看到错误而不是实际检索健康状态。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/search-health.ts`，封装 `runSearchWikiEval` 和 `summarizeSearchEvalForMemoryOps`；空 scenarios 返回 skipped，有 scenarios 时生成 summary、best-effort 写 `.llm-wiki/search-eval-report.json`，并写 `memory_ops.search_health` audit。
+- 🎯 **关键决策**: 报告 artifact 写失败不让整个 run 失败；audit 记录 `writeError` 和 summary，供后续 Timeline 面板解释。
 
 ---
 
@@ -534,11 +534,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Batch and Rollback Core | 3 | 3 | ✅ |
-| M2 | Policy, Timeline, Search Health Core | 2 | 4 | 🚧 |
+| M2 | Policy, Timeline, Search Health Core | 3 | 4 | 🚧 |
 | M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **5** | **16** | **🚧** |
+| **总计** | | **6** | **16** | **🚧** |
 
 ---
 
