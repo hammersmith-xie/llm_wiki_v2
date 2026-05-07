@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 13 / 18
+**总体进度**: 🚧 14 / 18
 
 ---
 
@@ -413,7 +413,7 @@ graph TD
 
 ---
 
-### Task 4.3 ⏳ Surface crystallization candidates in existing flows
+### Task 4.3 ✅ Surface crystallization candidates in existing flows
 
 **描述**: 在 chat/research/review 的现有保存入口附近显示 Save to Wiki 建议，用户确认后复用 crystallization helper。
 
@@ -435,9 +435,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Chat 原有 Save to Wiki 在每条 assistant 回复 hover 时都出现，不能直接变成常驻按钮；Deep Research 成功路径本来就会自动保存，不能重复造保存入口。
+- 🔧 **最终实现逻辑**: Chat 对高分 candidate 常驻显示低调 Save suggested 提示并复用 `writeConfirmedCrystallizationCandidate`；Review 对可保存内容显示 candidate reasons，并在 save 分支写入 candidate audit metadata；Research 仅对未保存 synthesis 显示兜底提示。
+- 🎯 **关键决策**: 保存成功后用 candidate dedupeKey 隐藏 chat 提示，避免同一内容重复提示；Research 保持自动保存为主，不新增第二套保存按钮。
 
 ---
 
@@ -569,9 +569,9 @@ graph TD
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
 | M3 | Crystallization Candidates + Search Evaluation | 4 | 4 | ✅ |
-| M4 | UI Integration | 2 | 4 | 🚧 |
+| M4 | UI Integration | 3 | 4 | 🚧 |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **13** | **18** | **🚧** |
+| **总计** | | **14** | **18** | **🚧** |
 
 ---
 

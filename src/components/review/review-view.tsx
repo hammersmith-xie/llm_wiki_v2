@@ -17,6 +17,10 @@ import { useWikiStore } from "@/stores/wiki-store"
 import { writeFile, readFile, listDirectory, deleteFile } from "@/commands/fs"
 import { normalizePath } from "@/lib/path-utils"
 import { writeCrystallizedQueryPage } from "@/lib/crystallize"
+import {
+  scoreCrystallizationCandidate,
+  writeConfirmedCrystallizationCandidate,
+} from "@/lib/crystallize-candidates"
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
 import {
@@ -80,15 +84,37 @@ export function ReviewView() {
         const { date, fileName } = makeQueryFileName(title)
         const filePath = `${pp}/wiki/queries/${fileName}`
 
-        await writeCrystallizedQueryPage({
-          projectPath: pp,
-          filePath,
-          title,
-          body: cleanContent,
-          date,
-          origin: "review-save",
-          tags: [],
-        })
+        const item = items.find((i) => i.id === id)
+        const candidate = item
+          ? scoreCrystallizationCandidate({
+              origin: "review",
+              sourceId: item.id,
+              title,
+              content: cleanContent,
+              references: (item.affectedPages ?? []).map((path) => ({ path })),
+              timestamp: item.createdAt,
+            })
+          : null
+
+        if (candidate) {
+          await writeConfirmedCrystallizationCandidate({
+            projectPath: pp,
+            filePath,
+            date,
+            candidate,
+            origin: "review-candidate",
+          })
+        } else {
+          await writeCrystallizedQueryPage({
+            projectPath: pp,
+            filePath,
+            title,
+            body: cleanContent,
+            date,
+            origin: "review-save",
+            tags: [],
+          })
+        }
 
         // Update index
         const indexPath = `${pp}/wiki/index.md`
@@ -318,6 +344,16 @@ function ReviewCard({
 }) {
   const config = typeConfig[item.type]
   const Icon = config.icon
+  const candidate = !item.resolved
+    ? scoreCrystallizationCandidate({
+        origin: "review",
+        sourceId: item.id,
+        title: item.title,
+        content: [item.title, item.description].filter(Boolean).join("\n\n"),
+        references: (item.affectedPages ?? []).map((path) => ({ path })),
+        timestamp: item.createdAt,
+      })
+    : null
 
   return (
     <div
@@ -343,6 +379,13 @@ function ReviewCard({
       {item.affectedPages && item.affectedPages.length > 0 && (
         <div className="mb-3 text-xs text-muted-foreground">
           Pages: {item.affectedPages.join(", ")}
+        </div>
+      )}
+
+      {candidate && (
+        <div className="mb-3 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Save suggested</span>{" "}
+          {candidate.reasons.slice(0, 2).join(" · ")}
         </div>
       )}
 

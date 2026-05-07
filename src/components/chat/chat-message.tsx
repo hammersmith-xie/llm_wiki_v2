@@ -20,6 +20,11 @@ import { normalizePath, getFileName } from "@/lib/path-utils"
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
 import { writeCrystallizedQueryPage } from "@/lib/crystallize"
+import {
+  scoreCrystallizationCandidate,
+  writeConfirmedCrystallizationCandidate,
+  type CrystallizationCandidate,
+} from "@/lib/crystallize-candidates"
 import { resolveMarkdownImageSrc } from "@/lib/markdown-image-resolver"
 import { findRawSourceForImage, imageUrlToAbsolute } from "@/lib/raw-source-resolver"
 import { detectLanguage } from "@/lib/detect-language"
@@ -70,6 +75,24 @@ export function ChatMessage({ message, isLastAssistant, onRegenerate }: ChatMess
   const isSystem = message.role === "system"
   const isAssistant = message.role === "assistant"
   const [hovered, setHovered] = useState(false)
+  const [savedCandidateKey, setSavedCandidateKey] = useState<string | null>(null)
+  const scoredCrystallizationCandidate = useMemo(
+    () =>
+      isAssistant
+        ? scoreCrystallizationCandidate({
+            origin: "chat",
+            sourceId: message.id,
+            content: message.content,
+            references: message.references,
+            timestamp: message.timestamp,
+          })
+        : null,
+    [isAssistant, message.id, message.content, message.references, message.timestamp],
+  )
+  const crystallizationCandidate =
+    scoredCrystallizationCandidate?.dedupeKey === savedCandidateKey
+      ? null
+      : scoredCrystallizationCandidate
 
   return (
     <div
@@ -103,13 +126,19 @@ export function ChatMessage({ message, isLastAssistant, onRegenerate }: ChatMess
           )}
         </div>
         {isAssistant && <CitedReferencesPanel content={message.content} savedReferences={message.references} />}
-        {isAssistant && hovered && (
-          <div className="flex items-center gap-1">
+        {isAssistant && (hovered || crystallizationCandidate) && (
+          <div className="flex flex-col items-start gap-1">
+            {crystallizationCandidate && (
+              <CrystallizationCandidateHint candidate={crystallizationCandidate} />
+            )}
+            <div className="flex items-center gap-1">
             <CopyButton content={message.content} />
             <SaveToWikiButton
               content={message.content}
               references={message.references}
-              visible={true}
+              visible={hovered}
+              candidate={crystallizationCandidate}
+              onCandidateSaved={setSavedCandidateKey}
             />
             {isLastAssistant && onRegenerate && (
               <button
@@ -121,6 +150,7 @@ export function ChatMessage({ message, isLastAssistant, onRegenerate }: ChatMess
                 <RefreshCw className="h-3 w-3" /> Regenerate
               </button>
             )}
+            </div>
           </div>
         )}
       </div>
@@ -161,15 +191,20 @@ function SaveToWikiButton({
   content,
   references,
   visible,
+  candidate,
+  onCandidateSaved,
 }: {
   content: string
   references?: CitedPage[]
   visible: boolean
+  candidate?: CrystallizationCandidate | null
+  onCandidateSaved?: (dedupeKey: string) => void
 }) {
   const project = useWikiStore((s) => s.project)
   const setFileTree = useWikiStore((s) => s.setFileTree)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const showCandidatePrompt = !!candidate
 
   const handleSave = useCallback(async () => {
     if (!project || saving) return
@@ -181,7 +216,7 @@ function SaveToWikiButton({
       // (so CJK titles don't collapse to empty) and the HHMMSS
       // timestamp suffix guarantees same-day saves stay distinct.
       const firstLine = content.split("\n")[0].replace(/^#+\s*/, "").trim()
-      const title = firstLine.slice(0, 60) || "Saved Query"
+      const title = candidate?.title ?? (firstLine.slice(0, 60) || "Saved Query")
       const { date, fileName } = makeQueryFileName(title)
       const filePath = `${pp}/wiki/queries/${fileName}`
 
@@ -192,16 +227,26 @@ function SaveToWikiButton({
         .replace(/<think(?:ing)?>\s*[\s\S]*$/gi, "")
         .trimEnd()
 
-      await writeCrystallizedQueryPage({
-        projectPath: pp,
-        filePath,
-        title,
-        body: cleanContent,
-        date,
-        origin: "chat-save",
-        tags: [],
-        references: references ?? extractCitedPages(content),
-      })
+      if (candidate) {
+        await writeConfirmedCrystallizationCandidate({
+          projectPath: pp,
+          filePath,
+          date,
+          candidate,
+          origin: "chat-candidate",
+        })
+      } else {
+        await writeCrystallizedQueryPage({
+          projectPath: pp,
+          filePath,
+          title,
+          body: cleanContent,
+          date,
+          origin: "chat-save",
+          tags: [],
+          references: references ?? extractCitedPages(content),
+        })
+      }
 
       // Update index.md — append under ## Queries section
       const indexPath = `${pp}/wiki/index.md`
@@ -243,6 +288,7 @@ function SaveToWikiButton({
       useWikiStore.getState().bumpDataVersion()
 
       setSaved(true)
+      if (candidate) onCandidateSaved?.(candidate.dedupeKey)
       setTimeout(() => setSaved(false), 2000)
 
       // Full auto-ingest: extract entities, concepts, cross-references from saved content
@@ -258,9 +304,9 @@ function SaveToWikiButton({
     } finally {
       setSaving(false)
     }
-  }, [project, content, saving, setFileTree])
+  }, [project, content, candidate, references, saving, setFileTree, onCandidateSaved])
 
-  if (!visible && !saved) return null
+  if (!visible && !saved && !showCandidatePrompt) return null
 
   return (
     <button
@@ -271,8 +317,25 @@ function SaveToWikiButton({
       title="Save to wiki"
     >
       <BookmarkPlus className="h-3 w-3" />
-      {saved ? "Saved!" : saving ? "Saving..." : "Save to Wiki"}
+      {saved ? "Saved!" : saving ? "Saving..." : showCandidatePrompt ? "Save suggested" : "Save to Wiki"}
     </button>
+  )
+}
+
+function CrystallizationCandidateHint({
+  candidate,
+}: {
+  candidate: CrystallizationCandidate
+}) {
+  return (
+    <div className="max-w-full rounded border border-primary/20 bg-primary/5 px-2 py-1 text-[11px] text-muted-foreground">
+      <span className="font-medium text-foreground">Save suggested</span>
+      <span>
+        {" "}
+        {candidate.reasons.slice(0, 2).join(" · ")}
+        {candidate.references.length > 0 ? ` · ${candidate.references.length} refs` : ""}
+      </span>
+    </div>
   )
 }
 

@@ -18,6 +18,7 @@ import { isImeComposing } from "@/lib/keyboard-utils"
 import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
+import { scoreCrystallizationCandidate } from "@/lib/crystallize-candidates"
 
 export function ResearchPanel() {
   const tasks = useResearchStore((s) => s.tasks)
@@ -221,6 +222,23 @@ function ResearchTaskCard({ task, onRemove }: { task: ResearchTask; onRemove: (i
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
   const setFileContent = useWikiStore((s) => s.setFileContent)
   const project = useWikiStore((s) => s.project)
+  const candidate = useMemo(
+    () =>
+      scoreCrystallizationCandidate({
+        origin: "research",
+        sourceId: task.id,
+        title: `Research: ${task.topic}`,
+        content: task.synthesis,
+        references: task.webResults.map((result) => ({
+          title: result.title,
+          path: result.url,
+        })),
+        tags: ["research"],
+        timestamp: task.createdAt,
+        alreadySaved: !!task.savedPath,
+      }),
+    [task.id, task.topic, task.synthesis, task.webResults, task.createdAt, task.savedPath],
+  )
 
   const statusIcon = {
     queued: <div className="h-3 w-3 rounded-full border-2 border-muted-foreground" />,
@@ -300,6 +318,14 @@ function ResearchTaskCard({ task, onRemove }: { task: ResearchTask; onRemove: (i
           {/* Synthesis (streaming) */}
           {task.synthesis && (
             <SynthesisBlock synthesis={task.synthesis} isStreaming={task.status === "synthesizing"} />
+          )}
+
+          {candidate && (
+            <div className="mt-2 rounded border border-primary/20 bg-primary/5 px-2 py-1 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Save suggested</span>{" "}
+              {candidate.reasons.slice(0, 2).join(" · ")}
+              {candidate.references.length > 0 ? ` · ${candidate.references.length} refs` : ""}
+            </div>
           )}
 
           {/* Actions */}
