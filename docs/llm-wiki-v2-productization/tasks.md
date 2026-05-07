@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 2 / 16
+**总体进度**: 🚧 3 / 16
 
 ---
 
@@ -34,7 +34,7 @@ graph TD
 
 **目标**: 先补齐批量 preview/apply/ignore 和 rollback 的纯逻辑，确保后续 UI 只编排稳定 API。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 实现 Memory Ops batch preview/apply/ignore helper
 
@@ -93,7 +93,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 实现 rollback preview/apply helper
+### Task 1.3 ✅ 实现 rollback preview/apply helper
 
 **描述**: 新建 rollback helper，把 `MetadataPatchPlan.rollback` 恢复动作用作可执行操作，支持冲突检测和 audit。
 
@@ -109,17 +109,17 @@ graph TD
 - `src/lib/memory-ops-rollback.test.ts` (新建)
 
 **验收**:
-- [ ] target path 不能逃逸 project root。
-- [ ] 可恢复 metadata patch 的原内容。
-- [ ] 目标文件不存在返回 error。
-- [ ] 当前内容已变化时默认 conflict，不覆盖。
-- [ ] 成功和失败都写 `memory_ops.rollback` audit。
+- [x] target path 不能逃逸 project root。
+- [x] 可恢复 metadata patch 的原内容。
+- [x] 目标文件不存在返回 error。
+- [x] 当前内容已变化时默认 conflict，不覆盖。
+- [x] 成功和失败都写 `memory_ops.rollback` audit。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初版测试用 `not.toContain("after")` 判断内容未泄漏，但 audit contract 本身有合法 `after` 字段；改为断言具体内容字符串不出现。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/memory-ops-rollback.ts`，提供 `previewMemoryOpsRollback`、`applyMemoryOpsRollback` 和 `buildMemoryOpsRollbackAuditEvent`；复用 executor path sandbox，preview 判断 safe/conflict/missing/error，apply 仅 safe 时恢复内容。
+- 🎯 **关键决策**: Rollback 默认不覆盖用户后续编辑；audit 只记录长度、状态、错误和 target，不写 before/current/rollback content。
 
 ---
 
@@ -533,12 +533,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Batch and Rollback Core | 2 | 3 | 🚧 |
+| M1 | Batch and Rollback Core | 3 | 3 | ✅ |
 | M2 | Policy, Timeline, Search Health Core | 0 | 4 | ⏳ |
 | M3 | Maintenance Workbench UI | 0 | 6 | ⏳ |
 | M4 | Documentation and Verification | 0 | 2 | ⏳ |
 | M5 | Final Review | 0 | 1 | ⏳ |
-| **总计** | | **2** | **16** | **🚧** |
+| **总计** | | **3** | **16** | **🚧** |
 
 ---
 
