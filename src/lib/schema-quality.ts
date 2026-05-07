@@ -1,4 +1,5 @@
 import { appendAuditEvent, type AuditEvent } from "@/lib/audit-timeline"
+import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
   evaluatePagesQuality,
   type PageQualityScore,
@@ -140,7 +141,67 @@ export function buildSchemaQualityScanAuditEvent(
   }
 }
 
+export function schemaQualityScanSuggestions(
+  report: SchemaQualityScanReport,
+): MemoryOpsSuggestion[] {
+  return [
+    ...report.findings.map(schemaFindingSuggestion),
+    ...report.qualityScores
+      .filter((qualityScore) =>
+        qualityScore.score < report.contract.quality.minQualityScore &&
+        qualityScore.proposedOperation,
+      )
+      .map((qualityScore) => qualityScoreSuggestion(qualityScore, report.contract.quality.minQualityScore)),
+  ]
+}
+
 function average(values: readonly number[]): number {
   if (values.length === 0) return 0
   return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2))
+}
+
+function schemaFindingSuggestion(finding: SchemaDriftFinding): MemoryOpsSuggestion {
+  return {
+    id: `schema-drift:${finding.id}`,
+    kind: finding.proposedOperation ? "metadata-update" : "review-action",
+    severity: finding.severity,
+    targetPath: finding.targetPath,
+    title: finding.title,
+    detail: finding.detail,
+    reasons: [
+      "schema drift finding",
+      ...finding.reasons,
+    ],
+    proposedOperation: finding.proposedOperation,
+    relation: finding.relationTarget
+      ? {
+          field: finding.field ?? "relation",
+          target: finding.relationTarget,
+          candidateTarget: finding.candidateTarget,
+        }
+      : undefined,
+  }
+}
+
+function qualityScoreSuggestion(
+  qualityScore: PageQualityScore,
+  threshold: number,
+): MemoryOpsSuggestion {
+  return {
+    id: `schema-quality:quality:${qualityScore.targetPath}:${qualityScore.score}`,
+    kind: "metadata-update",
+    severity: "warning",
+    targetPath: qualityScore.targetPath,
+    title: "Mark low-quality page for review",
+    detail: `Quality score ${formatScore(qualityScore.score)} is below ${formatScore(threshold)}.`,
+    reasons: [
+      "quality score finding",
+      ...qualityScore.reasons,
+    ],
+    proposedOperation: qualityScore.proposedOperation,
+  }
+}
+
+function formatScore(value: number): string {
+  return value.toFixed(2)
 }

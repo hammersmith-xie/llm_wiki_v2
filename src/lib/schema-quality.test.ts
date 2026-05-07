@@ -3,7 +3,9 @@ import {
   buildSchemaQualityScanAuditEvent,
   buildSchemaQualityScanReport,
   runSchemaQualityScan,
+  schemaQualityScanSuggestions,
 } from "./schema-quality"
+import { categorizeMemoryOpsSuggestion } from "./memory-ops-ui"
 
 vi.mock("@/lib/audit-timeline", async () => {
   const actual = await vi.importActual<typeof import("@/lib/audit-timeline")>(
@@ -141,5 +143,59 @@ SECRET_TOKEN=abc123
 
     expect(result.report.summary.pageCount).toBe(0)
     expect(result.auditError).toBe("disk full")
+  })
+
+  it("maps schema and quality findings to Memory Ops suggestions", () => {
+    const report = buildSchemaQualityScanReport({
+      pages: [
+        {
+          path: "wiki/concepts/stub.md",
+          content: `---
+type: concept
+title: Stub
+tags: []
+related: []
+created: 2026-05-07
+updated: 2026-05-07
+uses: missing-target
+scope: private
+---
+
+# Stub
+
+SECRET_TOKEN=abc123
+`,
+        },
+      ],
+    })
+    const suggestions = schemaQualityScanSuggestions(report)
+    const shapeSuggestion = suggestions.find((suggestion) =>
+      suggestion.title.includes("Invalid uses field shape"),
+    )
+    const reviewOnlySuggestion = suggestions.find((suggestion) =>
+      suggestion.title.includes("Typed relation target does not resolve"),
+    )
+    const qualitySuggestion = suggestions.find((suggestion) =>
+      suggestion.title === "Mark low-quality page for review",
+    )
+
+    expect(shapeSuggestion).toMatchObject({
+      kind: "metadata-update",
+      proposedOperation: expect.objectContaining({
+        fields: { uses: ["missing-target"] },
+        scope: "private",
+      }),
+    })
+    expect(reviewOnlySuggestion).toMatchObject({
+      kind: "review-action",
+      proposedOperation: undefined,
+    })
+    expect(qualitySuggestion).toMatchObject({
+      kind: "metadata-update",
+      severity: "warning",
+    })
+    expect(categorizeMemoryOpsSuggestion(shapeSuggestion!)).toBe("schema")
+    expect(categorizeMemoryOpsSuggestion(qualitySuggestion!)).toBe("quality")
+    expect(JSON.stringify(suggestions)).not.toContain("SECRET_TOKEN")
   })
 })

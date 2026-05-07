@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 6 / 17
+**总体进度**: 🚧 7 / 17
 
 ---
 
@@ -215,7 +215,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ 将 drift/quality findings 映射为 Memory Ops suggestions
+### Task 2.4 ✅ 将 drift/quality findings 映射为 Memory Ops suggestions
 
 **描述**: 把 schema drift 和 quality finding 转换为现有 `MemoryOpsSuggestion` 分类，复用 batch preview/apply/ignore。
 
@@ -232,16 +232,16 @@ graph TD
 - `src/lib/memory-ops-ui.test.ts`
 
 **验收**:
-- [ ] metadata-fix finding 可 batch apply。
-- [ ] review-only finding 不可 batch apply。
-- [ ] suggestion category 支持 schema/quality 或映射到合理现有分类。
-- [ ] private finding 不泄漏正文或完整 diff。
+- [x] metadata-fix finding 可 batch apply。
+- [x] review-only finding 不可 batch apply。
+- [x] suggestion category 支持 schema/quality 或映射到合理现有分类。
+- [x] private finding 不泄漏正文或完整 diff。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初版 category 识别里 quality suggestion 因 reasons 含 `retrieval` 被归为 search-health，随后又因 schema finding id 使用 `schema-quality:` 前缀被误归类；已调整为 quality/schema/search 的优先级，并把 drift suggestion id 前缀改成 `schema-drift:`。
+- 🔧 **最终实现逻辑**: 在 `schema-quality.ts` 增加 `schemaQualityScanSuggestions()`，将 drift finding 映射为 `metadata-update` 或 `review-action`，将低分 quality score 映射为可批量处理的 metadata suggestion；在 `memory-ops-ui.ts` 增加 schema/quality category 并更新稳定排序。
+- 🎯 **关键决策**: 有 `proposedOperation` 的 schema finding 可以走 batch apply；dangling relation 等无安全 patch 的 finding 保持 review-only。Suggestion 只携带 paths、fields、reasons 和 redacted summary，不携带正文。
 
 ---
 
@@ -599,11 +599,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
-| M2 | Drift and Quality Core | 3 | 4 | 🚧 |
+| M2 | Drift and Quality Core | 4 | 4 | ✅ |
 | M3 | Event and Digest Core | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **6** | **17** | **🚧** |
+| **总计** | | **7** | **17** | **🚧** |
 
 ---
 

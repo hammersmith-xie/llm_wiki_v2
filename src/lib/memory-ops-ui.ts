@@ -8,6 +8,8 @@ export type MemoryOpsSuggestionCategory =
   | "relation"
   | "contradiction"
   | "retention"
+  | "schema"
+  | "quality"
   | "search-health"
   | "other"
 
@@ -54,6 +56,8 @@ export function categorizeMemoryOpsSuggestion(
     ...suggestion.reasons,
   ].join(" ").toLowerCase()
 
+  if (text.includes("quality")) return "quality"
+  if (text.includes("schema") || text.includes("frontmatter")) return "schema"
   if (text.includes("search") || text.includes("retrieval")) return "search-health"
   if (text.includes("contradict")) return "contradiction"
   if (text.includes("archive") || text.includes("retention") || text.includes("deprioritize")) {
@@ -127,6 +131,8 @@ const CATEGORY_ORDER: MemoryOpsSuggestionCategory[] = [
   "relation",
   "contradiction",
   "retention",
+  "schema",
+  "quality",
   "search-health",
   "other",
 ]
