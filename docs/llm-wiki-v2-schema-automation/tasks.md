@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 14 / 17
+**总体进度**: 🚧 15 / 17
 
 ---
 
@@ -465,7 +465,7 @@ graph TD
 
 ---
 
-### Task 4.4 ⏳ 增加 Coordination Summary 面板
+### Task 4.4 ✅ 增加 Coordination Summary 面板
 
 **描述**: 在 Maintenance 中展示本地 actor activity、pending review、blocked findings、private/shared promotion candidates。
 
@@ -482,16 +482,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 空 audit 和有坏行 audit 都能显示合理状态。
-- [ ] summary 可打开 target 或过滤 timeline。
-- [ ] private event 显示收缩摘要。
-- [ ] 不出现云同步/团队权限误导文案。
+- [x] 空 audit 和有坏行 audit 都能显示合理状态。
+- [x] summary 可打开 target 或过滤 timeline。
+- [x] private event 显示收缩摘要。
+- [x] 不出现云同步/团队权限误导文案。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初版英文说明为了澄清范围写了 cloud/team 字样，组件测试按验收捕获后改成纯本地项目摘要文案；空 section 的 `children || fallback` 对空数组无效，改用 `Children.count(children)` 判断。
+- 🔧 **最终实现逻辑**: 新增 `CoordinationSummaryPanel`，在 Maintenance workbench 增加 Coordination tab，基于当前 audit events、Review store 和最近一次 Schema & Quality findings 调用 `buildCoordinationSummary`，展示 actor activity、recent events、pending reviews、blocked findings 和 private-to-shared candidates；每个 path 支持打开目标或切换到 Timeline 并注入 path filter。
+- 🎯 **关键决策**: 面板只做本地汇总，不引入 worklog、同步状态或团队权限语义。Private event 只显示 target locator 与 redacted detail；schema blocked findings 来自最近一次手动 schema scan result，不在 Coordination tab 自动重跑扫描。
 
 ---
 
@@ -601,9 +601,9 @@ graph TD
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
 | M2 | Drift and Quality Core | 4 | 4 | ✅ |
 | M3 | Event and Digest Core | 4 | 4 | ✅ |
-| M4 | Maintenance UI and Documentation | 3 | 5 | 🚧 |
+| M4 | Maintenance UI and Documentation | 4 | 5 | 🚧 |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **14** | **17** | **🚧** |
+| **总计** | | **15** | **17** | **🚧** |
 
 ---
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
@@ -60,6 +60,7 @@ interface AuditTimelinePanelProps {
   events: readonly AuditEvent[]
   warnings: readonly AuditTimelineWarning[]
   openError: string | null
+  pathFilterRequest?: string | null
   onRefresh: () => void
   onOpenPath: (path: string) => void
 }
@@ -69,6 +70,7 @@ export function AuditTimelinePanel({
   events,
   warnings,
   openError,
+  pathFilterRequest,
   onRefresh,
   onOpenPath,
 }: AuditTimelinePanelProps) {
@@ -82,6 +84,11 @@ export function AuditTimelinePanel({
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [limit, setLimit] = useState<AuditTimelineLimitOption>("100")
+
+  useEffect(() => {
+    if (!pathFilterRequest) return
+    setPath(pathFilterRequest)
+  }, [pathFilterRequest])
 
   const filter = useMemo<AuditTimelineUiFilter>(() => ({
     category,

@@ -56,6 +56,7 @@ import {
   runSearchHealth,
   type SearchHealthRunResult,
 } from "@/lib/search-health"
+import { buildCoordinationSummary } from "@/lib/coordination-summary"
 import {
   runProjectSchemaQualityScan,
   type ProjectSchemaQualityScanResult,
@@ -73,6 +74,7 @@ import { MemoryOpsPolicyPanel } from "./memory-ops-policy-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
 import { SchemaQualityPanel } from "./schema-quality-panel"
 import { SearchHealthPanel } from "./search-health-panel"
+import { CoordinationSummaryPanel } from "./coordination-summary-panel"
 import {
   enqueueMerge,
   cancelTask,
@@ -82,6 +84,7 @@ import {
   type DedupTask,
 } from "@/lib/dedup-queue"
 import type { DuplicateGroup } from "@/lib/dedup"
+import { useReviewStore } from "@/stores/review-store"
 
 interface GroupUiEntry {
   group: DuplicateGroup
@@ -91,7 +94,13 @@ interface GroupUiEntry {
   skipped: boolean
 }
 
-type MaintenanceWorkbenchTab = "patrol" | "schema" | "timeline" | "policy" | "search"
+type MaintenanceWorkbenchTab =
+  | "patrol"
+  | "schema"
+  | "coordination"
+  | "timeline"
+  | "policy"
+  | "search"
 
 /** Match a card to its task in the queue (if any) by slug-set. */
 function findTaskForGroup(
@@ -112,6 +121,7 @@ export function MaintenanceSection() {
   const setFileContent = useWikiStore((s) => s.setFileContent)
   const setActiveView = useWikiStore((s) => s.setActiveView)
   const bumpDataVersion = useWikiStore((s) => s.bumpDataVersion)
+  const reviewItems = useReviewStore((s) => s.items)
 
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -124,6 +134,7 @@ export function MaintenanceSection() {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([])
   const [auditWarnings, setAuditWarnings] = useState<AuditTimelineWarning[]>([])
   const [auditOpenError, setAuditOpenError] = useState<string | null>(null)
+  const [timelinePathFilterRequest, setTimelinePathFilterRequest] = useState<string | null>(null)
   const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
   const [policy, setPolicy] = useState<MemoryOpsPolicy>(DEFAULT_MEMORY_OPS_POLICY)
   const [policyWarnings, setPolicyWarnings] = useState<string[]>([])
@@ -175,6 +186,14 @@ export function MaintenanceSection() {
 
   const llmReady = hasUsableLlm(llmConfig)
   const projectReady = !!project
+  const coordinationSummary = useMemo(
+    () => buildCoordinationSummary({
+      auditEvents,
+      reviewItems,
+      schemaFindings: schemaQualityResult?.report.findings ?? [],
+    }),
+    [auditEvents, reviewItems, schemaQualityResult],
+  )
 
   const refreshRecentAudit = useCallback(async () => {
     if (!project) {
@@ -681,6 +700,11 @@ export function MaintenanceSection() {
     [project, setSelectedFile, setFileContent, setActiveView],
   )
 
+  const handleFilterTimelinePath = useCallback((path: string) => {
+    setTimelinePathFilterRequest(path)
+    setWorkbenchTab("timeline")
+  }, [])
+
   const handleRunSearchHealth = useCallback(async () => {
     if (!project) return
     setSearchHealthRunning(true)
@@ -872,7 +896,7 @@ export function MaintenanceSection() {
           aria-label={t("settings.sections.maintenance.workbenchTabs.label")}
           className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-2"
         >
-          {(["patrol", "schema", "timeline", "policy", "search"] as const).map((tab) => (
+          {(["patrol", "schema", "coordination", "timeline", "policy", "search"] as const).map((tab) => (
             <Button
               key={tab}
               role="tab"
@@ -975,8 +999,24 @@ export function MaintenanceSection() {
               events={auditEvents}
               warnings={auditWarnings}
               openError={auditOpenError}
+              pathFilterRequest={timelinePathFilterRequest}
               onRefresh={() => void refreshRecentAudit()}
               onOpenPath={(path) => void handleOpenAuditPath(path)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "coordination" && (
+          <div
+            id="maintenance-coordination-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-coordination-tab"
+          >
+            <CoordinationSummaryPanel
+              projectReady={projectReady}
+              summary={coordinationSummary}
+              onOpenPath={(path) => void handleOpenAuditPath(path)}
+              onFilterTimeline={handleFilterTimelinePath}
             />
           </div>
         )}

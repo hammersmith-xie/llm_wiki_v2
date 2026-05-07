@@ -239,6 +239,7 @@
           "label": "Maintenance workbench sections",
           "patrol": "Patrol",
           "schema": "Schema & Quality",
+          "coordination": "Coordination",
           "timeline": "Timeline",
           "policy": "Policy",
           "search": "Search Health"
@@ -399,6 +400,32 @@
             "conflict": "Conflict",
             "missing": "Missing"
           }
+        },
+        "coordination": {
+          "title": "Coordination summary",
+          "description": "Local activity summary from this project's audit events, pending reviews, and latest Schema & Quality findings.",
+          "auditEvents": "Audit events",
+          "generatedAt": "Generated {{time}}",
+          "pendingReviews": "Pending reviews",
+          "blockedFindings": "{{n}} blocked findings",
+          "privateEvents": "Private events",
+          "targets": "{{n}} targets",
+          "empty": "No local activity, pending reviews, or schema findings to summarize.",
+          "actors": "Actor activity",
+          "noActors": "No actor activity yet.",
+          "actorEvents": "{{n}} events",
+          "recentEvents": "Recent events",
+          "noRecentEvents": "No recent audit events.",
+          "privateRedacted": "Private event details redacted.",
+          "pendingReviewsTitle": "Pending review",
+          "noPendingReviews": "No pending review items.",
+          "blockedFindingsTitle": "Blocked schema findings",
+          "noBlockedFindings": "No blocked schema findings.",
+          "promotionCandidatesTitle": "Private-to-shared candidates",
+          "noPromotionCandidates": "No private scoped activity needs promotion review.",
+          "promotionCandidate": "Promotion review",
+          "open": "Open",
+          "filterTimeline": "Filter timeline"
         },
         "policy": {
           "title": "Lifecycle policy",

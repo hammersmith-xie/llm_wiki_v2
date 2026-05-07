@@ -239,6 +239,7 @@
           "label": "维护工作台分区",
           "patrol": "巡检",
           "schema": "Schema 与质量",
+          "coordination": "协同摘要",
           "timeline": "时间线",
           "policy": "策略",
           "search": "搜索健康度"
@@ -399,6 +400,32 @@
             "conflict": "冲突",
             "missing": "缺失"
           }
+        },
+        "coordination": {
+          "title": "协同摘要",
+          "description": "基于当前项目的本地审计事件、待审阅项和最近一次 Schema 与质量 findings 生成活动摘要。",
+          "auditEvents": "审计事件",
+          "generatedAt": "生成时间 {{time}}",
+          "pendingReviews": "待审阅项",
+          "blockedFindings": "{{n}} 个 blocked finding",
+          "privateEvents": "Private 事件",
+          "targets": "{{n}} 个目标",
+          "empty": "暂无可汇总的本地活动、待审阅项或 schema finding。",
+          "actors": "Actor 活动",
+          "noActors": "暂无 actor 活动。",
+          "actorEvents": "{{n}} 条事件",
+          "recentEvents": "最近事件",
+          "noRecentEvents": "暂无最近审计事件。",
+          "privateRedacted": "Private 事件详情已收缩。",
+          "pendingReviewsTitle": "待审阅",
+          "noPendingReviews": "暂无待审阅项。",
+          "blockedFindingsTitle": "Blocked schema findings",
+          "noBlockedFindings": "暂无 blocked schema findings。",
+          "promotionCandidatesTitle": "Private 到 shared 候选",
+          "noPromotionCandidates": "暂无需要 promotion review 的 private scoped 活动。",
+          "promotionCandidate": "Promotion review",
+          "open": "打开",
+          "filterTimeline": "过滤时间线"
         },
         "policy": {
           "title": "生命周期策略",
