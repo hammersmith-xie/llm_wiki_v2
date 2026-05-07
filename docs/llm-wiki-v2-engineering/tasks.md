@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 12 / 16
+**总体进度**: 🚧 13 / 16
 
 ---
 
@@ -390,7 +390,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ Governance / Tauri permission hardening review
+### Task 4.2 ✅ Governance / Tauri permission hardening review
 
 **描述**: 检查 Tauri capability、HTTP permission、assetProtocol scope、audit 脱敏和 bulk action 安全，能收窄则收窄，不能收窄则记录理由。
 
@@ -406,15 +406,15 @@ graph TD
 - `docs/llm-wiki-v2-engineering/review-round-4.md`
 
 **验收**:
-- [ ] 文件预览、LLM provider、web search 不被破坏。
-- [ ] 权限保留/收窄有文档说明。
-- [ ] secret/private 事件测试覆盖新增路径。
+- [x] 文件预览、LLM provider、web search 不被破坏。
+- [x] 权限保留/收窄有文档说明。
+- [x] secret/private 事件测试覆盖新增路径。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Tauri HTTP capability 里存在多组重复 glob；`assetProtocol.scope` 理论上过宽，但项目路径是用户运行时选择的，静态收窄会破坏任意目录项目的文件预览。
+- 🔧 **最终实现逻辑**: 将 HTTP allow 列表收敛为 `http://**` / `https://**` 两条等价规则；新增 `review-round-4.md` 记录保留 asset scope、CSP、dialog/opener/store 的理由；audit redaction 增加 credentialed URL userinfo 脱敏。
+- 🎯 **关键决策**: 不把 provider/web-search/local endpoint 硬编码到 capability allowlist，避免破坏用户自定义 LLM、embedding、vision、web search 和本地网关；当前 hardening 先做等价收敛与审计脱敏，asset scope 留给后续项目根 broker 设计。
 
 ---
 
@@ -515,9 +515,9 @@ graph TD
 | M1 | Contract and Audit Foundation | 3 | 3 | ✅ |
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
 | M3 | Retrieval and Evaluation | 4 | 4 | ✅ |
-| M4 | Maintenance UI and Governance | 1 | 3 | 🚧 |
+| M4 | Maintenance UI and Governance | 2 | 3 | 🚧 |
 | M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **12** | **16** | **🚧** |
+| **总计** | | **13** | **16** | **🚧** |
 
 ---
 

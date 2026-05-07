@@ -54,6 +54,37 @@ describe("audit redaction", () => {
     })
   })
 
+  it("redacts credentials embedded in proxy and request URLs", () => {
+    const output = redactAuditEvent({
+      timestamp: "2026-05-07T00:00:00.000Z",
+      action: "settings.proxy.update",
+      category: "other",
+      targetPath: ".llm-wiki/app-state.json",
+      after: {
+        proxyConfig: {
+          url: "http://agent:super-secret@proxy.internal:8080",
+          password: "super-secret",
+        },
+        request: {
+          endpoint: "https://user:token-value@example.com/v1/chat",
+          headers: {
+            Authorization: "Bearer sk-proj-abcdefghijklmnopqrstuvwxyz",
+          },
+        },
+      },
+      reasons: [
+        "proxy http://agent:super-secret@proxy.internal:8080 was enabled",
+      ],
+    })
+
+    const json = JSON.stringify(output)
+    expect(json).not.toContain("super-secret")
+    expect(json).not.toContain("token-value")
+    expect(json).not.toContain("sk-proj-")
+    expect(json).toContain("http://[REDACTED:secret]@proxy.internal:8080")
+    expect(json).toContain("https://[REDACTED:secret]@example.com/v1/chat")
+  })
+
   it("collapses private-scope audit details to a minimal summary", () => {
     const output = redactAuditEvent({
       schemaVersion: 1,

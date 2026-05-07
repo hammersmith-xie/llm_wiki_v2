@@ -5,6 +5,7 @@ const PRIVATE_PLACEHOLDER = "[REDACTED:private]"
 const PRIVATE_SCOPE_PLACEHOLDER = "private scope"
 
 const PRIVATE_BLOCK_RE = /<private\b[^>]*>[\s\S]*?<\/private>/gi
+const URL_USERINFO_RE = /\b([a-z][a-z0-9+.-]*:\/\/)([^/\s@]+@)/gi
 const AUTH_BEARER_RE = /(\bAuthorization\s*:\s*Bearer\s+)([A-Za-z0-9._~+/=-]{8,})/gi
 const KEY_VALUE_SECRET_RE =
   /\b([A-Za-z0-9_.-]*(?:api[_-]?key|token|secret|password|passwd)[A-Za-z0-9_.-]*\s*[:=]\s*)([^\s"',`<>]+)/gi
@@ -14,6 +15,7 @@ const STANDALONE_SECRET_RE =
 export function redactSensitiveText(input: string): string {
   return input
     .replace(PRIVATE_BLOCK_RE, `<private>${PRIVATE_PLACEHOLDER}</private>`)
+    .replace(URL_USERINFO_RE, `$1${SECRET_PLACEHOLDER}@`)
     .replace(AUTH_BEARER_RE, `$1${SECRET_PLACEHOLDER}`)
     .replace(KEY_VALUE_SECRET_RE, `$1${SECRET_PLACEHOLDER}`)
     .replace(STANDALONE_SECRET_RE, SECRET_PLACEHOLDER)
