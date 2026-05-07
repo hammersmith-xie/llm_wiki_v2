@@ -25,7 +25,7 @@
 | 发现 | 严重度 | 处理 |
 |------|--------|------|
 | Chat/Review candidate UI 存在新增硬编码英文 label，i18n parity test 无法发现这种问题 | 中 | 已新增 `chat.saveSuggested`、`chat.refs`、`review.saveSuggested` 等 key，并改为 `useTranslation()` |
-| `maintenance-section.tsx`、`chat-message.tsx`、`review-view.tsx` 仍偏长 | 低 | 记录为后续重构项；T4.4 已先拆出新增 Memory Ops 面板，避免在最终审核阶段做大规模 UI 重排 |
+| `maintenance-section.tsx`、`chat-message.tsx` 仍偏长；`review-view.tsx` 已先拆出 `ReviewCard` 降到 400 行以内 | 低 | 记录剩余 UI 重构项；Review 卡片拆分已覆盖渲染回归测试 |
 
 ---
 
@@ -34,3 +34,4 @@
 - `npm run typecheck` 退出码 0。
 - Focused i18n/executor/candidate/crystallize tests 通过。
 - `rg` 未发现新增 `as any`、`.skip`、`only(` 或 `dangerouslySetInnerHTML`。
+- `review-view.tsx` 拆分后为 370 行，`review-card.tsx` 为 115 行。
