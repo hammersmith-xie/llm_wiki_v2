@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 3 / 17
+**总体进度**: 🚧 4 / 17
 
 ---
 
@@ -125,9 +125,9 @@ graph TD
 
 **目标**: 提供纯函数 schema drift checker 和 deterministic page quality evaluator，作为后续 UI 和 Memory Ops 的稳定 API。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ 实现 schema/frontmatter drift checker
+### Task 2.1 ✅ 实现 schema/frontmatter drift checker
 
 **描述**: 新建 `schema-drift.ts`，扫描 wiki pages 与 contract 的偏差，输出 typed findings。
 
@@ -144,16 +144,16 @@ graph TD
 - `src/lib/wiki-alias-index.ts`
 
 **验收**:
-- [ ] 缺失 frontmatter、必填字段、非法 enum、scalar array、score 越界有 tests。
-- [ ] page type/path mismatch 有 tests。
-- [ ] dangling typed relation 与 alias candidate 分开输出。
-- [ ] finding 包含 targetPath、severity、reasons、proposedOperation 可选。
+- [x] 缺失 frontmatter、必填字段、非法 enum、scalar array、score 越界有 tests。
+- [x] page type/path mismatch 有 tests。
+- [x] dangling typed relation 与 alias candidate 分开输出。
+- [x] finding 包含 targetPath、severity、reasons、proposedOperation 可选。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 自检时发现 private scope 测试最初断言了不会生成 patch 的 date finding；已改为用 private 页面上的 scalar typed relation 验证 proposedOperation scope。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/schema-drift.ts`，提供 `scanSchemaDrift` 纯函数，扫描 frontmatter 缺失、required field、enum/score/integer/date、array shape、page type/path 和 typed relation target；新增 `src/lib/schema-drift.test.ts` 覆盖缺失 frontmatter、可推断 metadata patch、坏值、scalar relation、dangling relation、alias candidate、path mismatch 和 private redaction。
+- 🎯 **关键决策**: Drift scanner 不读取磁盘、不写 audit、不调用 LLM；自动修复只输出 `MetadataPatchOperation`，且仅覆盖安全 frontmatter 形状修复或可推断字段，正文和事实裁决留给后续 Memory Ops/Review。
 
 ---
 
@@ -599,11 +599,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Schema Contract Foundation | 3 | 3 | ✅ |
-| M2 | Drift and Quality Core | 0 | 4 | ⏳ |
+| M2 | Drift and Quality Core | 1 | 4 | 🚧 |
 | M3 | Event and Digest Core | 0 | 4 | ⏳ |
 | M4 | Maintenance UI and Documentation | 0 | 5 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **3** | **17** | **🚧** |
+| **总计** | | **4** | **17** | **🚧** |
 
 ---
 
