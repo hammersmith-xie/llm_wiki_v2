@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 9 / 16
+**总体进度**: 🚧 10 / 16
 
 ---
 
@@ -300,7 +300,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ 增加 RRF contribution explanation
+### Task 3.3 ✅ 增加 RRF contribution explanation
 
 **描述**: SearchResult 携带 token/BM25、vector、graph 的 rank/score/path contribution，供 UI 和 report 使用。
 
@@ -315,15 +315,15 @@ graph TD
 - `src/lib/search-rrf.test.ts`
 
 **验收**:
-- [ ] RRF tests 验证 contribution。
-- [ ] Search UI 对旧结果和新 explanation 都兼容。
-- [ ] graph path explanation 保持可用。
+- [x] RRF tests 验证 contribution。
+- [x] Search UI 对旧结果和新 explanation 都兼容。
+- [x] graph path explanation 保持可用。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 首版把 BM25 rank 作为 lexical 主贡献后，`phrase-in-content-beats-scattered-tokens` 场景退化，短语命中页被 BM25 词频页反超。
+- 🔧 **最终实现逻辑**: `SearchResult.retrieval` 增加 token/BM25/vector/graph 的 rank、rawScore、RRF contribution；graph explanation 同步携带 path/pathTypes/pathDirections，并保留旧 `graphPath*` 字段兼容现有 UI。
+- 🎯 **关键决策**: lexical RRF contribution 继续按 token/phrase scorer 优先，BM25 在 token 命中时只暴露解释字段不重复加分；只有 token 缺席时 BM25 作为 lexical 兜底贡献，避免排序语义在 T3.3 被隐式替换。
 
 ---
 

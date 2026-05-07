@@ -189,6 +189,19 @@ describe("searchWiki — RRF fusion of token + vector lists", () => {
     expect(out[0].score).toBeCloseTo(1 / 61, 6)
     expect(out[1].title).toBe("Random")
     expect(out[1].score).toBeCloseTo(1 / 62, 6)
+    expect(out[0].retrieval).toMatchObject({
+      rrfScore: out[0].score,
+      token: {
+        rank: 1,
+        rrf: 1 / 61,
+      },
+      bm25: {
+        rank: 1,
+        rrf: 0,
+      },
+    })
+    expect(out[0].retrieval?.token?.rawScore).toBeGreaterThan(0)
+    expect(out[0].retrieval?.bm25?.rawScore).toBeGreaterThan(0)
     // searchByEmbedding must NOT have been called at all.
     expect(mockSearchByEmbedding).not.toHaveBeenCalled()
   })
@@ -338,6 +351,14 @@ describe("searchWiki — RRF fusion of token + vector lists", () => {
     const flash = out.find((r) => r.title === "IO Kernel")
     expect(flash?.score).toBeCloseTo(1 / 61, 6)
     expect(flash?.graphPath).toEqual(["attention", "io-kernel"])
+    expect(flash?.retrieval?.graph).toMatchObject({
+      rank: 1,
+      rawScore: 1,
+      rrf: 1 / 61,
+      path: ["attention", "io-kernel"],
+      pathTypes: ["uses"],
+      pathDirections: ["forward"],
+    })
     expect((flash as unknown as { graphPathTypes?: string[] })?.graphPathTypes).toEqual(["uses"])
     expect((flash as unknown as { graphPathDirections?: string[] })?.graphPathDirections).toEqual([
       "forward",

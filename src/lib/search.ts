@@ -25,6 +25,7 @@ export interface SearchResult {
   snippet: string
   titleMatch: boolean
   score: number
+  retrieval?: SearchRetrievalExplanation
   graphPath?: string[]
   graphPathTypes?: string[]
   graphPathDirections?: GraphPathDirection[]
@@ -35,6 +36,26 @@ export interface SearchResult {
    * page" itself, so both views need the full set. May be empty.
    */
   images: ImageRef[]
+}
+
+export interface SearchStreamContribution {
+  rank: number
+  rawScore?: number
+  rrf: number
+}
+
+export interface SearchGraphContribution extends SearchStreamContribution {
+  path?: string[]
+  pathTypes?: string[]
+  pathDirections?: GraphPathDirection[]
+}
+
+export interface SearchRetrievalExplanation {
+  rrfScore: number
+  token?: SearchStreamContribution
+  bm25?: SearchStreamContribution
+  vector?: SearchStreamContribution
+  graph?: SearchGraphContribution
 }
 
 export interface LexicalDocument {
@@ -345,6 +366,7 @@ export async function searchWiki(
   // Fallback: if all tokens were filtered out, use the trimmed query as a single token
   const effectiveTokens = tokens.length > 0 ? tokens : [query.trim().toLowerCase()]
   const results: SearchResult[] = []
+  const lexicalDocuments: LexicalDocument[] = []
 
   // Search wiki pages.
   //
@@ -372,7 +394,7 @@ export async function searchWiki(
     const wikiFiles = flattenMdFiles(wikiTree)
     const tList = Math.round(performance.now() - t0)
     const t1 = performance.now()
-    await searchFiles(wikiFiles, effectiveTokens, query, results)
+    await searchFiles(wikiFiles, effectiveTokens, query, results, lexicalDocuments)
     const tRead = Math.round(performance.now() - t1)
     console.log(
       `[Search:token] wiki/ ${wikiFiles.length} files | list=${tList}ms read+match=${tRead}ms`,
@@ -386,14 +408,27 @@ export async function searchWiki(
   // step, so adding vector-only pages doesn't shift token ranks.
   const tokenSorted = [...results].sort((a, b) => b.score - a.score)
   const tokenRank = new Map<string, number>()
+  const tokenScore = new Map<string, number>()
   tokenSorted.forEach((r, i) => {
-    tokenRank.set(normalizePath(r.path), i + 1) // 1-indexed
+    const pathKey = normalizePath(r.path)
+    tokenRank.set(pathKey, i + 1) // 1-indexed
+    tokenScore.set(pathKey, r.score)
+  })
+
+  const bm25Hits = rankBm25Documents(lexicalDocuments, query)
+  const bm25Rank = new Map<string, number>()
+  const bm25Score = new Map<string, number>()
+  bm25Hits.forEach((hit) => {
+    const pathKey = normalizePath(hit.path)
+    bm25Rank.set(pathKey, hit.rank)
+    bm25Score.set(pathKey, hit.score)
   })
 
   // ── Vector search: collect ranked list of page-ids and materialize
   //    pages that token search missed. We do NOT add to results' score
   //    here — that's done in the RRF step below.
   let vectorRank = new Map<string, number>()
+  let vectorScore = new Map<string, number>()
   let vectorCount = 0
   try {
     const { useWikiStore } = await import("@/stores/wiki-store")
@@ -415,7 +450,10 @@ export async function searchWiki(
 
       // Build vectorRank by page_id (slug); searchByEmbedding returns
       // results pre-sorted by descending similarity.
-      vectorResults.forEach((vr, i) => vectorRank.set(vr.id, i + 1))
+      vectorResults.forEach((vr, i) => {
+        vectorRank.set(vr.id, i + 1)
+        vectorScore.set(vr.id, vr.score)
+      })
 
       // Materialize any vector-result page that token search didn't
       // already include — without this, `results` has no entry for
@@ -453,6 +491,7 @@ export async function searchWiki(
   } catch (err) {
     console.log(`[Vector Search] Skipped: ${err instanceof Error ? err.message : "not available"}`)
     vectorRank = new Map()
+    vectorScore = new Map()
   }
 
   // ── Graph search: typed graph traversal acts as a third retrieval
@@ -460,6 +499,7 @@ export async function searchWiki(
   //    connected to query-matching nodes via explicit typed relationships
   //    or fallback wikilinks.
   let graphRank = new Map<string, number>()
+  let graphScore = new Map<string, number>()
   let graphPaths = new Map<string, string[]>()
   let graphPathTypes = new Map<string, string[]>()
   let graphPathDirections = new Map<string, GraphPathDirection[]>()
@@ -473,6 +513,7 @@ export async function searchWiki(
     graphCount = graphResults.length
     graphResults.forEach((gr, i) => {
       graphRank.set(gr.id, i + 1)
+      graphScore.set(gr.id, gr.score)
       graphPaths.set(gr.id, gr.path)
       graphPathTypes.set(gr.id, gr.pathTypes)
       graphPathDirections.set(gr.id, gr.pathDirections)
@@ -509,6 +550,7 @@ export async function searchWiki(
   } catch (err) {
     console.log(`[Graph Search] Skipped: ${err instanceof Error ? err.message : "not available"}`)
     graphRank = new Map()
+    graphScore = new Map()
     graphPaths = new Map()
     graphPathTypes = new Map()
     graphPathDirections = new Map()
@@ -521,19 +563,61 @@ export async function searchWiki(
   // Pages absent from BOTH never make it here (we only iterate the
   // results array, which already contains every candidate).
   for (const r of results) {
-    const tRank = tokenRank.get(normalizePath(r.path))
-    const vRank = vectorRank.get(getFileStem(r.path))
-    const gRank = graphRank.get(getFileStem(r.path))
+    const pathKey = normalizePath(r.path)
+    const pageId = getFileStem(r.path)
+    const tRank = tokenRank.get(pathKey)
+    const bRank = bm25Rank.get(pathKey)
+    const vRank = vectorRank.get(pageId)
+    const gRank = graphRank.get(pageId)
     let rrf = 0
-    if (tRank !== undefined) rrf += 1 / (RRF_K + tRank)
-    if (vRank !== undefined) rrf += 1 / (RRF_K + vRank)
+    const retrieval: SearchRetrievalExplanation = { rrfScore: 0 }
+    const lexicalRank = tRank ?? bRank
+    const lexicalContribution =
+      lexicalRank !== undefined ? rrfContribution(lexicalRank) : undefined
+    if (tRank !== undefined) {
+      retrieval.token = {
+        rank: tRank,
+        rawScore: tokenScore.get(pathKey),
+        rrf: lexicalContribution ?? 0,
+      }
+    }
+    if (bRank !== undefined) {
+      retrieval.bm25 = {
+        rank: bRank,
+        rawScore: bm25Score.get(pathKey),
+        rrf: tRank === undefined ? lexicalContribution ?? 0 : 0,
+      }
+    }
+    if (lexicalContribution !== undefined) rrf += lexicalContribution
+    if (vRank !== undefined) {
+      const contribution = rrfContribution(vRank)
+      rrf += contribution
+      retrieval.vector = {
+        rank: vRank,
+        rawScore: vectorScore.get(pageId),
+        rrf: contribution,
+      }
+    }
     if (gRank !== undefined) {
-      rrf += 1 / (RRF_K + gRank)
-      r.graphPath = graphPaths.get(getFileStem(r.path))
-      r.graphPathTypes = graphPathTypes.get(getFileStem(r.path))
-      r.graphPathDirections = graphPathDirections.get(getFileStem(r.path))
+      const contribution = rrfContribution(gRank)
+      rrf += contribution
+      const path = graphPaths.get(pageId)
+      const pathTypes = graphPathTypes.get(pageId)
+      const pathDirections = graphPathDirections.get(pageId)
+      r.graphPath = path
+      r.graphPathTypes = pathTypes
+      r.graphPathDirections = pathDirections
+      retrieval.graph = {
+        rank: gRank,
+        rawScore: graphScore.get(pageId),
+        rrf: contribution,
+        path,
+        pathTypes,
+        pathDirections,
+      }
     }
     r.score = rrf
+    r.retrieval = { ...retrieval, rrfScore: rrf }
   }
 
   // Sort by RRF score descending. Ties (e.g. two pages both at vector
@@ -546,10 +630,14 @@ export async function searchWiki(
 
   const tokenHits = tokenRank.size
   console.log(
-    `[Search] query="${query}" | RRF fused: ${tokenHits} token + ${vectorCount} vector + ${graphCount} graph → ${results.length} unique`,
+    `[Search] query="${query}" | RRF fused: ${tokenHits} token + ${bm25Rank.size} BM25 + ${vectorCount} vector + ${graphCount} graph → ${results.length} unique`,
   )
 
   return results.slice(0, MAX_RESULTS)
+}
+
+function rrfContribution(rank: number): number {
+  return 1 / (RRF_K + rank)
 }
 
 /**
@@ -577,6 +665,7 @@ async function searchFiles(
   tokens: readonly string[],
   query: string,
   results: SearchResult[],
+  lexicalDocuments: LexicalDocument[],
 ): Promise<void> {
   // Strip leading / trailing punctuation from the query before using
   // it as a phrase-bonus probe. Without this, `query="总资产。"`
@@ -604,6 +693,7 @@ async function searchFiles(
         } catch {
           return null
         }
+        lexicalDocuments.push({ path: file.path, fileName: file.name, content })
         return scoreFile(file, content, preparedQuery)
       }),
     )
@@ -844,7 +934,7 @@ function matchingTokens(text: string, tokens: readonly string[]): string[] {
 function tokenizeForFrequency(text: string): string[] {
   const rawTokens = text
     .toLowerCase()
-    .split(/[\s,，。！？、；：""''（）()\-_/\\·~～…]+/)
+    .split(/[\s,，。！？、；：""''（）()\-_/\\·~～….]+/)
     .filter((token) => token.length > 1)
     .filter((token) => !STOP_WORDS.has(token))
   const tokens: string[] = []
