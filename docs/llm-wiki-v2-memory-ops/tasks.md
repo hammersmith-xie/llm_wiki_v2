@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 9 / 18
+**总体进度**: 🚧 10 / 18
 
 ---
 
@@ -297,7 +297,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ Add deterministic search evaluation harness
+### Task 3.3 ✅ Add deterministic search evaluation harness
 
 **描述**: 新建 `search-eval.ts` 和 scenario tests，覆盖 exact title、alias、typed relation、graph-only、vector-only、CJK query，形成检索回归保护。
 
@@ -319,9 +319,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 现有 search tests 能验证具体实现，但缺少一个可复用的“场景输入 → ranked results → rank/top-k 失败报告”层，后续调参难以统一解释退化。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/search-eval.ts`，提供 `runSearchEval` 和 `runSearchWikiEval`，支持 expected top ranks、top-k 包含和 excluded path 检查，并输出 ranked paths + failure summary。
+- 🎯 **关键决策**: Harness 不绑定真实 embedding 服务；测试用 temp wiki、mock embedding 和 mock typed graph 覆盖 exact title、alias、CJK、vector-only、graph-only 场景。
 
 ---
 
@@ -568,10 +568,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Audit + Governance Foundation | 3 | 3 | ✅ |
 | M2 | Patrol Runner + Lifecycle Rules | 4 | 4 | ✅ |
-| M3 | Crystallization Candidates + Search Evaluation | 2 | 4 | 🚧 |
+| M3 | Crystallization Candidates + Search Evaluation | 3 | 4 | 🚧 |
 | M4 | UI Integration | 0 | 4 | ⏳ |
 | M5 | Verification + Final Review | 0 | 3 | ⏳ |
-| **总计** | | **9** | **18** | **🚧** |
+| **总计** | | **10** | **18** | **🚧** |
 
 ---
 
