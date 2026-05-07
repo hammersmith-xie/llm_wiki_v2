@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 9 / 17
+**总体进度**: 🚧 10 / 17
 
 ---
 
@@ -311,7 +311,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ 实现 crystallization digest planner
+### Task 3.3 ✅ 实现 crystallization digest planner
 
 **描述**: 新建 `crystallization-digest.ts`，基于现有 candidate 输入生成 lessons/decisions/entities/relations/page candidates。
 
@@ -327,16 +327,16 @@ graph TD
 - `src/lib/crystallize.ts`
 
 **验收**:
-- [ ] 低价值/无引用内容不生成 digest plan。
-- [ ] 有 decisions/lessons/entity mentions 的内容生成 conservative plan。
-- [ ] preview 不写文件。
-- [ ] save/apply 事件写 audit 且带 dedupeKey。
+- [x] 低价值/无引用内容不生成 digest plan。
+- [x] 有 decisions/lessons/entity mentions 的内容生成 conservative plan。
+- [x] preview 不写文件。
+- [x] save/apply 事件写 audit 且带 dedupeKey。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初版测试发现 `Next step` 被合理归入 decision/action signal，已更新预期；TypeScript 也暴露了 optional `targetPath` 与 type predicate 不兼容，改为显式循环构造实体数组。`[[concepts/foo]]` wikilink 最初没有识别为 wiki 子目录路径，已补支持。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/crystallization-digest.ts`，从现有 `CrystallizationCandidate` 生成 deterministic digest plan，包含 lessons、decisions、entities、supports relation candidates 和 query/synthesis page candidate；新增 preview/save 事件 helper，preview 使用 `maintenance:false`，save 事件记录 dedupeKey、target paths 和 operation counts；新增 `crystallization-digest.test.ts` 覆盖低价值拒绝、保守 plan、dedupe、preview/save audit。
+- 🎯 **关键决策**: Digest planner 不读写文件、不调用 LLM、不自动 patch metadata；它只产出可预览 plan 和 audit helper。高分且跨多个 lesson/decision/relation 的输出建议为 synthesis，否则保守建议为 query page；所有保存仍留到后续 UI 或现有 write helper 由用户确认。
 
 ---
 
