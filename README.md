@@ -36,8 +36,8 @@
 - **Louvain Community Detection** — automatic knowledge cluster discovery with cohesion scoring
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
-- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, confidence signals, typed relationship fields, graph-aware RRF search, and append-only audit events
-- **Memory Ops Patrol** — local maintenance scan for stale metadata, broken typed relations, safe metadata actions, and crystallization candidates
+- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, and append-only audit events
+- **Memory Ops Patrol** — local maintenance scan for stale metadata, broken typed relations, safe metadata actions, crystallization candidates, and cooldown reminders
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
@@ -197,16 +197,22 @@ Phase 1: Tokenized Search
   - Title match bonus (+10 score)
   - Searches both wiki/ and raw/sources/
 
+Phase 1.1: Local Lexical Evidence
+  - Token and phrase matches keep exact title / filename hits deterministic
+  - BM25-style scoring records content and title evidence for materialized results
+  - Retrieval output exposes token, BM25, vector, and graph contributions for tuning
+
 Phase 1.5: Vector Semantic Search (optional)
   - Embedding via any OpenAI-compatible /v1/embeddings endpoint
   - Stored in LanceDB (Rust backend) for fast ANN retrieval
   - Cosine similarity finds semantically related pages even without keyword overlap
   - Results merged into search: boosts existing matches + adds new discoveries
 
-Phase 2: Graph Expansion
+Phase 2: Rank Fusion + Graph Expansion
   - Top search results used as seed nodes
   - 4-signal relevance model finds related pages
   - 2-hop traversal with decay for deeper connections
+  - Reciprocal-rank style graph contributions stay visible in each result
 
 Phase 3: Budget Control
   - Configurable context window: 4K → 1M tokens
@@ -219,7 +225,7 @@ Phase 4: Context Assembly
   - LLM instructed to cite pages by number: [1], [2], etc.
 ```
 
-**Vector Search** is fully optional — disabled by default, enabled in Settings with independent endpoint, API key, and model configuration. When disabled, the pipeline falls back to tokenized search + graph expansion. Benchmark: overall recall improved from 58.2% to 71.4% with vector search enabled.
+**Vector Search** is fully optional — disabled by default, enabled in Settings with independent endpoint, API key, and model configuration. When disabled, the pipeline falls back to deterministic token/phrase search, local BM25 evidence, and typed graph expansion. Benchmark: overall recall improved from 58.2% to 71.4% with vector search enabled.
 
 ### 8. Multi-Conversation Chat with Persistence
 
@@ -239,10 +245,12 @@ The original has a single query interface. We built **full multi-conversation su
 Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer, not as an external memory server. Markdown remains the durable source of truth; Memory Ops only derives suggestions, metadata patches, audit events, and evaluation reports from the local project.
 
 - **Unified audit timeline** — `.llm-wiki/audit.jsonl` records lifecycle, crystallization, patrol, ignore, and metadata-apply events with redaction and bad-line tolerance
-- **Deterministic patrol runner** — Settings -> Maintenance can scan wiki metadata, typed relations, review state, chat history, and audit activity without requiring an LLM
+- **Source-of-truth boundary** — patrol reads wiki pages, typed graph state, review state, chat history, and audit activity; raw documents remain immutable inputs, not a background rescan target
+- **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM
+- **Cooldown reminders** — query, search, and review activity can mark that a patrol is due, but the app does not auto-run a full scan in the background
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
 - **Relation cleanup suggestions** — broken typed relationship targets and dangling supersession links are flagged separately from ordinary wikilink lint
-- **Dry-run metadata actions** — users preview field-level frontmatter diffs before applying metadata-only changes; ignore/apply decisions are audited
+- **Dry-run metadata actions** — users preview field-level frontmatter diffs before applying metadata-only changes; ignore/apply decisions are audited and private scope details are redacted
 - **Crystallization candidates** — high-value chat, research, and review outputs can prompt a low-noise Save to Wiki suggestion and reuse the existing `wiki/queries/` write path after confirmation
 - **Search evaluation harness** — deterministic scenarios cover exact title, alias, typed relation, graph-only, vector-only, and CJK query behavior before retrieval tuning
 
@@ -368,7 +376,7 @@ The original is platform-agnostic (abstract pattern). We handle concrete cross-p
 | UI | shadcn/ui + Tailwind CSS v4 |
 | Editor | Milkdown (ProseMirror-based WYSIWYG) |
 | Graph | sigma.js + graphology + ForceAtlas2 |
-| Search | Lexical token search + optional vector (LanceDB) + typed graph RRF |
+| Search | Token/phrase lexical search + local BM25 evidence + optional vector (LanceDB) + typed graph RRF |
 | Vector DB | LanceDB (Rust, embedded, optional) |
 | PDF | pdf-extract |
 | Office | docx-rs + calamine |
@@ -435,7 +443,8 @@ my-wiki/
 │   ├── synthesis/          # Cross-source analysis
 │   └── comparisons/        # Side-by-side comparisons
 ├── .obsidian/              # Obsidian vault config (auto-generated)
-└── .llm-wiki/              # App config, chat history, review items, audit timeline
+└── .llm-wiki/              # App config, chat history, review items
+    └── audit.jsonl         # Append-only redacted audit timeline
 ```
 
 ## Star History

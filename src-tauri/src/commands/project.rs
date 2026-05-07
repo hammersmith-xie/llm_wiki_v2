@@ -111,6 +111,22 @@ supersedes: []
 superseded_by: []
 ```
 
+Memory Ops and audit rules:
+- Markdown pages remain the source of truth. Graph, vector, search evaluation,
+  audit summaries, and patrol reports are derived state.
+- `.llm-wiki/audit.jsonl` is an append-only app-owned event log. Do not
+  hand-edit it except during explicit recovery.
+- Memory Ops patrol may suggest lifecycle, relation, retention, contradiction,
+  and crystallization metadata changes, but it must not silently rewrite page
+  bodies.
+- Apply metadata changes only after previewing the frontmatter diff. Ignore and
+  apply decisions should be audit events.
+- Keep `scope: private` for pages whose titles, sources, or evidence should be
+  redacted from audit details.
+- When evidence reconfirms a page, update `last_confirmed`,
+  `reinforcement_count`, and `confidence_reasons` instead of only changing
+  prose.
+
 Source pages also include:
 ```yaml
 authors: []
@@ -140,8 +156,8 @@ venue: ""
 - Use `[[page-slug]]` syntax to link between wiki pages
 - Every entity and concept should appear in `wiki/index.md`
 - Queries link to the sources and concepts they draw on
-	- Synthesis pages cite contributing pages via `related:` and stronger support
-	  links via `supports:`
+- Synthesis pages cite contributing pages via `related:` and stronger support
+  links via `supports:`
 
 ## Contradiction Handling
 
@@ -374,6 +390,9 @@ mod tests {
         assert!(schema.contains("supersedes: []"));
         assert!(schema.contains("superseded_by: []"));
         assert!(schema.contains("depends_on: []"));
+        assert!(schema.contains("Memory Ops and audit rules"));
+        assert!(schema.contains(".llm-wiki/audit.jsonl"));
+        assert!(schema.contains("previewing the frontmatter diff"));
 
         let _ = fs::remove_dir_all(parent);
     }

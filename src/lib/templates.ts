@@ -72,6 +72,22 @@ supersedes: []
 superseded_by: []
 \`\`\`
 
+Memory Ops and audit rules:
+- Markdown pages remain the source of truth. Graph, vector, search evaluation,
+  audit summaries, and patrol reports are derived state.
+- \`.llm-wiki/audit.jsonl\` is an append-only app-owned event log. Do not
+  hand-edit it except during explicit recovery.
+- Memory Ops patrol may suggest lifecycle, relation, retention, contradiction,
+  and crystallization metadata changes, but it must not silently rewrite page
+  bodies.
+- Apply metadata changes only after previewing the frontmatter diff. Ignore and
+  apply decisions should be audit events.
+- Keep \`scope: private\` for pages whose titles, sources, or evidence should be
+  redacted from audit details.
+- When evidence reconfirms a page, update \`last_confirmed\`,
+  \`reinforcement_count\`, and \`confidence_reasons\` instead of only changing
+  prose.
+
 Source pages also include:
 \`\`\`yaml
 authors: []

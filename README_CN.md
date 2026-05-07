@@ -36,8 +36,8 @@
 - **Louvain 社区检测** — 自动发现知识聚类，内聚度评分
 - **图谱洞察** — 惊奇连接与知识空白检测，一键触发 Deep Research
 - **向量语义搜索** — 可选的 embedding 检索，基于 LanceDB，支持任意 OpenAI 兼容端点
-- **LLM Wiki v2 本地切片** — 页面级生命周期、置信度信号、typed relationship 字段、图谱感知 RRF 搜索和 append-only audit
-- **Memory Ops 巡检** — 本地维护扫描 stale metadata、broken typed relations、安全 metadata 操作和 crystallization candidates
+- **LLM Wiki v2 本地切片** — 页面级生命周期、置信度信号、typed relationship 字段、图谱感知 RRF 检索、BM25 证据和 append-only audit
+- **Memory Ops 巡检** — 本地维护扫描 stale metadata、broken typed relations、安全 metadata 操作、crystallization candidates 和 cooldown 提醒
 - **持久化摄入队列** — 串行处理，崩溃恢复，取消/重试，进度可视化
 - **文件夹导入** — 递归导入保留目录结构，文件夹路径作为 LLM 分类上下文
 - **深度研究** — LLM 智能生成搜索主题，多查询网络搜索，研究结果自动摄入 Wiki
@@ -197,16 +197,22 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
   - 标题匹配加分（+10 分）
   - 同时搜索 wiki/ 和 raw/sources/
 
+阶段 1.1：本地词法证据
+  - token 和 phrase 匹配保留标题 / 文件名精确命中的确定性
+  - BM25 风格评分为已物化结果记录正文和标题证据
+  - 检索结果暴露 token、BM25、vector、graph 各通道贡献，方便调权
+
 阶段 1.5：向量语义搜索（可选）
   - 通过任意 OpenAI 兼容的 /v1/embeddings 端点生成 embedding
   - 存储在 LanceDB（Rust 后端）中进行快速 ANN 检索
   - 余弦相似度发现即使没有关键词重叠也语义相关的页面
   - 结果合并：增强已有匹配 + 添加新发现
 
-阶段 2：图谱扩展
+阶段 2：排序融合 + 图谱扩展
   - 搜索结果作为种子节点
   - 四信号关联度模型发现相关页面
   - 2 跳遍历带衰减，发现更深层关联
+  - 图谱侧 reciprocal-rank 贡献会保留在每条结果中
 
 阶段 3：预算控制
   - 可配置上下文窗口：4K → 1M tokens
@@ -219,7 +225,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
   - LLM 被指示按编号引用页面：[1]、[2] 等
 ```
 
-**向量搜索**完全可选 —— 默认关闭，在设置中开启，有独立的端点、API Key 和模型配置。关闭时管线 fallback 到分词搜索 + 图谱扩展。基准测试：开启向量搜索后整体召回率从 58.2% 提升至 71.4%。
+**向量搜索**完全可选 —— 默认关闭，在设置中开启，有独立的端点、API Key 和模型配置。关闭时管线 fallback 到确定性的 token/phrase 搜索、本地 BM25 证据和 typed graph 扩展。基准测试：开启向量搜索后整体召回率从 58.2% 提升至 71.4%。
 
 ### 8. 多对话聊天与持久化
 
@@ -239,10 +245,12 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外部 memory server。Markdown 仍是 durable source of truth；Memory Ops 只从本地项目派生建议、metadata patch、audit event 和检索评估报告。
 
 - **统一审计时间线** —— `.llm-wiki/audit.jsonl` 记录 lifecycle、crystallization、patrol、ignore、metadata apply 等事件，写入前脱敏并容忍坏行
-- **确定性巡检入口** —— Settings -> Maintenance 可扫描 Wiki metadata、typed relation、review state、chat history 和 audit activity，不依赖 LLM 配置
+- **事实源边界** —— 巡检读取 Wiki 页面、typed graph state、review state、chat history 和 audit activity；原始资料仍是不可变输入，不作为后台重扫描目标
+- **确定性巡检入口** —— Settings -> Maintenance 可扫描本地项目状态，不依赖 LLM 配置
+- **Cooldown 提醒** —— query、search、review 活动可以标记“需要巡检”，但应用不会在后台自动跑全量扫描
 - **生命周期建议** —— stale、low-confidence、superseded、archivable、promotion candidate 以 metadata suggestion 呈现，不自动重写页面
 - **关系清理建议** —— broken typed relationship target 和 dangling supersession link 独立提示，不和普通 wikilink lint 混在一起
-- **Dry-run metadata 操作** —— 用户先看 frontmatter 字段级 diff，再确认执行 metadata-only 修改；ignore/apply 决策都会进入 audit
+- **Dry-run metadata 操作** —— 用户先看 frontmatter 字段级 diff，再确认执行 metadata-only 修改；ignore/apply 决策都会进入 audit，private scope 细节会被脱敏
 - **Crystallization candidates** —— 高价值 chat、research、review 输出会低干扰提示 Save to Wiki，用户确认后复用现有 `wiki/queries/` 写入路径
 - **检索评估 harness** —— 用确定性场景覆盖 exact title、alias、typed relation、graph-only、vector-only 和 CJK query，再决定是否调检索权重
 
@@ -368,7 +376,7 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 | UI | shadcn/ui + Tailwind CSS v4 |
 | 编辑器 | Milkdown（基于 ProseMirror 的所见即所得） |
 | 图谱 | sigma.js + graphology + ForceAtlas2 |
-| 搜索 | 分词搜索 + 图谱关联度 + 可选向量（LanceDB） |
+| 搜索 | token/phrase 词法搜索 + 本地 BM25 证据 + 可选向量（LanceDB）+ typed graph RRF |
 | 向量数据库 | LanceDB（Rust，嵌入式，可选） |
 | PDF | pdf-extract |
 | Office | docx-rs + calamine |
@@ -435,7 +443,8 @@ my-wiki/
 │   ├── synthesis/          # 跨资料分析
 │   └── comparisons/        # 并列对比
 ├── .obsidian/              # Obsidian 仓库配置（自动生成）
-└── .llm-wiki/              # 应用配置、聊天历史、审核项、审计时间线
+└── .llm-wiki/              # 应用配置、聊天历史、审核项
+    └── audit.jsonl         # append-only 脱敏审计时间线
 ```
 
 ## Star History

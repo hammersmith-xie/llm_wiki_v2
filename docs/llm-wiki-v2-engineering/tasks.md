@@ -450,9 +450,9 @@ graph TD
 
 **目标**: 文档、模板、测试和最终审核闭环。
 **依赖**: M4
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 5.1 ⏳ 更新 README、schema template 和使用说明
+### Task 5.1 ✅ 更新 README、schema template 和使用说明
 
 **描述**: 让用户清楚知道本地 v2 工程化闭环如何使用，以及为什么仍然以 Markdown 为 source of truth。
 
@@ -468,15 +468,15 @@ graph TD
 - `src-tauri/src/commands/project.rs`
 
 **验收**:
-- [ ] README 与真实功能一致。
-- [ ] 新建项目 schema 包含 lifecycle/typed relation/audit/patrol 规则。
-- [ ] 中文说明不含未实现承诺。
+- [x] README 与真实功能一致。
+- [x] 新建项目 schema 包含 lifecycle/typed relation/audit/patrol 规则。
+- [x] 中文说明不含未实现承诺。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README 已经有 v2/Memory Ops 段落，但检索链路没有写出 BM25 evidence 与 per-channel contribution；模板 schema 只有 lifecycle 和 typed relation 字段，没有说明 audit/patrol 的 source-of-truth 边界。
+- 🔧 **最终实现逻辑**: 更新中英文 README 的检索、Memory Ops、技术栈和项目结构说明；在 TS 场景模板和 Rust 新建项目 schema 中加入 Markdown source of truth、`.llm-wiki/audit.jsonl`、patrol 建议边界、frontmatter diff 预览、private scope 脱敏和 `last_confirmed`/`reinforcement_count` 规则；补充 Rust schema 单测断言。
+- 🎯 **关键决策**: 文档不承诺后台自动全量扫描，也不把 BM25 描述成替代 token/phrase 排序；patrol 只产生可预览的 metadata 建议，apply/ignore 才进入 audit。
 
 ---
 
@@ -516,8 +516,8 @@ graph TD
 | M2 | Lifecycle and Relation Rules | 4 | 4 | ✅ |
 | M3 | Retrieval and Evaluation | 4 | 4 | ✅ |
 | M4 | Maintenance UI and Governance | 3 | 3 | ✅ |
-| M5 | Documentation and Release Review | 0 | 2 | ⏳ |
-| **总计** | | **14** | **16** | **🚧** |
+| M5 | Documentation and Release Review | 1 | 2 | 🚧 |
+| **总计** | | **15** | **16** | **🚧** |
 
 ---
 
