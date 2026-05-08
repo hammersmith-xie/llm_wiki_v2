@@ -7,6 +7,7 @@ import {
   runMemoryOpsPatrol,
 } from "./memory-ops"
 import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
+import { normalizeClaimRecord } from "./claims"
 import { useActivityStore } from "@/stores/activity-store"
 
 vi.mock("@/commands/fs", () => ({
@@ -247,6 +248,58 @@ describe("memory ops project scanner", () => {
       stalePageCount: 1,
       riskPageCount: 1,
       auditWarningCount: 1,
+    })
+  })
+
+  it("adds claim health stats without reading raw sources", async () => {
+    const stale = normalizeClaimRecord({
+      text: "Old claim.",
+      page_path: "wiki/concepts/attention.md",
+      status: "stale",
+      reinforcement_count: "2",
+    }, { today: "2026-05-08" }).claim
+    const orphan = normalizeClaimRecord({
+      text: "Deleted claim.",
+      page_path: "wiki/concepts/deleted.md",
+      status: "superseded",
+    }, { today: "2026-05-08" }).claim
+    mockListDirectory.mockImplementation(async (path) => {
+      if (path.includes("/raw/")) throw new Error("scanner must not read raw sources")
+      if (path === "/project/wiki") {
+        return [{
+          name: "attention.md",
+          path: "/project/wiki/concepts/attention.md",
+          is_dir: false,
+        }]
+      }
+      throw new Error(`unexpected listDirectory ${path}`)
+    })
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/attention.md") {
+        return "---\ntype: concept\ntitle: Attention\n---\n\n# Attention"
+      }
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      if (path === "/project/.llm-wiki/claims.jsonl") {
+        return `${JSON.stringify(stale)}\n${JSON.stringify(orphan)}\n`
+      }
+      throw new Error(`missing ${path}`)
+    })
+
+    const snapshot = await scanMemoryOpsProject("/project", { today: "2026-05-08" })
+
+    expect(snapshot.claimHealth).toMatchObject({
+      claimCount: 2,
+      staleCount: 1,
+      supersededCount: 1,
+      orphanCount: 1,
+      reinforcedCount: 1,
+    })
+    expect(snapshot.stats).toMatchObject({
+      claimCount: 2,
+      staleClaimCount: 1,
+      supersededClaimCount: 1,
+      orphanClaimCount: 1,
+      reinforcedClaimCount: 1,
     })
   })
 

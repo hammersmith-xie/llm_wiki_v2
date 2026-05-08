@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 10 / 15
+**总体进度**: 🚧 11 / 15
 
 ---
 
@@ -336,7 +336,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ 接入 Memory Ops claim patrol
+### Task 3.3 ✅ 接入 Memory Ops claim patrol
 
 **描述**: Memory Ops snapshot 读取 claim index，生成 claim health summary 和 claim-level suggestions。
 
@@ -353,16 +353,16 @@ graph TD
 - `src/components/settings/sections/memory-ops-patrol-block.tsx`
 
 **验收**:
-- [ ] Patrol stats 包含 claim count/stale/contradicted/superseded/orphan/reinforced。
-- [ ] stale claim suggestion 不自动 demote 整页。
-- [ ] contradicted/superseded claim suggestion 默认 review-only。
-- [ ] Maintenance UI 展示 claim health summary。
+- [x] Patrol stats 包含 claim count/stale/contradicted/superseded/orphan/reinforced。
+- [x] stale claim suggestion 不自动 demote 整页。
+- [x] contradicted/superseded claim suggestion 默认 review-only。
+- [x] Maintenance UI 展示 claim health summary。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 新增 claim stats 后，Memory Ops UI fixture 缺少类型字段导致 typecheck 失败；已补齐 fixture，并在 UI summary 中展示 claim health。
+- 🔧 **最终实现逻辑**: `scanMemoryOpsProject` 读取 claim index，计算 claim count/stale/contradicted/superseded/orphan/reinforced，并纳入 patrol stats；`evaluateClaimSuggestions` 为 stale/contradicted/superseded claim 生成 review-action；Maintenance UI summary 展示 claim health。
+- 🎯 **关键决策**: claim-level stale/contradicted/superseded 不自动 demote 整页，也不生成 metadata patch，只进入 review-only suggestion；scanner 只读 wiki pages 和 claim index，不读取 `raw/sources/`。
 
 ---
 
@@ -567,10 +567,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
-| M3 | Evidence Retrieval and Memory Ops | 2 | 4 | 🚧 |
+| M3 | Evidence Retrieval and Memory Ops | 3 | 4 | 🚧 |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **10** | **15** | **🚧** |
+| **总计** | | **11** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.3：Memory Ops claim health summary 和 review-only suggestions。 |
 | 2026-05-08 | 完成 T3.2：Search/Chat references 接入 claim evidence explanation。 |
 | 2026-05-08 | 完成 T3.1：claim evidence lookup 和 orphan warning。 |
 | 2026-05-08 | 完成 T2.4：claim audit category 和 review-only handoff。 |

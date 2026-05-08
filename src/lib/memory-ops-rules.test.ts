@@ -2,12 +2,51 @@ import { describe, expect, it } from "vitest"
 import { extractTypedGraphFromPages } from "@/lib/typed-graph"
 import type { MemoryOpsProjectSnapshot, MemoryOpsWikiPage } from "./memory-ops"
 import {
+  evaluateClaimSuggestions,
   evaluateLifecycleSuggestions,
   evaluateRelationCleanupSuggestions,
 } from "./memory-ops-rules"
 import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
+import { normalizeClaimRecord, type ClaimRecord } from "./claims"
 
 describe("memory ops lifecycle rules", () => {
+  it("creates claim-level review suggestions without demoting the whole page", () => {
+    const stale = normalizeClaimRecord({
+      text: "Use the old retrieval stack.",
+      page_path: "/project/wiki/concepts/search.md",
+      status: "stale",
+      last_confirmed: "2025-01-01",
+    }, { today: "2026-05-08" }).claim
+    const contradicted = normalizeClaimRecord({
+      text: "BM25 always beats vectors.",
+      page_path: "/project/wiki/concepts/search.md",
+      status: "contradicted",
+      contradicts: ["claim_vector"],
+    }, { today: "2026-05-08" }).claim
+
+    const suggestions = evaluateClaimSuggestions(snapshot([], {
+      claims: [stale, contradicted],
+    }), { today: "2026-05-08" })
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "review-action",
+        severity: "info",
+        title: "Review stale claim",
+        targetPath: "/project/wiki/concepts/search.md",
+      }),
+      expect.objectContaining({
+        kind: "review-action",
+        severity: "warning",
+        title: "Review contradicted claim",
+        targetPath: "/project/wiki/concepts/search.md",
+      }),
+    ])
+    expect(suggestions[0].proposedOperation).toBeUndefined()
+    expect(suggestions[1].proposedOperation).toBeUndefined()
+    expect(suggestions[0].reasons.join(" ")).toContain("does not demote the whole page")
+  })
+
   it("suggests stale metadata for old low-confidence pages without rewriting content", () => {
     const page = wikiPage("old-claim", [
       "---",
@@ -568,8 +607,10 @@ function snapshot(
   pages: MemoryOpsWikiPage[],
   options: {
     auditEvents?: MemoryOpsProjectSnapshot["audit"]["events"]
+    claims?: ClaimRecord[]
   } = {},
 ): MemoryOpsProjectSnapshot {
+  const claims = options.claims ?? []
   return {
     projectPath: "/project",
     dataVersion: 0,
@@ -589,6 +630,15 @@ function snapshot(
     reviewItems: [],
     conversations: [],
     chatMessages: [],
+    claims,
+    claimHealth: {
+      claimCount: claims.length,
+      staleCount: claims.filter((claim) => claim.status === "stale").length,
+      contradictedCount: claims.filter((claim) => claim.status === "contradicted").length,
+      supersededCount: claims.filter((claim) => claim.status === "superseded").length,
+      orphanCount: 0,
+      reinforcedCount: claims.filter((claim) => Number(claim.reinforcement_count) > 0).length,
+    },
     stats: {
       pageCount: pages.length,
       reviewItemCount: 0,
@@ -602,6 +652,12 @@ function snapshot(
       pagesWithSourceSupportCount: 0,
       stalePageCount: 0,
       riskPageCount: 0,
+      claimCount: claims.length,
+      staleClaimCount: claims.filter((claim) => claim.status === "stale").length,
+      contradictedClaimCount: claims.filter((claim) => claim.status === "contradicted").length,
+      supersededClaimCount: claims.filter((claim) => claim.status === "superseded").length,
+      orphanClaimCount: 0,
+      reinforcedClaimCount: claims.filter((claim) => Number(claim.reinforcement_count) > 0).length,
     },
   }
 }

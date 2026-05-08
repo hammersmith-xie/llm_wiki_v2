@@ -3,6 +3,7 @@ import {
   type LifecycleMetadata,
   type ReviewStatus,
 } from "@/lib/lifecycle"
+import { calculateClaimCredibility } from "@/lib/claim-confidence"
 import type { MetadataPatchOperation } from "@/lib/memory-ops-executor"
 import type {
   MemoryOpsPageEvidenceSummary,
@@ -126,6 +127,34 @@ export function evaluateRelationCleanupSuggestions(
     }
   }
 
+  return suggestions
+}
+
+export function evaluateClaimSuggestions(
+  snapshot: MemoryOpsProjectSnapshot,
+  options: { today?: string } = {},
+): MemoryOpsSuggestion[] {
+  const suggestions: MemoryOpsSuggestion[] = []
+  for (const claim of snapshot.claims) {
+    const metadata = calculateClaimCredibility(claim, { today: options.today })
+    const status = metadata.status
+    if (status !== "stale" && status !== "contradicted" && status !== "superseded") continue
+
+    const severity = status === "stale" ? "info" : "warning"
+    suggestions.push({
+      id: suggestionId("claim", claim.claim_id, status),
+      kind: "review-action",
+      severity,
+      targetPath: claim.page_path,
+      title: `Review ${status} claim`,
+      detail: `${claim.scope === "private" ? "[private claim text redacted]" : claim.text}`,
+      reasons: [
+        `claim ${claim.claim_id} resolved to ${status}`,
+        ...metadata.reasons,
+        "claim-level review does not demote the whole page",
+      ],
+    })
+  }
   return suggestions
 }
 

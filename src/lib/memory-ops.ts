@@ -7,7 +7,9 @@ import {
 } from "@/lib/audit-timeline"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { lifecycleMetadataFromFrontmatter } from "@/lib/lifecycle"
+import { readClaimIndex, type ClaimRecord } from "@/lib/claims"
 import {
+  evaluateClaimSuggestions,
   evaluateLifecycleSuggestions,
   evaluateRelationCleanupSuggestions,
   type MemoryOpsSuggestion,
@@ -102,6 +104,21 @@ export interface MemoryOpsSnapshotStats {
   pagesWithSourceSupportCount: number
   stalePageCount: number
   riskPageCount: number
+  claimCount: number
+  staleClaimCount: number
+  contradictedClaimCount: number
+  supersededClaimCount: number
+  orphanClaimCount: number
+  reinforcedClaimCount: number
+}
+
+export interface MemoryOpsClaimHealthSummary {
+  claimCount: number
+  staleCount: number
+  contradictedCount: number
+  supersededCount: number
+  orphanCount: number
+  reinforcedCount: number
 }
 
 export interface MemoryOpsProjectSnapshot {
@@ -116,6 +133,8 @@ export interface MemoryOpsProjectSnapshot {
   reviewItems: ReviewItem[]
   conversations: Conversation[]
   chatMessages: DisplayMessage[]
+  claims: ClaimRecord[]
+  claimHealth: MemoryOpsClaimHealthSummary
   stats: MemoryOpsSnapshotStats
 }
 
@@ -183,6 +202,7 @@ export async function scanMemoryOpsProject(
     [],
   )
   const chatMessages = await readChatMessages(pp, conversations)
+  const claimRead = await readClaimIndex(pp)
   const pages = attachPageEvidence(wikiPages, {
     projectPath: pp,
     graph,
@@ -192,6 +212,7 @@ export async function scanMemoryOpsProject(
     policy: policyLoad.policy,
   })
   const evidenceStats = summarizeEvidenceStats(pages)
+  const claimHealth = summarizeClaimHealth(claimRead.claims, pages, pp)
 
   return {
     projectPath: pp,
@@ -205,14 +226,22 @@ export async function scanMemoryOpsProject(
     reviewItems,
     conversations,
     chatMessages,
+    claims: claimRead.claims,
+    claimHealth,
     stats: {
       pageCount: pages.length,
       reviewItemCount: reviewItems.length,
       conversationCount: conversations.length,
       chatMessageCount: chatMessages.length,
       auditEventCount: audit.events.length,
-      auditWarningCount: audit.warnings.length,
+      auditWarningCount: audit.warnings.length + claimRead.warnings.length,
       ...evidenceStats,
+      claimCount: claimHealth.claimCount,
+      staleClaimCount: claimHealth.staleCount,
+      contradictedClaimCount: claimHealth.contradictedCount,
+      supersededClaimCount: claimHealth.supersededCount,
+      orphanClaimCount: claimHealth.orphanCount,
+      reinforcedClaimCount: claimHealth.reinforcedCount,
     },
   }
 }
@@ -240,6 +269,9 @@ export async function runMemoryOpsPatrol(
       ...evaluateLifecycleSuggestions(snapshot, {
         today: options.today,
         policy: snapshot.policy,
+      }),
+      ...evaluateClaimSuggestions(snapshot, {
+        today: options.today,
       }),
       ...evaluateRelationCleanupSuggestions(snapshot),
     ]
@@ -529,6 +561,36 @@ function summarizeEvidenceStats(
     pagesWithSourceSupportCount,
     stalePageCount,
     riskPageCount,
+  }
+}
+
+function summarizeClaimHealth(
+  claims: readonly ClaimRecord[],
+  pages: readonly MemoryOpsWikiPage[],
+  projectPath: string,
+): MemoryOpsClaimHealthSummary {
+  const pagePaths = new Set(pages.map((page) => toProjectRelativePath(projectPath, page.path)))
+  let staleCount = 0
+  let contradictedCount = 0
+  let supersededCount = 0
+  let orphanCount = 0
+  let reinforcedCount = 0
+
+  for (const claim of claims) {
+    if (claim.status === "stale") staleCount++
+    if (claim.status === "contradicted") contradictedCount++
+    if (claim.status === "superseded") supersededCount++
+    if (!pagePaths.has(toProjectRelativePath(projectPath, claim.page_path))) orphanCount++
+    if (parseInteger(claim.reinforcement_count) > 0) reinforcedCount++
+  }
+
+  return {
+    claimCount: claims.length,
+    staleCount,
+    contradictedCount,
+    supersededCount,
+    orphanCount,
+    reinforcedCount,
   }
 }
 
