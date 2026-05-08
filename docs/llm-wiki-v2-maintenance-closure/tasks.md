@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 10 / 18
+**总体进度**: 🚧 11 / 18
 
 ---
 
@@ -260,7 +260,7 @@ graph TD
 
 **目标**: 把现有 dirty/cooldown 状态变成清晰的用户可见维护提醒，不引入 daemon。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ 强化 maintenance status model
 
@@ -316,7 +316,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ 保持无后台扫描边界
+### Task 3.3 ✅ 保持无后台扫描边界
 
 **描述**: 检查 project open / Maintenance render / automation event 路径，确保只刷新状态不自动 run patrol。
 
@@ -331,15 +331,15 @@ graph TD
 - 相关测试
 
 **验收**:
-- [ ] 项目打开不会触发 `runMemoryOpsPatrol`。
-- [ ] 事件记录只更新 dirty/cooldown state。
-- [ ] README 明确无 daemon。
+- [x] 项目打开不会触发 `runMemoryOpsPatrol`。
+- [x] 事件记录只更新 dirty/cooldown state。
+- [x] README 明确无 daemon。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 现有代码边界已基本正确，但测试没有显式防止 automation event 路径误调用 `runMemoryOpsPatrol`。
+- 🔧 **最终实现逻辑**: `wiki-automation-events.test` mock `runMemoryOpsPatrol` 并断言 memory.write automation event 只调用 `recordMemoryOpsMaintenanceEvent`；README/README_CN 强化“无 cron/daemon/后台全量扫描”说明。
+- 🎯 **关键决策**: 保存 lifecycle policy 后的 patrol rerun 保持为用户在 Maintenance 内的显式操作链路；普通 project open/render/automation event 只刷新状态和 marker。
 
 ---
 
@@ -573,11 +573,11 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
 | M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
-| M3 | 轻量 patrol reminder | 2 | 3 | 🚧 |
+| M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **10** | **18** | **🚧** |
+| **总计** | | **11** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.3：保持无后台扫描/无 daemon 边界 |
 | 2026-05-08 | 完成 T3.2：Patrol reminder UI 三态提示 |
 | 2026-05-08 | 完成 T3.1：maintenance status model clean/dirty/reminder-due |
 | 2026-05-08 | 完成 T2.4：Search Health custom scenario UI |

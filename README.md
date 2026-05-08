@@ -256,7 +256,7 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Claim index recovery** — Maintenance can scan/rebuild the derived claim index from wiki pages and anchors, list recovered/orphan/stale records, and audit confirmed rebuilds without reading large `raw/sources/` files
 - **Pre-write conflict gate** — ingest content pages, crystallized saves, and review-created pages build bounded write candidates before landing. Related pages and claim evidence classify writes as new, reinforcement, update, duplicate, possible contradiction, supersession, or uncertain; safe writes continue with `conflict.accept` audit, while risky writes skip direct overwrite, create or expose review handoff, and write `conflict.review`.
 - **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM
-- **Cooldown reminders** — query, search, and review activity can mark that a patrol is due, but the app does not auto-run a full scan in the background
+- **Cooldown reminders without daemon** — query, search, and review activity can mark that a patrol is due, but there is no cron, daemon, or background full scan; users run patrol explicitly from Maintenance
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
 - **Relation cleanup suggestions** — broken typed relationship targets and dangling supersession links are flagged separately from ordinary wikilink lint
 - **Batch metadata governance** — selectable metadata suggestions support batch preview, batch apply, and batch ignore with per-item failure isolation and batch summary audit events

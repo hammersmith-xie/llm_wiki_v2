@@ -16,19 +16,24 @@ vi.mock("@/lib/audit-timeline", async () => {
 
 vi.mock("@/lib/memory-ops", () => ({
   recordMemoryOpsMaintenanceEvent: vi.fn(async () => {}),
+  runMemoryOpsPatrol: vi.fn(async () => {
+    throw new Error("automation events must not run patrol")
+  }),
 }))
 
 import { appendAuditEvent } from "@/lib/audit-timeline"
-import { recordMemoryOpsMaintenanceEvent } from "@/lib/memory-ops"
+import { recordMemoryOpsMaintenanceEvent, runMemoryOpsPatrol } from "@/lib/memory-ops"
 
 const mockAppendAuditEvent = vi.mocked(appendAuditEvent)
 const mockRecordMaintenanceEvent = vi.mocked(recordMemoryOpsMaintenanceEvent)
+const mockRunMemoryOpsPatrol = vi.mocked(runMemoryOpsPatrol)
 
 beforeEach(() => {
   mockAppendAuditEvent.mockReset()
   mockAppendAuditEvent.mockResolvedValue(undefined)
   mockRecordMaintenanceEvent.mockReset()
   mockRecordMaintenanceEvent.mockResolvedValue(undefined)
+  mockRunMemoryOpsPatrol.mockClear()
 })
 
 describe("wiki automation events", () => {
@@ -77,6 +82,7 @@ describe("wiki automation events", () => {
       "memory.write",
       { now: 123 },
     )
+    expect(mockRunMemoryOpsPatrol).not.toHaveBeenCalled()
   })
 
   it("can skip maintenance dirty tracking for preview-only events", async () => {

@@ -256,7 +256,7 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **Claim index 恢复** —— Maintenance 可以从 Wiki 页面和 anchors 显式 scan/rebuild 派生 claim index，列出 recovered/orphan/stale records，并在确认写入时审计；扫描不读取大型 `raw/sources/` 文件
 - **写入前冲突 gate** —— ingest 内容页、crystallized save 和 review-created page 会在落盘前构建 bounded write candidate。系统用相关页面和 claim evidence 将候选写入分类为 new、reinforcement、update、duplicate、possible contradiction、supersession 或 uncertain；安全写入继续并记录 `conflict.accept` audit，高风险写入跳过直接覆盖、进入或暴露 review handoff，并记录 `conflict.review`。
 - **确定性巡检入口** —— Settings -> Maintenance 可扫描本地项目状态，不依赖 LLM 配置
-- **Cooldown 提醒** —— query、search、review 活动可以标记“需要巡检”，但应用不会在后台自动跑全量扫描
+- **无 daemon 的 Cooldown 提醒** —— query、search、review 活动可以标记“需要巡检”，但没有 cron、daemon 或后台全量扫描；用户需要在 Maintenance 里显式运行巡检
 - **生命周期建议** —— stale、low-confidence、superseded、archivable、promotion candidate 以 metadata suggestion 呈现，不自动重写页面
 - **关系清理建议** —— broken typed relationship target 和 dangling supersession link 独立提示，不和普通 wikilink lint 混在一起
 - **批量 metadata 治理** —— 可选择支持 metadata patch 的建议，批量 preview、批量 apply、批量 ignore；单项失败不会阻断其他项，并写入批量摘要 audit
