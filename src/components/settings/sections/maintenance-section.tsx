@@ -57,7 +57,12 @@ import {
   runSearchHealth,
   type SearchHealthRunResult,
 } from "@/lib/search-health"
-import { loadSearchHealthScenarioConfig } from "@/lib/search-health-scenarios"
+import {
+  loadSearchHealthScenarioConfig,
+  normalizeSearchHealthScenarioConfig,
+  saveSearchHealthScenarioConfig,
+} from "@/lib/search-health-scenarios"
+import type { SearchEvalScenario } from "@/lib/search-eval"
 import { buildCoordinationSummary } from "@/lib/coordination-summary"
 import {
   runProjectSchemaQualityScan,
@@ -147,6 +152,11 @@ export function MaintenanceSection() {
   const [searchHealthResult, setSearchHealthResult] =
     useState<SearchHealthRunResult | null>(null)
   const [searchHealthError, setSearchHealthError] = useState<string | null>(null)
+  const [customSearchScenarios, setCustomSearchScenarios] = useState<SearchEvalScenario[]>([])
+  const [customSearchScenariosDirty, setCustomSearchScenariosDirty] = useState(false)
+  const [customSearchScenariosSaving, setCustomSearchScenariosSaving] = useState(false)
+  const [customSearchScenariosError, setCustomSearchScenariosError] = useState<string | null>(null)
+  const [customSearchScenariosSaved, setCustomSearchScenariosSaved] = useState(false)
   const [schemaQualityRunning, setSchemaQualityRunning] = useState(false)
   const [schemaQualityResult, setSchemaQualityResult] =
     useState<ProjectSchemaQualityScanResult | null>(null)
@@ -244,6 +254,25 @@ export function MaintenanceSection() {
   useEffect(() => {
     void refreshMemoryOpsPolicy()
   }, [refreshMemoryOpsPolicy])
+
+  const refreshCustomSearchScenarios = useCallback(async () => {
+    if (!project) {
+      setCustomSearchScenarios([])
+      setCustomSearchScenariosDirty(false)
+      setCustomSearchScenariosError(null)
+      setCustomSearchScenariosSaved(false)
+      return
+    }
+    const result = await loadSearchHealthScenarioConfig(project.path)
+    setCustomSearchScenarios(result.scenarios)
+    setCustomSearchScenariosDirty(false)
+    setCustomSearchScenariosError(result.warnings.length > 0 ? result.warnings.join("; ") : null)
+    setCustomSearchScenariosSaved(false)
+  }, [project])
+
+  useEffect(() => {
+    void refreshCustomSearchScenarios()
+  }, [refreshCustomSearchScenarios])
 
   const handlePatrol = useCallback(async () => {
     if (!project) return
@@ -740,6 +769,71 @@ export function MaintenanceSection() {
     }
   }, [project, refreshRecentAudit])
 
+  const handleAddCustomSearchScenario = useCallback(() => {
+    setCustomSearchScenarios((prev) => [
+      ...prev,
+      {
+        id: `custom-${prev.length + 1}`,
+        query: "",
+        expectedInTopK: [{ path: "", topK: 3 }],
+      },
+    ])
+    setCustomSearchScenariosDirty(true)
+    setCustomSearchScenariosSaved(false)
+    setCustomSearchScenariosError(null)
+  }, [])
+
+  const handleUpdateCustomSearchScenario = useCallback((
+    index: number,
+    scenario: SearchEvalScenario,
+  ) => {
+    setCustomSearchScenarios((prev) =>
+      prev.map((item, itemIndex) => (itemIndex === index ? scenario : item)),
+    )
+    setCustomSearchScenariosDirty(true)
+    setCustomSearchScenariosSaved(false)
+    setCustomSearchScenariosError(null)
+  }, [])
+
+  const handleRemoveCustomSearchScenario = useCallback((index: number) => {
+    setCustomSearchScenarios((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+    setCustomSearchScenariosDirty(true)
+    setCustomSearchScenariosSaved(false)
+    setCustomSearchScenariosError(null)
+  }, [])
+
+  const handleSaveCustomSearchScenarios = useCallback(async () => {
+    if (!project) return
+    setCustomSearchScenariosSaving(true)
+    setCustomSearchScenariosError(null)
+    setCustomSearchScenariosSaved(false)
+    try {
+      const normalized = normalizeSearchHealthScenarioConfig({
+        scenarios: customSearchScenarios,
+      })
+      const result = await saveSearchHealthScenarioConfig(
+        project.path,
+        normalized.scenarios,
+      )
+      if (result.error) {
+        setCustomSearchScenariosError(
+          t("settings.sections.maintenance.searchHealth.saveError", {
+            error: result.error,
+          }),
+        )
+        return
+      }
+      setCustomSearchScenarios(normalized.scenarios)
+      setCustomSearchScenariosDirty(false)
+      setCustomSearchScenariosSaved(true)
+      setCustomSearchScenariosError(
+        normalized.warnings.length > 0 ? normalized.warnings.join("; ") : null,
+      )
+    } finally {
+      setCustomSearchScenariosSaving(false)
+    }
+  }, [project, customSearchScenarios, t])
+
   const handleRunSchemaQuality = useCallback(async () => {
     if (!project) return
     setSchemaQualityRunning(true)
@@ -1067,8 +1161,17 @@ export function MaintenanceSection() {
               running={searchHealthRunning}
               result={searchHealthResult}
               error={searchHealthError}
+              customScenarios={customSearchScenarios}
+              customScenarioDirty={customSearchScenariosDirty}
+              customScenarioSaving={customSearchScenariosSaving}
+              customScenarioError={customSearchScenariosError}
+              customScenarioSaved={customSearchScenariosSaved}
               onRun={() => void handleRunSearchHealth()}
               onOpenReport={(path) => void handleOpenAuditPath(path)}
+              onAddCustomScenario={handleAddCustomSearchScenario}
+              onUpdateCustomScenario={handleUpdateCustomSearchScenario}
+              onRemoveCustomScenario={handleRemoveCustomSearchScenario}
+              onSaveCustomScenarios={() => void handleSaveCustomSearchScenarios()}
             />
           </div>
         )}

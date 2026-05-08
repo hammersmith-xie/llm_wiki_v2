@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 7 / 18
+**总体进度**: 🚧 8 / 18
 
 ---
 
@@ -146,7 +146,7 @@ graph TD
 
 **目标**: 让用户能保存并运行自己的检索健康场景。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 定义 custom scenario schema / normalize
 
@@ -227,7 +227,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ Search Health custom scenario UI
+### Task 2.4 ✅ Search Health custom scenario UI
 
 **描述**: 在 Search Health panel 增加紧凑编辑区，支持新增、编辑、删除、保存。
 
@@ -243,16 +243,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 用户可编辑 id/query/expected path/type/topK。
-- [ ] 保存成功/失败状态可见。
-- [ ] 长文本不撑破 UI。
-- [ ] en/zh i18n 补齐。
+- [x] 用户可编辑 id/query/expected path/type/topK。
+- [x] 保存成功/失败状态可见。
+- [x] 长文本不撑破 UI。
+- [x] en/zh i18n 补齐。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试先失败在 custom scenario i18n key 缺失，typecheck 同时暴露 `MaintenanceSection` 尚未传入新增 props。
+- 🔧 **最终实现逻辑**: `SearchHealthPanel` 增加 custom scenario 紧凑编辑区；`MaintenanceSection` 负责加载、编辑、归一化保存 `.llm-wiki/search-health-scenarios.json`，并把 source counts 展示到 Search Health 结果摘要。
+- 🎯 **关键决策**: UI 保存时先 normalize，坏场景转 warning 并从保存结果中剔除；运行 Search Health 仍读取已保存配置，避免未保存草稿悄悄参与评估。
 
 ---
 
@@ -572,12 +572,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
-| M2 | 自定义 Search Health scenarios | 3 | 4 | 🚧 |
+| M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **7** | **18** | **🚧** |
+| **总计** | | **8** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.4：Search Health custom scenario UI |
 | 2026-05-08 | 完成 T2.3：Search Health 合并 built-in/custom scenarios |
 | 2026-05-08 | 完成 T2.2：custom Search Health scenario load/save |
 | 2026-05-08 | 完成 T2.1：custom Search Health scenario schema / normalize |

@@ -1,14 +1,20 @@
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
   Loader2,
+  Plus,
+  Save,
   SearchCheck,
+  Trash2,
   XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import type { SearchEvalScenario } from "@/lib/search-eval"
 import type { SearchHealthRunResult } from "@/lib/search-health"
 
 interface SearchHealthPanelProps {
@@ -16,8 +22,17 @@ interface SearchHealthPanelProps {
   running: boolean
   result: SearchHealthRunResult | null
   error: string | null
+  customScenarios: readonly SearchEvalScenario[]
+  customScenarioDirty: boolean
+  customScenarioSaving: boolean
+  customScenarioError: string | null
+  customScenarioSaved: boolean
   onRun: () => void
   onOpenReport: (path: string) => void
+  onAddCustomScenario: () => void
+  onUpdateCustomScenario: (index: number, scenario: SearchEvalScenario) => void
+  onRemoveCustomScenario: (index: number) => void
+  onSaveCustomScenarios: () => void
 }
 
 export function SearchHealthPanel({
@@ -25,8 +40,17 @@ export function SearchHealthPanel({
   running,
   result,
   error,
+  customScenarios,
+  customScenarioDirty,
+  customScenarioSaving,
+  customScenarioError,
+  customScenarioSaved,
   onRun,
   onOpenReport,
+  onAddCustomScenario,
+  onUpdateCustomScenario,
+  onRemoveCustomScenario,
+  onSaveCustomScenarios,
 }: SearchHealthPanelProps) {
   const { t } = useTranslation()
   const streamCounts = useMemo(
@@ -102,6 +126,20 @@ export function SearchHealthPanel({
                 <span>
                   {t("settings.sections.maintenance.searchHealth.failed", {
                     n: result.summary.failedCount,
+                  })}
+                </span>
+              </>
+            )}
+            {result.sourceCounts && (
+              <>
+                <span>
+                  {t("settings.sections.maintenance.searchHealth.builtInCount", {
+                    n: result.sourceCounts.builtInScenarioCount,
+                  })}
+                </span>
+                <span>
+                  {t("settings.sections.maintenance.searchHealth.customCount", {
+                    n: result.sourceCounts.customScenarioCount,
                   })}
                 </span>
               </>
@@ -201,7 +239,186 @@ export function SearchHealthPanel({
           )}
         </div>
       )}
+
+      <div className="space-y-2 rounded border border-border/60 bg-background/80 px-2 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-xs font-medium">
+            {t("settings.sections.maintenance.searchHealth.customTitle")}
+          </div>
+          <Button
+            size="xs"
+            variant="ghost"
+            className="ml-auto"
+            onClick={onAddCustomScenario}
+            disabled={!projectReady || customScenarioSaving}
+          >
+            <Plus className="h-3 w-3" />
+            {t("settings.sections.maintenance.searchHealth.addScenario")}
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={onSaveCustomScenarios}
+            disabled={!projectReady || customScenarioSaving || !customScenarioDirty}
+          >
+            {customScenarioSaving ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Save className="h-3 w-3" />
+            )}
+            {t("settings.sections.maintenance.searchHealth.saveScenarios")}
+          </Button>
+        </div>
+
+        {customScenarioError && (
+          <div className="rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400">
+            {customScenarioError}
+          </div>
+        )}
+        {customScenarioSaved && !customScenarioDirty && (
+          <div className="rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+            {t("settings.sections.maintenance.searchHealth.scenariosSaved")}
+          </div>
+        )}
+
+        {customScenarios.length === 0 ? (
+          <div className="text-xs text-muted-foreground">
+            {t("settings.sections.maintenance.searchHealth.noCustomScenarios")}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {customScenarios.map((scenario, index) => (
+              <CustomScenarioRow
+                key={`${scenario.id}:${index}`}
+                scenario={scenario}
+                index={index}
+                disabled={!projectReady || customScenarioSaving}
+                onUpdate={onUpdateCustomScenario}
+                onRemove={onRemoveCustomScenario}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+
+function CustomScenarioRow({
+  scenario,
+  index,
+  disabled,
+  onUpdate,
+  onRemove,
+}: {
+  scenario: SearchEvalScenario
+  index: number
+  disabled: boolean
+  onUpdate: (index: number, scenario: SearchEvalScenario) => void
+  onRemove: (index: number) => void
+}) {
+  const { t } = useTranslation()
+  const expectation = scenarioExpectation(scenario)
+
+  return (
+    <div className="grid grid-cols-1 gap-2 rounded border border-border/60 px-2 py-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_5rem_auto]">
+      <CompactField label={t("settings.sections.maintenance.searchHealth.scenarioId")}>
+        <Input
+          value={scenario.id}
+          onChange={(event) => onUpdate(index, { ...scenario, id: event.target.value })}
+          disabled={disabled}
+          className="h-7 text-xs"
+        />
+      </CompactField>
+      <CompactField label={t("settings.sections.maintenance.searchHealth.scenarioQuery")}>
+        <Input
+          value={scenario.query}
+          onChange={(event) => onUpdate(index, { ...scenario, query: event.target.value })}
+          disabled={disabled}
+          className="h-7 text-xs"
+        />
+      </CompactField>
+      <CompactField label={t("settings.sections.maintenance.searchHealth.expectationType")}>
+        <select
+          value={expectation.type}
+          onChange={(event) =>
+            onUpdate(index, setScenarioExpectation(
+              scenario,
+              event.target.value as ScenarioExpectationType,
+              expectation.path,
+              expectation.topK,
+            ))
+          }
+          disabled={disabled}
+          className={selectClassName}
+        >
+          <option value="expectedInTopK">
+            {t("settings.sections.maintenance.searchHealth.expectedInTopK")}
+          </option>
+          <option value="expectedOutsideTopK">
+            {t("settings.sections.maintenance.searchHealth.expectedOutsideTopK")}
+          </option>
+          <option value="expectedTopPaths">
+            {t("settings.sections.maintenance.searchHealth.expectedTopPaths")}
+          </option>
+          <option value="excludedPaths">
+            {t("settings.sections.maintenance.searchHealth.excludedPaths")}
+          </option>
+        </select>
+      </CompactField>
+      <CompactField label={t("settings.sections.maintenance.searchHealth.expectedPath")}>
+        <Input
+          value={expectation.path}
+          onChange={(event) =>
+            onUpdate(index, setScenarioExpectation(
+              scenario,
+              expectation.type,
+              event.target.value,
+              expectation.topK,
+            ))
+          }
+          disabled={disabled}
+          className="h-7 text-xs"
+        />
+      </CompactField>
+      <CompactField label={t("settings.sections.maintenance.searchHealth.topKValue")}>
+        <Input
+          value={String(expectation.topK)}
+          onChange={(event) =>
+            onUpdate(index, setScenarioExpectation(
+              scenario,
+              expectation.type,
+              expectation.path,
+              Number.parseInt(event.target.value, 10) || 1,
+            ))
+          }
+          disabled={disabled}
+          className="h-7 text-xs"
+          inputMode="numeric"
+        />
+      </CompactField>
+      <div className="flex items-end">
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          onClick={() => onRemove(index)}
+          disabled={disabled}
+          title={t("settings.sections.maintenance.searchHealth.removeScenario")}
+          aria-label={t("settings.sections.maintenance.searchHealth.removeScenario")}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function CompactField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Label className="flex min-w-0 flex-col gap-1 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      {children}
+    </Label>
   )
 }
 
@@ -233,3 +450,69 @@ function SearchHealthStatusBlock({ result }: { result: SearchHealthRunResult }) 
     </div>
   )
 }
+
+type ScenarioExpectationType =
+  | "expectedInTopK"
+  | "expectedOutsideTopK"
+  | "expectedTopPaths"
+  | "excludedPaths"
+
+function scenarioExpectation(scenario: SearchEvalScenario): {
+  type: ScenarioExpectationType
+  path: string
+  topK: number
+} {
+  if (scenario.expectedOutsideTopK?.[0]) {
+    return {
+      type: "expectedOutsideTopK",
+      path: scenario.expectedOutsideTopK[0].path,
+      topK: scenario.expectedOutsideTopK[0].topK,
+    }
+  }
+  if (scenario.expectedTopPaths?.[0]) {
+    return {
+      type: "expectedTopPaths",
+      path: scenario.expectedTopPaths[0],
+      topK: scenario.topK ?? 5,
+    }
+  }
+  if (scenario.excludedPaths?.[0]) {
+    return {
+      type: "excludedPaths",
+      path: scenario.excludedPaths[0],
+      topK: scenario.topK ?? 5,
+    }
+  }
+  return {
+    type: "expectedInTopK",
+    path: scenario.expectedInTopK?.[0]?.path ?? "",
+    topK: scenario.expectedInTopK?.[0]?.topK ?? scenario.topK ?? 3,
+  }
+}
+
+function setScenarioExpectation(
+  scenario: SearchEvalScenario,
+  type: ScenarioExpectationType,
+  path: string,
+  topK: number,
+): SearchEvalScenario {
+  const nextTopK = Math.max(1, Math.floor(topK))
+  const base = {
+    id: scenario.id,
+    query: scenario.query,
+    topK: nextTopK,
+  }
+  if (type === "expectedOutsideTopK") {
+    return { ...base, expectedOutsideTopK: [{ path, topK: nextTopK }] }
+  }
+  if (type === "expectedTopPaths") {
+    return { ...base, expectedTopPaths: path ? [path] : [] }
+  }
+  if (type === "excludedPaths") {
+    return { ...base, excludedPaths: path ? [path] : [] }
+  }
+  return { ...base, expectedInTopK: [{ path, topK: nextTopK }] }
+}
+
+const selectClassName =
+  "h-7 w-full min-w-0 rounded-lg border border-input bg-background px-2 py-1 text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
