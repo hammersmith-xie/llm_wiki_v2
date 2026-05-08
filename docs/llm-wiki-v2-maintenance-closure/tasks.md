@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 18 / 19
+**总体进度**: ✅ 19 / 19
 
 ---
 
@@ -347,7 +347,7 @@ graph TD
 
 **目标**: 把三个闭环缺口汇入 Maintenance Workbench，并更新项目说明。
 **依赖**: M1, M2, M3
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ Memory Ops UI 展示 historical conflict summary
 
@@ -443,7 +443,7 @@ graph TD
 
 **目标**: 按中量级 5 轮审核，从不同视角补齐缺漏。
 **依赖**: M5
-**状态**: ⏳
+**状态**: ✅
 
 ### Task 6.1 ✅ Round 1 功能审核
 
@@ -541,7 +541,7 @@ graph TD
 
 ---
 
-### Task 6.5 ⏳ Round 5 UX & 可访问性审核
+### Task 6.5 ✅ Round 5 UX & 可访问性审核
 
 **描述**: 检查 Search Health editor、patrol reminder、suggestion 文案、i18n 和键盘可达性。
 
@@ -555,15 +555,15 @@ graph TD
 - `docs/llm-wiki-v2-maintenance-closure/completion-audit.md`
 
 **验收**:
-- [ ] 用户能理解三种维护状态和 Search Health 失败原因。
-- [ ] completion audit 写明最终边界和剩余后续项。
-- [ ] 所有任务状态更新为 ✅。
+- [x] 用户能理解三种维护状态和 Search Health 失败原因。
+- [x] completion audit 写明最终边界和剩余后续项。
+- [x] 所有任务状态更新为 ✅。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 未发现需要修复的 UX/a11y 问题；custom scenario editor 仍是紧凑单 expectation 表单，复杂场景留作后续增强。
+- 🔧 **最终实现逻辑**: 审查 Search Health editor、patrol reminder、historical conflict suggestion 文案和 en/zh i18n parity；报告见 `review-round-5.md`，completion audit 更新为最终完成。
+- 🎯 **关键决策**: 暂不扩展为多 expectation 高级编辑器，保持本轮 closure gap 的中量级范围。
 
 ---
 
@@ -576,8 +576,8 @@ graph TD
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 2 | 2 | ✅ |
 | M5 | 回归验证 | 1 | 1 | ✅ |
-| M6 | 最终审核 | 4 | 5 | 🚧 |
-| **总计** | | **18** | **19** | **🚧** |
+| M6 | 最终审核 | 5 | 5 | ✅ |
+| **总计** | | **19** | **19** | **✅** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T6.5：Round 5 UX & 可访问性审核；全部任务完成 |
 | 2026-05-08 | 完成 T6.4：Round 4 安全审核；修正任务总数统计为 19 |
 | 2026-05-08 | 完成 T6.3：Round 3 性能审核 |
 | 2026-05-08 | 完成 T6.2：Round 2 类型 & 静态分析审核 |
@@ -615,4 +616,4 @@ graph TD
 | 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
 | 3 | 性能 | ✅ | [review-round-3.md](./review-round-3.md) |
 | 4 | 安全 | ✅ | [review-round-4.md](./review-round-4.md) |
-| 5 | UX & a11y | ⏳ | - |
+| 5 | UX & a11y | ✅ | [review-round-5.md](./review-round-5.md) |

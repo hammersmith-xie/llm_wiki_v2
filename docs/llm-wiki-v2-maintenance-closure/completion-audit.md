@@ -1,7 +1,7 @@
 # Completion Audit — LLM Wiki v2 Maintenance Closure
 
 **日期**: 2026-05-08
-**状态**: 开发完成，等待最终 5 轮审核
+**状态**: ✅ 完成，5 轮最终审核已完成
 **范围**: `docs/llm-wiki-v2-maintenance-closure/requirements.md` F1-F11
 
 ---
@@ -34,7 +34,7 @@
 
 ---
 
-## 已通过的阶段性验证
+## 已通过的验证
 
 - `npx vitest run src/lib/memory-ops-conflicts.test.ts`
 - `npx vitest run src/lib/memory-ops.test.ts src/lib/memory-ops-rules.test.ts src/components/settings/sections/memory-ops-patrol-block.test.tsx`
@@ -42,6 +42,29 @@
 - `npx vitest run src/components/settings/sections/search-health-panel.test.tsx`
 - `npx vitest run src/lib/wiki-automation-events.test.ts src/lib/chat-session-events.test.ts`
 - `npx vitest run src/lib/memory-ops-ui.test.ts src/components/settings/sections/memory-ops-patrol-block.test.tsx src/lib/memory-ops.test.ts src/lib/memory-ops-conflicts.test.ts`
+- `npx vitest run src/lib/search-health-scenarios.test.ts src/lib/search-health.test.ts`
+- `npx vitest run src/components/settings/sections/search-health-panel.test.tsx src/components/settings/sections/memory-ops-patrol-block.test.tsx src/i18n/i18n-parity.test.ts`
 - `npm run typecheck`
+- `npm run test:mocks`
 
-最终 `npm run test:mocks` 和 5 轮审核将在 M5/M6 记录。
+本轮未改 Rust/Tauri 侧代码，未运行 `cargo test`。
+
+---
+
+## 最终审核索引
+
+| Round | 视角 | 结论 |
+|-------|------|------|
+| 1 | 功能 | ✅ 补强 custom Search Health path normalize。 |
+| 2 | 类型 & 静态分析 | ✅ 未发现新增类型问题。 |
+| 3 | 性能 | ✅ 未发现需要修复的问题。 |
+| 4 | 安全 | ✅ 修复项目外绝对路径 / UNC path 逃逸边界。 |
+| 5 | UX & a11y | ✅ 未发现需要修复的问题。 |
+
+---
+
+## 剩余后续项
+
+- Custom Search Health editor 目前面向单条主要 expectation；未来如需要复杂 eval，可扩展为多 expectation 高级编辑器。
+- 大型 wiki 下 historical conflict patrol 仍与 page count 线性相关；如果项目规模继续增长，可在 policy 中增加 candidate cap 或 risk-prioritized sampling。
+- Search Health report 会记录用户自定义 query 和预期路径；如果未来支持 private scenario profile，需要增加 report scope/redaction 策略。
