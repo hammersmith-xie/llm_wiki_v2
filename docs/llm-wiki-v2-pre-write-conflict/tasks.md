@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 16 / 18
+**总体进度**: 🚧 17 / 18
 
 ---
 
@@ -490,7 +490,7 @@ graph TD
 
 ---
 
-### Task 6.4 ⏳ Round 4 安全审核
+### Task 6.4 ✅ Round 4 安全审核
 
 **描述**: 检查路径、脱敏、raw content/audit 泄漏和失败降级。
 
@@ -503,14 +503,14 @@ graph TD
 - `docs/llm-wiki-v2-pre-write-conflict/review-round-4.md`
 
 **验收**:
-- [ ] 报告记录泄漏检查。
-- [ ] 高风险问题修复并验证。
+- [x] 报告记录泄漏检查。
+- [x] 高风险问题修复并验证。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: audit 实现已经避免完整正文，但缺少针对 `claimText/pageExcerpt` 不入 audit 的直接测试。
+- 🔧 **最终实现逻辑**: 补 conflict audit 泄漏断言；报告见 `review-round-4.md`。
+- 🎯 **关键决策**: review/audit 只承载证据摘要和 reason，不复制候选正文或页面摘录。
 
 ---
 
@@ -549,8 +549,8 @@ graph TD
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
 | M4 | Review / Audit 集成 | 2 | 2 | ✅ |
 | M5 | 文档与回归验证 | 2 | 2 | ✅ |
-| M6 | 最终审核 | 3 | 5 | 🚧 |
-| **总计** | | **16** | **18** | **🚧** |
+| M6 | 最终审核 | 4 | 5 | 🚧 |
+| **总计** | | **17** | **18** | **🚧** |
 
 ---
 
@@ -570,5 +570,5 @@ graph TD
 | 1 | 功能 | ✅ | [`review-round-1.md`](./review-round-1.md) |
 | 2 | 类型 & 静态分析 | ✅ | [`review-round-2.md`](./review-round-2.md) |
 | 3 | 性能 | ✅ | [`review-round-3.md`](./review-round-3.md) |
-| 4 | 安全 | ⏳ | - |
+| 4 | 安全 | ✅ | [`review-round-4.md`](./review-round-4.md) |
 | 5 | UX & a11y | ⏳ | - |

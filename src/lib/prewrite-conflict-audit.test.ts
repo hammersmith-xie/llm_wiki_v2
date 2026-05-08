@@ -56,6 +56,7 @@ describe("pre-write conflict audit", () => {
       kind: "claim",
       claimId: "claim_old",
       claimText: "Hybrid search does not improve recall.",
+      pageExcerpt: "Full page excerpt should not be copied into audit.",
       pagePath: "wiki/concepts/search.md",
       status: "contradicted",
       relation: "contradicts",
@@ -80,5 +81,9 @@ describe("pre-write conflict audit", () => {
         }),
       }),
     )
+    const event = mockAppendAuditEvent.mock.calls[0][1]
+    expect(JSON.stringify(event)).not.toContain("claimText")
+    expect(JSON.stringify(event)).not.toContain("pageExcerpt")
+    expect(JSON.stringify(event)).not.toContain("Full page excerpt")
   })
 })
