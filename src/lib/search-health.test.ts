@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   buildBuiltInSearchHealthScenarios,
+  combineSearchHealthScenarios,
   runSearchHealth,
   searchHealthReportPath,
 } from "./search-health"
@@ -121,6 +122,75 @@ describe("search health", () => {
         },
       },
       reasons: ["1/1 scenarios passed"],
+    })
+  })
+
+  it("combines built-in and custom scenarios and records source counts in audit", async () => {
+    mockRunSearchWikiEval.mockResolvedValueOnce({
+      summary: {
+        scenarioCount: 2,
+        passedCount: 2,
+        failedCount: 0,
+      },
+      results: [
+        {
+          id: "builtin-title-exact",
+          query: "Attention",
+          topK: 3,
+          passed: true,
+          rankedPaths: ["wiki/concepts/attention.md"],
+          topResults: [],
+          failures: [],
+        },
+        {
+          id: "custom-critical",
+          query: "critical query",
+          topK: 3,
+          passed: true,
+          rankedPaths: ["wiki/concepts/critical.md"],
+          topResults: [],
+          failures: [],
+        },
+      ],
+    })
+
+    const combined = combineSearchHealthScenarios({
+      builtInScenarios: [
+        {
+          id: "builtin-title-exact",
+          query: "Attention",
+          expectedInTopK: [{ path: "wiki/concepts/attention.md", topK: 3 }],
+        },
+      ],
+      customScenarios: [
+        {
+          id: "custom-critical",
+          query: "critical query",
+          expectedInTopK: [{ path: "wiki/concepts/critical.md", topK: 3 }],
+        },
+      ],
+      skippedScenarios: [{ id: "custom-bad", reason: "Missing query." }],
+    })
+
+    const result = await runSearchHealth("/project", combined.scenarios, {
+      skippedScenarios: combined.skipped,
+      sourceCounts: combined.sourceCounts,
+    })
+
+    expect(result.sourceCounts).toEqual({
+      builtInScenarioCount: 1,
+      customScenarioCount: 1,
+      skippedScenarioCount: 1,
+    })
+    expect(mockRunSearchWikiEval.mock.calls[0][1].map((scenario) => scenario.id)).toEqual([
+      "builtin-title-exact",
+      "custom-critical",
+    ])
+    const audit = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
+    expect(audit.after.sourceCounts).toEqual({
+      builtInScenarioCount: 1,
+      customScenarioCount: 1,
+      skippedScenarioCount: 1,
     })
   })
 

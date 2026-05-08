@@ -53,9 +53,11 @@ import {
 } from "@/lib/memory-ops-policy"
 import {
   buildBuiltInSearchHealthScenarios,
+  combineSearchHealthScenarios,
   runSearchHealth,
   type SearchHealthRunResult,
 } from "@/lib/search-health"
+import { loadSearchHealthScenarioConfig } from "@/lib/search-health-scenarios"
 import { buildCoordinationSummary } from "@/lib/coordination-summary"
 import {
   runProjectSchemaQualityScan,
@@ -712,8 +714,22 @@ export function MaintenanceSection() {
     setSearchHealthResult(null)
     try {
       const builtIn = await buildBuiltInSearchHealthScenarios(project.path)
-      const result = await runSearchHealth(project.path, builtIn.scenarios, {
-        skippedScenarios: builtIn.skipped,
+      const custom = await loadSearchHealthScenarioConfig(project.path)
+      const combined = combineSearchHealthScenarios({
+        builtInScenarios: builtIn.scenarios,
+        customScenarios: custom.scenarios,
+        skippedScenarios: [
+          ...builtIn.skipped,
+          ...custom.skipped,
+          ...custom.warnings.map((warning) => ({
+            id: "custom-search-health-config",
+            reason: warning,
+          })),
+        ],
+      })
+      const result = await runSearchHealth(project.path, combined.scenarios, {
+        skippedScenarios: combined.skipped,
+        sourceCounts: combined.sourceCounts,
       })
       setSearchHealthResult(result)
       await refreshRecentAudit()

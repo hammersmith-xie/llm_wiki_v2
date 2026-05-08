@@ -16,6 +16,7 @@ export type SearchHealthStatus = "skipped" | "pass" | "fail"
 export interface SearchHealthRunResult {
   status: SearchHealthStatus
   scenarioCount: number
+  sourceCounts?: SearchHealthScenarioSourceCounts
   skippedScenarios?: SearchHealthSkippedScenario[]
   report?: SearchEvalReport
   summary?: SearchEvalMemoryOpsSummary
@@ -27,6 +28,7 @@ export interface SearchHealthRunResult {
 export interface RunSearchHealthOptions {
   writeReport?: boolean
   skippedScenarios?: readonly SearchHealthSkippedScenario[]
+  sourceCounts?: SearchHealthScenarioSourceCounts
 }
 
 export interface SearchHealthSkippedScenario {
@@ -37,6 +39,24 @@ export interface SearchHealthSkippedScenario {
 export interface BuiltInSearchHealthScenarios {
   scenarios: SearchEvalScenario[]
   skipped: SearchHealthSkippedScenario[]
+}
+
+export interface SearchHealthScenarioSourceCounts {
+  builtInScenarioCount: number
+  customScenarioCount: number
+  skippedScenarioCount: number
+}
+
+export interface CombineSearchHealthScenariosInput {
+  builtInScenarios: readonly SearchEvalScenario[]
+  customScenarios: readonly SearchEvalScenario[]
+  skippedScenarios?: readonly SearchHealthSkippedScenario[]
+}
+
+export interface CombinedSearchHealthScenarios {
+  scenarios: SearchEvalScenario[]
+  skipped: SearchHealthSkippedScenario[]
+  sourceCounts: SearchHealthScenarioSourceCounts
 }
 
 interface SmokePage {
@@ -56,6 +76,7 @@ export async function runSearchHealth(
     const result: SearchHealthRunResult = {
       status: "skipped",
       scenarioCount: 0,
+      sourceCounts: options.sourceCounts,
       skippedScenarios: [...(options.skippedScenarios ?? [])],
     }
     result.auditError = await appendSearchHealthAuditSafely(pp, result)
@@ -67,6 +88,7 @@ export async function runSearchHealth(
   const result: SearchHealthRunResult = {
     status: summary.status,
     scenarioCount: scenarios.length,
+    sourceCounts: options.sourceCounts,
     skippedScenarios: [...(options.skippedScenarios ?? [])],
     report,
     summary,
@@ -79,6 +101,40 @@ export async function runSearchHealth(
   }
   result.auditError = await appendSearchHealthAuditSafely(pp, result)
   return result
+}
+
+export function combineSearchHealthScenarios(
+  input: CombineSearchHealthScenariosInput,
+): CombinedSearchHealthScenarios {
+  const seen = new Set<string>()
+  const scenarios: SearchEvalScenario[] = []
+  const skipped: SearchHealthSkippedScenario[] = [...(input.skippedScenarios ?? [])]
+
+  for (const scenario of input.builtInScenarios) {
+    seen.add(scenario.id)
+    scenarios.push(scenario)
+  }
+
+  let customScenarioCount = 0
+  for (const scenario of input.customScenarios) {
+    if (seen.has(scenario.id)) {
+      skipped.push({ id: scenario.id, reason: "Duplicate scenario id." })
+      continue
+    }
+    seen.add(scenario.id)
+    customScenarioCount += 1
+    scenarios.push(scenario)
+  }
+
+  return {
+    scenarios,
+    skipped,
+    sourceCounts: {
+      builtInScenarioCount: input.builtInScenarios.length,
+      customScenarioCount,
+      skippedScenarioCount: skipped.length,
+    },
+  }
 }
 
 export async function buildBuiltInSearchHealthScenarios(
@@ -196,6 +252,7 @@ async function appendSearchHealthAuditSafely(
       after: {
         status: result.status,
         scenarioCount: result.scenarioCount,
+        sourceCounts: result.sourceCounts,
         skippedScenarios: result.skippedScenarios,
         writtenPath: result.writtenPath,
         writeError: result.writeError,

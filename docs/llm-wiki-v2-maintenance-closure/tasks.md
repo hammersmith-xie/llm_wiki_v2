@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 6 / 18
+**总体进度**: 🚧 7 / 18
 
 ---
 
@@ -200,7 +200,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ Search Health 合并 built-in + custom scenarios
+### Task 2.3 ✅ Search Health 合并 built-in + custom scenarios
 
 **描述**: 扩展 `runSearchHealth` 调用链，让 custom scenarios 和 built-in scenarios 一起运行并进入 report/audit。
 
@@ -215,15 +215,15 @@ graph TD
 - `src/components/settings/sections/maintenance-section.tsx`
 
 **验收**:
-- [ ] 只有 custom scenarios 时也能运行。
-- [ ] audit/report 记录 built-in/custom/skipped counts。
-- [ ] invalid custom scenario 不阻断 built-in scenarios。
+- [x] 只有 custom scenarios 时也能运行。
+- [x] audit/report 记录 built-in/custom/skipped counts。
+- [x] invalid custom scenario 不阻断 built-in scenarios。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试先失败在 `combineSearchHealthScenarios` 未实现，符合预期。
+- 🔧 **最终实现逻辑**: 新增 `combineSearchHealthScenarios`，`runSearchHealth` 支持 `sourceCounts` 并写入 audit；Maintenance handler 加载 `.llm-wiki/search-health-scenarios.json`，把 custom scenarios 与 built-in scenarios 合并运行。
+- 🎯 **关键决策**: custom 配置 warnings 进入 skippedScenarios，不阻断 built-in Search Health，保持“配置坏一条不影响整体健康检查”的边界。
 
 ---
 
@@ -572,12 +572,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
-| M2 | 自定义 Search Health scenarios | 2 | 4 | 🚧 |
+| M2 | 自定义 Search Health scenarios | 3 | 4 | 🚧 |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **6** | **18** | **🚧** |
+| **总计** | | **7** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.3：Search Health 合并 built-in/custom scenarios |
 | 2026-05-08 | 完成 T2.2：custom Search Health scenario load/save |
 | 2026-05-08 | 完成 T2.1：custom Search Health scenario schema / normalize |
 | 2026-05-08 | 完成 T1.4：Memory Ops patrol 接入 historical conflict stats / audit |
