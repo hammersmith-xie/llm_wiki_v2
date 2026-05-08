@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 8 / 15
+**总体进度**: 🚧 9 / 15
 
 ---
 
@@ -275,9 +275,9 @@ graph TD
 
 **目标**: 让 claim 成为 search/chat evidence 和 Memory Ops patrol 的可解释信号。
 **依赖**: M1, M2
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ 实现 claim evidence lookup
+### Task 3.1 ✅ 实现 claim evidence lookup
 
 **描述**: 基于 search/chat top-k page results，从 claim index 中查找相关 claims 并排序。
 
@@ -292,16 +292,16 @@ graph TD
 - `src/lib/search-types.ts`
 
 **验收**:
-- [ ] 没有 claim index 时返回空 evidence，不改变现有搜索。
-- [ ] 能按 page path、query tokens、confidence/status 排序。
-- [ ] CJK claim text 可匹配。
-- [ ] orphan claim 不进入普通 evidence，进入 warning。
+- [x] 没有 claim index 时返回空 evidence，不改变现有搜索。
+- [x] 能按 page path、query tokens、confidence/status 排序。
+- [x] CJK claim text 可匹配。
+- [x] orphan claim 不进入普通 evidence，进入 warning。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试按预期失败在 `./claim-evidence` 模块缺失；实现后 focused test 通过，并补跑 `npm run typecheck`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/claim-evidence.ts` 和 `src/lib/claim-evidence.test.ts`，基于 top-k page paths、query terms、claim confidence/status 生成排序 evidence，并将 missing page claim 作为 orphan warning。
+- 🎯 **关键决策**: claim evidence 只作为解释层二级信号，不改现有 RRF 排序；private claim evidence 默认正文/source refs 脱敏。
 
 ---
 
@@ -567,10 +567,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
-| M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
+| M3 | Evidence Retrieval and Memory Ops | 1 | 4 | 🚧 |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **8** | **15** | **🚧** |
+| **总计** | | **9** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.1：claim evidence lookup 和 orphan warning。 |
 | 2026-05-08 | 完成 T2.4：claim audit category 和 review-only handoff。 |
 | 2026-05-08 | 完成 T2.3：ingest/review-created page 接入 claim anchors 和 best-effort claim artifacts。 |
 | 2026-05-08 | 完成 T2.2：digest/Save to Wiki 写入 claim anchors、claim records 和 claim audit。 |
