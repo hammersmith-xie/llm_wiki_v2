@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 3 / 15
+**总体进度**: 🚧 4 / 15
 
 ---
 
@@ -124,7 +124,7 @@ graph TD
 **依赖**: M1
 **状态**: 🚧
 
-### Task 2.1 ⏳ 解析 claim index 证据
+### Task 2.1 ✅ 解析 claim index 证据
 
 **描述**: 新建 resolver，从 `.llm-wiki/claims.jsonl` 读取 bounded claim evidence，匹配文本相似、status 和 relation。
 
@@ -139,16 +139,16 @@ graph TD
 - `src/lib/claims.ts` (只复用，不改变 schema)
 
 **验收**:
-- [ ] active 相似 claim 返回 reinforcement evidence。
-- [ ] contradicted/superseded claim 返回 risk evidence。
-- [ ] candidate claim relation 产生 relation evidence。
-- [ ] claim index 读取失败不抛到调用方。
+- [x] active 相似 claim 返回 reinforcement evidence。
+- [x] contradicted/superseded claim 返回 risk evidence。
+- [x] candidate claim relation 产生 relation evidence。
+- [x] claim index 读取失败不抛到调用方。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 首次实现只在显式 relation 命中时设置 supersession relation，测试暴露 `status: superseded` 本身也应形成风险；已补齐。
+- 🔧 **最终实现逻辑**: `src/lib/prewrite-conflict-resolver.ts` 新增 `resolvePreWriteClaimEvidence`，读取 claim index，按文本 overlap、目标路径、status/relation 生成 bounded evidence，并保留 claim index warning。
+- 🎯 **关键决策**: resolver 不抛出 claim index warning，而是把 warning 返回给上层；真正的异常降级由后续组合 preview 统一处理。
 
 ---
 
@@ -545,12 +545,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
-| M2 | 本地证据解析 | 0 | 3 | 🚧 |
+| M2 | 本地证据解析 | 1 | 3 | 🚧 |
 | M3 | 写入路径集成 | 0 | 3 | ⏳ |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **3** | **15** | **🚧** |
+| **总计** | | **4** | **15** | **🚧** |
 
 ---
 
