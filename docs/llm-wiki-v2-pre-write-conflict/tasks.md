@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 7 / 15
+**总体进度**: 🚧 8 / 15
 
 ---
 
@@ -239,7 +239,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ Crystallization 保存页 gate
+### Task 3.2 ✅ Crystallization 保存页 gate
 
 **描述**: 在 `writeCrystallizedQueryPage` 落盘前运行同一 gate，高风险结果返回 review-only 信息。
 
@@ -253,15 +253,15 @@ graph TD
 - `src/lib/crystallize.test.ts` 或相关保存测试
 
 **验收**:
-- [ ] 安全保存页仍返回原有路径和结果。
-- [ ] 高风险保存页不覆盖已有文件。
-- [ ] 返回类型兼容既有调用方，可选暴露 conflict preview。
+- [x] 安全保存页仍返回原有路径和结果。
+- [x] 高风险保存页不覆盖已有文件。
+- [x] 返回类型兼容既有调用方，可选暴露 conflict preview。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 接入前新增测试显示 crystallize risk 写入仍无 conflict 返回；补 gate 后 focused + digest 回归通过。
+- 🔧 **最终实现逻辑**: `writeCrystallizedQueryPage` 在 lifecycle enrich 后、`writeFile` 前构建 `crystallization-page` candidate；review-only 时返回可选 `conflict` 字段，不写页也不写 claim artifact。
+- 🎯 **关键决策**: 返回类型只新增 optional 字段，保持既有调用方读取 `relativePath/supports/sources/claimWrite` 的兼容性。
 
 ---
 
@@ -546,11 +546,11 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
-| M3 | 写入路径集成 | 1 | 3 | 🚧 |
+| M3 | 写入路径集成 | 2 | 3 | 🚧 |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **7** | **15** | **🚧** |
+| **总计** | | **8** | **15** | **🚧** |
 
 ---
 

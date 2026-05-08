@@ -6,6 +6,7 @@ vi.mock("@/commands/fs", () => ({
   appendFile: vi.fn(async () => {}),
   readFile: vi.fn(async () => ""),
   writeFile: vi.fn(async () => {}),
+  listDirectory: vi.fn(async () => []),
   createDirectory: vi.fn(async () => {}),
 }))
 
@@ -16,12 +17,13 @@ vi.mock("@/lib/wiki-automation-events", () => ({
   })),
 }))
 
-import { appendFile, readFile, writeFile, createDirectory } from "@/commands/fs"
+import { appendFile, readFile, writeFile, listDirectory, createDirectory } from "@/commands/fs"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 const mockAppendFile = vi.mocked(appendFile)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
+const mockListDirectory = vi.mocked(listDirectory)
 const mockCreateDirectory = vi.mocked(createDirectory)
 const mockRecordWikiAutomationEvent = vi.mocked(recordWikiAutomationEvent)
 
@@ -29,6 +31,8 @@ beforeEach(() => {
   mockAppendFile.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
+  mockListDirectory.mockReset()
+  mockListDirectory.mockResolvedValue([])
   mockCreateDirectory.mockReset()
   mockRecordWikiAutomationEvent.mockReset()
   mockRecordWikiAutomationEvent.mockImplementation(async (input) => ({
@@ -187,6 +191,51 @@ describe("writeCrystallizedQueryPage", () => {
     )
     expect(result.claimWrite?.error).toContain("disk full")
     expect(result.claimWrite?.claimCount).toBe(1)
+  })
+
+  it("returns review-only conflict result instead of overwriting risky crystallized pages", async () => {
+    const existingPage = "# Existing\n\nKeep this page."
+    const contradictedClaim = {
+      claim_id: "claim_old",
+      text: "Crystallized writes should be reviewed before replacing disputed knowledge.",
+      page_path: "wiki/queries/risky.md",
+      source_refs: [],
+      lifecycle: "episodic",
+      status: "contradicted",
+      confidence: "0.30",
+      confidence_reasons: ["contradiction signal present"],
+      last_confirmed: "2026-05-08",
+      reinforcement_count: "0",
+      supports: [],
+      contradicts: [],
+      supersedes: [],
+      superseded_by: [],
+      scope: "shared",
+      created_at: "2026-05-08",
+      updated_at: "2026-05-08",
+    }
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/queries/risky.md") return existingPage
+      if (path === "/project/.llm-wiki/claims.jsonl") return `${JSON.stringify(contradictedClaim)}\n`
+      return ""
+    })
+
+    const result = await writeCrystallizedQueryPage({
+      projectPath: "/project",
+      filePath: "/project/wiki/queries/risky.md",
+      title: "Risky",
+      body: "Finding: Crystallized writes should be reviewed before replacing disputed knowledge.",
+      date: "2026-05-08",
+      origin: "chat-save",
+    })
+
+    expect(result.conflict?.decision).toBe("review-only")
+    expect(result.conflict?.classification).toBe("possible-contradiction")
+    expect(mockWriteFile).not.toHaveBeenCalledWith(
+      "/project/wiki/queries/risky.md",
+      expect.any(String),
+    )
+    expect(result.claimWrite).toBeUndefined()
   })
 
   it("writes a confirmed candidate through the existing crystallized query path", async () => {

@@ -13,6 +13,11 @@ import {
   enrichLifecycleFrontmatter,
 } from "@/lib/lifecycle"
 import { normalizePath } from "@/lib/path-utils"
+import {
+  buildPreWriteCandidate,
+  type PreWriteConflictPreview,
+} from "@/lib/prewrite-conflict"
+import { previewPreWriteConflict } from "@/lib/prewrite-conflict-resolver"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 export interface CrystallizeReference {
@@ -40,6 +45,7 @@ export interface CrystallizeQueryResult {
   supports: string[]
   sources: string[]
   claimWrite?: CrystallizeClaimWriteResult
+  conflict?: PreWriteConflictPreview
 }
 
 export interface CrystallizeClaimExtractionOptions {
@@ -115,6 +121,31 @@ export async function writeCrystallizedQueryPage(
   ].join("\n")
 
   const enriched = enrichLifecycleFrontmatter(frontmatter + body + "\n")
+  const conflictResult = await previewPreWriteConflict(
+    pp,
+    buildPreWriteCandidate({
+      kind: "crystallization-page",
+      targetPath: relativePath,
+      title: input.title,
+      content: enriched.content,
+      sourcePath: input.origin,
+      claimSummaries: claimExtraction.claims.map((candidate) => ({
+        claimId: candidate.claim.claim_id,
+        text: candidate.claim.text,
+        status: candidate.claim.status,
+        pagePath: candidate.claim.page_path,
+      })),
+    }),
+  )
+  if (conflictResult.preview.decision === "review-only") {
+    return {
+      content: enriched.content,
+      relativePath,
+      supports,
+      sources,
+      conflict: conflictResult.preview,
+    }
+  }
   await writeFile(filePath, enriched.content)
   const claimWrite = await writeExtractedClaimArtifacts({
     projectPath: pp,
