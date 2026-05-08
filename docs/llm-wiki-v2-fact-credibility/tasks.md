@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 4 / 15
+**总体进度**: 🚧 5 / 15
 
 ---
 
@@ -151,9 +151,9 @@ graph TD
 
 **目标**: 只从受控写入路径生成高价值 claims，并保证失败不影响原功能。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ 实现 claim extraction helper
+### Task 2.1 ✅ 实现 claim extraction helper
 
 **描述**: 从 digest lessons/decisions、review-created pages、saved query/synthesis 和部分 ingest 输出中提取高价值 claim candidates。
 
@@ -168,16 +168,16 @@ graph TD
 - `src/lib/crystallization-digest.ts`
 
 **验收**:
-- [ ] digest lessons/decisions 可生成 claim candidates。
-- [ ] 普通短文本不会生成 claim。
-- [ ] 每次写入有 claim 数量上限。
-- [ ] extraction 返回 warnings，不抛出到主写入流程。
+- [x] digest lessons/decisions 可生成 claim candidates。
+- [x] 普通短文本不会生成 claim。
+- [x] 每次写入有 claim 数量上限。
+- [x] extraction 返回 warnings，不抛出到主写入流程。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试按预期失败在 `./claim-extract` 模块缺失；实现后 focused test 通过，并补跑 `npm run typecheck`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/claim-extract.ts` 和 `src/lib/claim-extract.test.ts`，从 digest decisions/lessons 和带 finding/conclusion/recommendation 信号的 Markdown 行生成 bounded claim candidates，附带 evidence source refs、warnings 和 skipped count。
+- 🎯 **关键决策**: extraction helper 保持纯函数，不写文件、不调用 LLM、不接入副作用；普通短文本不生成 claim，避免把低价值正文噪声写入 `.llm-wiki/claims.jsonl`。
 
 ---
 
@@ -566,11 +566,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
-| M2 | Controlled Extraction and Writes | 0 | 4 | ⏳ |
+| M2 | Controlled Extraction and Writes | 1 | 4 | 🚧 |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **4** | **15** | **🚧** |
+| **总计** | | **5** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.1：受控写入路径 claim extraction helper。 |
 | 2026-05-08 | 完成 T1.4：claim-level confidence scoring 和写回 helper。 |
 | 2026-05-08 | 完成 T1.3：Markdown claim anchors 插入、解析和定位。 |
 | 2026-05-08 | 完成 T1.2：claim JSONL 读写、merge 和 private audit summary。 |
