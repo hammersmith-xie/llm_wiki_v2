@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 0 / 15
+**总体进度**: 🚧 1 / 15
 
 ---
 
@@ -37,7 +37,7 @@ graph TD
 **依赖**: A 事实级可信度已完成
 **状态**: 🚧
 
-### Task 1.1 ⏳ 定义 PreWriteCandidate / Evidence / Preview 类型
+### Task 1.1 ✅ 定义 PreWriteCandidate / Evidence / Preview 类型
 
 **描述**: 新建 `src/lib/prewrite-conflict.ts`，定义候选写入、证据、分类、决策和摘要类型，并提供稳定 id / 文本摘要 helper。
 
@@ -51,15 +51,15 @@ graph TD
 - `src/lib/prewrite-conflict.test.ts` (新建)
 
 **验收**:
-- [ ] candidate id 对相同 kind + targetPath + title 稳定。
-- [ ] content summary 有长度上限，不保存 raw source 全文。
-- [ ] 类型不引入 `any`。
+- [x] candidate id 对相同 kind + targetPath + title 稳定。
+- [x] content summary 有长度上限，不保存 raw source 全文。
+- [x] 类型不引入 `any`。
 
 #### 备注 (开发期由 AI 填写)
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 先写测试时模块不存在，Vitest 按预期失败；随后补最小实现。
+- 🔧 **最终实现逻辑**: `src/lib/prewrite-conflict.ts` 定义 candidate/evidence/preview 基础类型，使用 kind + normalized targetPath + normalized title 生成稳定 id，并对 content / claim summary 做长度限制和脱敏。
+- 🎯 **关键决策**: Candidate id 不纳入正文和 sourcePath，避免同一目标页的内容迭代导致 preview 身份不稳定。
 
 ---
 
@@ -544,13 +544,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Candidate 与分类内核 | 0 | 3 | 🚧 |
+| M1 | Candidate 与分类内核 | 1 | 3 | 🚧 |
 | M2 | 本地证据解析 | 0 | 3 | ⏳ |
 | M3 | 写入路径集成 | 0 | 3 | ⏳ |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **0** | **15** | **🚧** |
+| **总计** | | **1** | **15** | **🚧** |
 
 ---
 
