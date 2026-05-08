@@ -18,6 +18,7 @@ export interface PreWriteEvidenceResolverOptions {
   maxPages?: number
   maxPageExcerptLength?: number
   failClosedOnWarnings?: boolean
+  cache?: PreWriteEvidenceResolverCache
 }
 
 export interface PreWriteEvidenceResolverResult {
@@ -30,10 +31,19 @@ export interface PreWritePreviewResolverResult {
   warnings: ClaimIndexWarning[]
 }
 
+export interface PreWriteEvidenceResolverCache {
+  claimIndex?: Promise<{ claims: ClaimRecord[]; warnings: ClaimIndexWarning[] }>
+  pageSummaries?: Promise<WikiPageSummary[]>
+}
+
 const DEFAULT_MAX_CLAIMS = 40
 const DEFAULT_MAX_EVIDENCE = 10
 const DEFAULT_MAX_PAGES = 20
 const DEFAULT_PAGE_EXCERPT_LENGTH = 220
+
+export function createPreWriteEvidenceResolverCache(): PreWriteEvidenceResolverCache {
+  return {}
+}
 
 export async function resolvePreWriteClaimEvidence(
   projectPath: string,
@@ -42,7 +52,7 @@ export async function resolvePreWriteClaimEvidence(
 ): Promise<PreWriteEvidenceResolverResult> {
   const maxClaims = Math.max(0, Math.floor(options.maxClaims ?? DEFAULT_MAX_CLAIMS))
   const maxEvidence = Math.max(0, Math.floor(options.maxEvidence ?? DEFAULT_MAX_EVIDENCE))
-  const index = await readClaimIndex(projectPath)
+  const index = await readClaimIndexCached(projectPath, options)
   const evidence = index.claims
     .slice(0, maxClaims)
     .map((claim) => claimToEvidence(candidate, claim))
@@ -91,7 +101,12 @@ export async function resolvePreWritePageEvidence(
 ): Promise<PreWriteEvidenceResolverResult> {
   const maxPages = Math.max(0, Math.floor(options.maxPages ?? DEFAULT_MAX_PAGES))
   const maxEvidence = Math.max(0, Math.floor(options.maxEvidence ?? DEFAULT_MAX_EVIDENCE))
-  const pages = await readWikiPageSummaries(projectPath, maxPages, options.maxPageExcerptLength)
+  const pages = await readWikiPageSummariesCached(
+    projectPath,
+    maxPages,
+    options.maxPageExcerptLength,
+    options.cache,
+  )
   const evidence = pages
     .map((page) => pageToEvidence(candidate, page))
     .filter((item): item is PreWriteEvidence => Boolean(item))
@@ -209,6 +224,26 @@ interface WikiPageSummary {
   path: string
   title: string
   excerpt: string
+}
+
+function readClaimIndexCached(
+  projectPath: string,
+  options: PreWriteEvidenceResolverOptions,
+): Promise<{ claims: ClaimRecord[]; warnings: ClaimIndexWarning[] }> {
+  if (!options.cache) return readClaimIndex(projectPath)
+  options.cache.claimIndex ??= readClaimIndex(projectPath)
+  return options.cache.claimIndex
+}
+
+function readWikiPageSummariesCached(
+  projectPath: string,
+  maxPages: number,
+  maxExcerptLength: number | undefined,
+  cache: PreWriteEvidenceResolverCache | undefined,
+): Promise<WikiPageSummary[]> {
+  if (!cache) return readWikiPageSummaries(projectPath, maxPages, maxExcerptLength)
+  cache.pageSummaries ??= readWikiPageSummaries(projectPath, maxPages, maxExcerptLength)
+  return cache.pageSummaries
 }
 
 async function readWikiPageSummaries(

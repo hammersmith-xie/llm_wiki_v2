@@ -28,7 +28,10 @@ import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 import { buildPreWriteCandidate } from "@/lib/prewrite-conflict"
 import { appendPreWriteConflictAuditEvent } from "@/lib/prewrite-conflict-audit"
 import { preWriteConflictToReviewItem } from "@/lib/prewrite-conflict-review"
-import { previewPreWriteConflict } from "@/lib/prewrite-conflict-resolver"
+import {
+  createPreWriteEvidenceResolverCache,
+  previewPreWriteConflict,
+} from "@/lib/prewrite-conflict-resolver"
 
 /**
  * Resolve the LLM config that the caption pipeline should use.
@@ -794,6 +797,7 @@ async function writeFileBlocks(
   const hardFailures: string[] = []
 
   const targetLang = useWikiStore.getState().outputLanguage
+  const conflictCache = createPreWriteEvidenceResolverCache()
 
   for (const { path: relativePath, content: rawContent } of blocks) {
     // Sanitize at the boundary — strip stray code-fence wrappers,
@@ -908,6 +912,7 @@ async function writeFileBlocks(
               pagePath: candidate.claim.page_path,
             })),
           }),
+          { cache: conflictCache },
         )
         appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "preview").catch((err) => {
           console.warn(

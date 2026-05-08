@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 15 / 18
+**总体进度**: 🚧 16 / 18
 
 ---
 
@@ -466,7 +466,7 @@ graph TD
 
 ---
 
-### Task 6.3 ⏳ Round 3 性能审核
+### Task 6.3 ✅ Round 3 性能审核
 
 **描述**: 检查 bounded resolver、扫描上限和多 FILE block 性能风险。
 
@@ -479,14 +479,14 @@ graph TD
 - `docs/llm-wiki-v2-pre-write-conflict/review-round-3.md`
 
 **验收**:
-- [ ] 报告说明上限和潜在热点。
-- [ ] 必要性能修复已落地。
+- [x] 报告说明上限和潜在热点。
+- [x] 必要性能修复已落地。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 单个 resolver bounded，但 ingest 多 FILE block 会重复读取 claim index 和 wiki page summaries。
+- 🔧 **最终实现逻辑**: 新增 `createPreWriteEvidenceResolverCache` 并在 `writeFileBlocks` 一次循环内复用；报告见 `review-round-3.md`。
+- 🎯 **关键决策**: cache 只作为显式 options 注入，不做全局缓存，避免跨项目/跨写入会话污染。
 
 ---
 
@@ -549,8 +549,8 @@ graph TD
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
 | M4 | Review / Audit 集成 | 2 | 2 | ✅ |
 | M5 | 文档与回归验证 | 2 | 2 | ✅ |
-| M6 | 最终审核 | 2 | 5 | 🚧 |
-| **总计** | | **15** | **18** | **🚧** |
+| M6 | 最终审核 | 3 | 5 | 🚧 |
+| **总计** | | **16** | **18** | **🚧** |
 
 ---
 
@@ -569,6 +569,6 @@ graph TD
 |-------|------|------|------|
 | 1 | 功能 | ✅ | [`review-round-1.md`](./review-round-1.md) |
 | 2 | 类型 & 静态分析 | ✅ | [`review-round-2.md`](./review-round-2.md) |
-| 3 | 性能 | ⏳ | - |
+| 3 | 性能 | ✅ | [`review-round-3.md`](./review-round-3.md) |
 | 4 | 安全 | ⏳ | - |
 | 5 | UX & a11y | ⏳ | - |

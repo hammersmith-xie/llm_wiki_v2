@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { normalizeClaimRecord } from "./claims"
 import { buildPreWriteCandidate } from "./prewrite-conflict"
 import {
+  createPreWriteEvidenceResolverCache,
   previewPreWriteConflict,
   resolvePreWriteClaimEvidence,
   resolvePreWritePageEvidence,
@@ -296,5 +297,43 @@ describe("pre-write conflict preview resolver", () => {
       classification: "uncertain",
       decision: "review-only",
     })
+  })
+
+  it("reuses cached claim index and page summaries across previews", async () => {
+    const claim = normalizeClaimRecord({
+      text: "Hybrid search improves recall by combining BM25 and graph context.",
+      page_path: "wiki/concepts/search.md",
+      status: "ok",
+    }, { today: "2026-05-08" }).claim
+    mockListDirectory.mockResolvedValue([{
+      name: "search.md",
+      path: "/project/wiki/concepts/search.md",
+      is_dir: false,
+    }])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/claims.jsonl") return `${JSON.stringify(claim)}\n`
+      if (path === "/project/wiki/concepts/search.md") return "# Hybrid Search\n"
+      throw new Error(`unexpected readFile ${path}`)
+    })
+    const cache = createPreWriteEvidenceResolverCache()
+    const first = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      title: "Hybrid Search",
+      content: "# Hybrid Search",
+    })
+    const second = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/other.md",
+      title: "Other",
+      content: "# Other",
+    })
+
+    await previewPreWriteConflict("/project", first, { cache })
+    await previewPreWriteConflict("/project", second, { cache })
+
+    expect(mockListDirectory).toHaveBeenCalledTimes(1)
+    expect(mockReadFile.mock.calls.filter(([path]) => path === "/project/.llm-wiki/claims.jsonl")).toHaveLength(1)
+    expect(mockReadFile.mock.calls.filter(([path]) => path === "/project/wiki/concepts/search.md")).toHaveLength(1)
   })
 })
