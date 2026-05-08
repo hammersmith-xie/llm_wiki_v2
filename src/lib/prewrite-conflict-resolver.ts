@@ -107,7 +107,12 @@ function claimToEvidence(
   const textScore = maxClaimTextOverlap(candidate, claim)
   const pathScore = samePath(candidate.targetPath, claim.page_path) ? 1 : 0
   const relation = claimRelation(candidate, claim)
-  const risky = claim.status === "contradicted" || claim.status === "superseded" || Boolean(relation)
+  const related = textScore >= 0.45 || pathScore > 0 || Boolean(relation)
+  const risky = related && (
+    claim.status === "contradicted" ||
+    claim.status === "superseded" ||
+    Boolean(relation)
+  )
   if (!risky && textScore < 0.45 && pathScore === 0) return null
 
   const reasons: string[] = []

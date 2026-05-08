@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 6 / 15
+**总体进度**: 🚧 7 / 15
 
 ---
 
@@ -211,7 +211,7 @@ graph TD
 **依赖**: M2
 **状态**: 🚧
 
-### Task 3.1 ⏳ Ingest FILE block 写入前 gate
+### Task 3.1 ✅ Ingest FILE block 写入前 gate
 
 **描述**: 在 `writeFileBlocks` 生成最终 Markdown 之后、调用 `writeFile` 之前运行 conflict preview；safe 继续，risky 跳过写入。
 
@@ -226,16 +226,16 @@ graph TD
 - `src/lib/prewrite-conflict-resolver.ts`
 
 **验收**:
-- [ ] 安全 FILE block 写入行为不变。
-- [ ] 风险 FILE block 不覆盖目标文件。
-- [ ] 多 FILE block 中风险 block 不阻止安全 block。
-- [ ] 结果 warning 对用户可见但不泄漏 raw source。
+- [x] 安全 FILE block 写入行为不变。
+- [x] 风险 FILE block 不覆盖目标文件。
+- [x] 多 FILE block 中风险 block 不阻止安全 block。
+- [x] 结果 warning 对用户可见但不泄漏 raw source。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 首次接入后 safe write 被 `uncertain` 误拦；根因是测试未 mock `listDirectory` 且 resolver 对不相关 contradicted claim 过敏。已补测试默认和相关性门槛。
+- 🔧 **最终实现逻辑**: 在 content-page 分支的 claim anchor 插入后、`writeFile` 前构建 `ingest-page` candidate 并调用 `previewPreWriteConflict`；`review-only` 时跳过当前 FILE block、加入 warning，并继续处理后续 block。
+- 🎯 **关键决策**: T3.1 只负责阻断和 warning；review item 与 conflict audit 放到 T4，避免一次性扩大写入路径改动面。
 
 ---
 
@@ -546,11 +546,11 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
-| M3 | 写入路径集成 | 0 | 3 | 🚧 |
+| M3 | 写入路径集成 | 1 | 3 | 🚧 |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **6** | **15** | **🚧** |
+| **总计** | | **7** | **15** | **🚧** |
 
 ---
 

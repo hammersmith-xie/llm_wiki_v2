@@ -25,6 +25,8 @@ import { extractClaimCandidates } from "@/lib/claim-extract"
 import { writeExtractedClaimArtifacts } from "@/lib/claim-write"
 import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
+import { buildPreWriteCandidate } from "@/lib/prewrite-conflict"
+import { previewPreWriteConflict } from "@/lib/prewrite-conflict-resolver"
 
 /**
  * Resolve the LLM config that the caption pipeline should use.
@@ -889,6 +891,27 @@ async function writeFileBlocks(
             claimText: candidate.anchorText,
             pageAnchor: candidate.claim.page_anchor,
           })
+        }
+        const conflict = await previewPreWriteConflict(
+          projectPath,
+          buildPreWriteCandidate({
+            kind: "ingest-page",
+            targetPath: relativePath,
+            content: toWrite,
+            sourcePath: sourceFileName,
+            claimSummaries: claimExtraction.claims.map((candidate) => ({
+              claimId: candidate.claim.claim_id,
+              text: candidate.claim.text,
+              status: candidate.claim.status,
+              pagePath: candidate.claim.page_path,
+            })),
+          }),
+        )
+        if (conflict.preview.decision === "review-only") {
+          const msg = `Pre-write conflict review required for "${relativePath}": ${conflict.preview.classification}.`
+          console.warn(`[ingest] ${msg}`)
+          warnings.push(msg)
+          continue
         }
         await writeFile(fullPath, toWrite)
         const claimWrite = await writeExtractedClaimArtifacts({

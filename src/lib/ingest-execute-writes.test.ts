@@ -20,7 +20,7 @@ vi.mock("@/lib/wiki-automation-events", () => ({
   })),
 }))
 
-import { appendFile, readFile, writeFile, createDirectory } from "@/commands/fs"
+import { appendFile, readFile, writeFile, listDirectory, createDirectory } from "@/commands/fs"
 import { streamChat } from "./llm-client"
 import { executeIngestWrites } from "./ingest"
 import { useChatStore } from "@/stores/chat-store"
@@ -29,6 +29,7 @@ import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 const mockAppendFile = vi.mocked(appendFile)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
+const mockListDirectory = vi.mocked(listDirectory)
 const mockCreateDirectory = vi.mocked(createDirectory)
 const mockStreamChat = vi.mocked(streamChat)
 const mockRecordWikiAutomationEvent = vi.mocked(recordWikiAutomationEvent)
@@ -49,10 +50,12 @@ beforeEach(() => {
   mockAppendFile.mockResolvedValue(undefined as unknown as void)
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
+  mockListDirectory.mockReset()
   mockCreateDirectory.mockReset()
   mockStreamChat.mockReset()
   mockReadFile.mockRejectedValue(new Error("ENOENT"))
   mockWriteFile.mockResolvedValue(undefined as unknown as void)
+  mockListDirectory.mockResolvedValue([])
   mockCreateDirectory.mockResolvedValue(undefined as unknown as void)
   mockRecordWikiAutomationEvent.mockReset()
   mockRecordWikiAutomationEvent.mockImplementation(async (input) => ({
@@ -156,5 +159,95 @@ describe("executeIngestWrites", () => {
     expect(indexWrite?.[1]).not.toContain("<!-- claim:")
     const contentWrite = mockWriteFile.mock.calls.find(([path]) => path === "/project/wiki/concepts/claimable.md")
     expect(contentWrite?.[1]).toContain("<!-- claim:")
+  })
+
+  it("skips risky content page writes when pre-write conflict evidence requires review", async () => {
+    const existingPage = [
+      "---",
+      "type: concept",
+      "title: Risky",
+      "created: 2026-05-07",
+      "updated: 2026-05-07",
+      "tags: []",
+      "related: []",
+      "sources: []",
+      "---",
+      "",
+      "# Risky",
+      "",
+      "Existing content should survive.",
+    ].join("\n")
+    const contradictedClaim = {
+      claim_id: "claim_old",
+      text: "Risky writes should be reviewed before landing.",
+      page_path: "wiki/concepts/risky.md",
+      source_refs: [],
+      lifecycle: "semantic",
+      status: "contradicted",
+      confidence: "0.30",
+      confidence_reasons: ["contradiction signal present"],
+      last_confirmed: "2026-05-07",
+      reinforcement_count: "0",
+      supports: [],
+      contradicts: [],
+      supersedes: [],
+      superseded_by: [],
+      scope: "shared",
+      created_at: "2026-05-07",
+      updated_at: "2026-05-07",
+    }
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/schema.md" || path === "/project/wiki/index.md") return ""
+      if (path === "/project/wiki/concepts/risky.md") return existingPage
+      if (path === "/project/.llm-wiki/claims.jsonl") return `${JSON.stringify(contradictedClaim)}\n`
+      return ""
+    })
+    mockStreamChat.mockImplementation(async (_config, _messages, callbacks) => {
+      callbacks.onToken([
+        "---FILE: wiki/concepts/risky.md---",
+        "---",
+        "type: concept",
+        "title: Risky",
+        "created: 2026-05-08",
+        "updated: 2026-05-08",
+        "tags: []",
+        "related: []",
+        "sources: []",
+        "---",
+        "",
+        "# Risky",
+        "",
+        "Finding: Risky writes should be reviewed before landing.",
+        "---END FILE---",
+        "---FILE: wiki/concepts/safe.md---",
+        "---",
+        "type: concept",
+        "title: Safe",
+        "created: 2026-05-08",
+        "updated: 2026-05-08",
+        "tags: []",
+        "related: []",
+        "sources: []",
+        "---",
+        "",
+        "# Safe",
+        "",
+        "Finding: safe writes should still land.",
+        "---END FILE---",
+      ].join("\n"))
+      callbacks.onDone()
+    })
+
+    const writtenPaths = await executeIngestWrites("/project", fakeLlmConfig())
+
+    expect(writtenPaths).toEqual(["/project/wiki/concepts/safe.md"])
+    expect(mockWriteFile).not.toHaveBeenCalledWith(
+      "/project/wiki/concepts/risky.md",
+      expect.any(String),
+    )
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "/project/wiki/concepts/safe.md",
+      expect.stringContaining("safe writes should still land"),
+    )
   })
 })
