@@ -195,7 +195,7 @@ lifecycle metadata, typed graph retrieval, schema scans, Memory Ops, audit
 events, and crystallization operate as derived or governance layers around that
 wiki.
 
-The first high-value improvement has now landed, and the next one remains:
+The two high-value trust improvements have now landed:
 
 - **Fact-level credibility**: implemented as a bounded local layer around
   Markdown. High-value claims receive stable IDs, source references, confidence
@@ -204,17 +204,19 @@ The first high-value improvement has now landed, and the next one remains:
   and Memory Ops can reason about weak or stale claims without demoting an
   entire page. `.llm-wiki/claims.jsonl` is a derived, rebuildable index, not a
   replacement source of truth.
-- **Pre-write conflict handling**: before ingest or crystallization writes new
-  knowledge, retrieve related pages/claims through title/alias, lexical/BM25,
-  vector, and typed graph signals, classify the candidate as new, reinforcement,
-  update, contradiction, or supersession, then preview risky changes or route
-  them to review. The system should audit preview/accept/ignore/review handoff
-  events and avoid silent rewrites.
+- **Pre-write conflict handling**: implemented for controlled write paths.
+  Ingest content pages, crystallized saves, and review-created pages now build
+  bounded write candidates before landing. Local page/claim evidence classifies
+  candidates as new, reinforcement, update, duplicate, possible contradiction,
+  supersession, or uncertain. Safe writes continue with `conflict.accept` audit;
+  risky writes skip direct overwrite and route to or expose review handoff with
+  `conflict.review` audit.
 
-The next conflict-handling phase should stay inside the existing product
-boundary: local-first, auditable, bounded, and Markdown-compatible. It should not
-require a remote memory server, Neo4j/LightRAG replacement, multi-user ACL, or
-autonomous destructive repair.
+The remaining conflict-handling work should stay inside the same product
+boundary: richer evidence retrieval is useful, but the gate should remain
+local-first, auditable, bounded, and Markdown-compatible. It should not require a
+remote memory server, Neo4j/LightRAG replacement, multi-user ACL, or autonomous
+destructive repair.
 
 ## Remaining Non-Goals
 
@@ -222,8 +224,8 @@ autonomous destructive repair.
 - No autonomous background crystallization of every chat session.
 - No exhaustive historical claim extraction or span/PDF-coordinate provenance.
 - No automatic truth adjudication from claim confidence.
-- No write-blocking pre-write conflict gate in the current fact-level
-  credibility implementation.
+- No full historical conflict scan, automatic truth adjudication, or destructive
+  repair in the pre-write conflict gate.
 - No full rewrite of the existing visual/chat graph pipeline onto the typed graph
   helper; page-level explicit typed edges are now included, but visual layout,
   insights, and weighting still use the existing graph pipeline.

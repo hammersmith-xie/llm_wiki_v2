@@ -36,7 +36,7 @@
 - **Louvain Community Detection** — automatic knowledge cluster discovery with cohesion scoring
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
-- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, fact-level claim evidence, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, and append-only audit events
+- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, fact-level claim evidence, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, pre-write conflict gates, and append-only audit events
 - **Memory Ops Workbench** — local maintenance patrol, schema/quality scans, claim health, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, search health checks, digest preview, and coordination summary
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
@@ -254,7 +254,7 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Fact-level claim evidence** — high-value findings, decisions, recommendations, contradictions, and conclusions can receive app-managed Markdown anchors such as `<!-- claim:claim_xxx -->`; `.llm-wiki/claims.jsonl` stores a derived, rebuildable claim index for search/chat evidence, Memory Ops claim health, and claim audit handoff
 - **Claim confidence boundaries** — claim confidence is a maintenance and evidence signal, not an automatic truth verdict. Contradicted, stale, or superseded claims are surfaced for review instead of silently rewriting or deleting Markdown.
 - **Claim index recovery** — Maintenance can scan/rebuild the derived claim index from wiki pages and anchors, list recovered/orphan/stale records, and audit confirmed rebuilds without reading large `raw/sources/` files
-- **Pre-write conflict gate is not included yet** — current claim records prepare the interface for classifying future writes as new, reinforcement, update, contradiction, or supersession, but ingest/crystallization do not yet run a full write-blocking conflict preview
+- **Pre-write conflict gate** — ingest content pages, crystallized saves, and review-created pages build bounded write candidates before landing. Related pages and claim evidence classify writes as new, reinforcement, update, duplicate, possible contradiction, supersession, or uncertain; safe writes continue with `conflict.accept` audit, while risky writes skip direct overwrite, create or expose review handoff, and write `conflict.review`.
 - **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM
 - **Cooldown reminders** — query, search, and review activity can mark that a patrol is due, but the app does not auto-run a full scan in the background
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
@@ -280,6 +280,13 @@ anchors over time. If the derived index is missing or stale, run the explicit
 claim index scan/rebuild from Maintenance; it reconstructs recoverable records
 from Markdown anchors and reports anything orphaned instead of treating the
 index as an authoritative database.
+
+Pre-write conflict handling follows the same migration boundary. Missing
+claim indexes are treated as empty evidence for new projects, not as corruption.
+When related contradicted or superseded claims, duplicate targets, or uncertain
+resolver failures are found, the write is routed to review instead of silently
+rewriting Markdown. The gate is local and deterministic; it does not run a full
+historical conflict scan or ask an LLM to decide which fact is true.
 
 ### 10. Thinking / Reasoning Display
 

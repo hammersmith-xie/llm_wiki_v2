@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 11 / 15
+**总体进度**: 🚧 12 / 15
 
 ---
 
@@ -357,7 +357,7 @@ graph TD
 **依赖**: M4
 **状态**: 🚧
 
-### Task 5.1 ⏳ README / plans / completion audit 更新
+### Task 5.1 ✅ README / plans / completion audit 更新
 
 **描述**: 更新 README、中文 README、deep dive plan 和 completion audit，说明 pre-write gate 的边界和使用方式。
 
@@ -373,15 +373,15 @@ graph TD
 - `plans/llm-wiki-v2-completion-audit.md`
 
 **验收**:
-- [ ] 文档明确 source-of-truth 仍是 Markdown。
-- [ ] 文档明确高风险写入 review-only。
-- [ ] 文档明确 Memory Ops 可复用但不自动后台扫描。
+- [x] 文档明确 source-of-truth 仍是 Markdown。
+- [x] 文档明确高风险写入 review-only。
+- [x] 文档明确 Memory Ops 可复用但不自动后台扫描。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README 和 plan 中仍保留“pre-write gate 尚未包含”的旧结论；已统一改为当前实现事实。
+- 🔧 **最终实现逻辑**: 更新 README/README_CN 的 v2 能力说明、迁移边界和 Memory Ops 段落；更新 deep-dive 与 completion audit，把 B 从 follow-up 改为已落地的 controlled write path gate。
+- 🎯 **关键决策**: 文档明确 gate 是本地确定性 review-only 机制，不是全库历史扫描，也不是自动事实裁决。
 
 ---
 
@@ -548,9 +548,9 @@ graph TD
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
 | M4 | Review / Audit 集成 | 2 | 2 | ✅ |
-| M5 | 文档与回归验证 | 0 | 2 | 🚧 |
+| M5 | 文档与回归验证 | 1 | 2 | 🚧 |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **11** | **15** | **🚧** |
+| **总计** | | **12** | **15** | **🚧** |
 
 ---
 

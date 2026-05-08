@@ -58,11 +58,10 @@ keeps the system inspectable and Git-friendly while avoiding a premature
 Neo4j/LightRAG-style replacement of the wiki itself.
 
 The next useful step is not to add a remote memory server or more generated
-prose. Trust now has a first fact-level slice: high-value claims can be anchored
-back to Markdown, indexed in `.llm-wiki/claims.jsonl`, scored, surfaced as
-search/chat evidence, and included in Memory Ops claim health. The remaining
-high-value follow-up is to make writes safer before they land through pre-write
-conflict handling.
+prose. Trust now has two local slices: high-value claims can be anchored back to
+Markdown, indexed in `.llm-wiki/claims.jsonl`, scored, surfaced as search/chat
+evidence, and included in Memory Ops claim health; controlled write paths also
+run a bounded pre-write conflict gate before risky content lands.
 
 ## Gap Matrix
 
@@ -133,30 +132,27 @@ does not replace Markdown with a claim database.
 
 ### 2. Pre-Write Conflict Handling
 
-Current conflict handling is mostly post-write: ingest, lint, schema scans, and
-Memory Ops can flag stale, contradictory, or superseded material after content
-exists, and claim records now provide finer-grained inputs for this. The safer
-next step is to run a lightweight conflict gate before new knowledge is written
-or crystallized.
+Current conflict handling now has a pre-write slice instead of relying only on
+post-write patrol. Ingest content pages, crystallized query/synthesis saves, and
+review-created pages build `PreWriteCandidate` objects before landing. A bounded
+resolver checks target path, page title, nearby Markdown summaries, and
+`.llm-wiki/claims.jsonl`, then classifies the candidate as `new`,
+`reinforcement`, `update`, `duplicate`, `possible-contradiction`,
+`supersession`, or `uncertain`.
 
-The pre-write flow should:
+Safe writes continue through the existing write path and record
+`conflict.accept` audit events. Risky or uncertain writes do not silently
+overwrite Markdown: ingest routes them to the existing review queue, crystallized
+saves return an optional `conflict` preview to callers, and review-created pages
+run the same preview before UI code writes the file. All conflict events use the
+new `conflict` audit category and store only bounded evidence summaries, not full
+candidate bodies.
 
-- Build a candidate write set from ingest or crystallization output before
-  applying it to the wiki.
-- Retrieve nearby pages and claims through title/alias matching, lexical/BM25,
-  vector search, and typed graph traversal.
-- Classify each candidate as new knowledge, reinforcement, update, possible
-  contradiction, or supersession.
-- Show a preview when the write would affect existing pages, including source
-  evidence, target pages, proposed typed relationships, and metadata changes.
-- Route uncertain contradictions and supersessions to the review queue instead
-  of silently rewriting pages.
-- Write audit events for the preview, accepted write, ignored write, and review
-  handoff.
-
-This should not become a blocking LLM debate loop for every small write. Keep it
-bounded, deterministic where possible, and reserve model calls for summarizing
-candidate conflicts after retrieval has already found the relevant pages.
+The boundary remains intentionally conservative. The gate is local and
+deterministic, treats a missing claim index as empty evidence for migration
+safety, and does not become an LLM debate loop. Follow-up work can add richer
+alias/BM25/vector/typed-graph evidence to the resolver, but risky writes should
+continue to route through review rather than automatic truth adjudication.
 
 ## Non-Goals
 
@@ -167,8 +163,8 @@ candidate conflicts after retrieval has already found the relevant pages.
 - No autonomous background crystallization workflow in this pass.
 - No exhaustive historical claim extraction or span/PDF-coordinate provenance.
 - No automatic truth adjudication from claim confidence.
-- No pre-write conflict gate in the fact-level credibility slice; it remains the
-  next implementation phase.
+- No full historical conflict scan or automatic semantic truth adjudication in
+  the pre-write gate.
 - No full typed graph rewrite of the visual graph/chat graph pipeline in this
   pass; current graph consumers incorporate explicit page-level typed
   relationship edges but still rely on existing relevance/layout helpers.
