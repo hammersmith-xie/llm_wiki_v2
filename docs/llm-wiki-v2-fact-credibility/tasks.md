@@ -604,5 +604,5 @@ graph TD
 | 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
 | 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
 | 3 | 性能 | ✅ | [review-round-3.md](./review-round-3.md) |
-| 4 | 安全 | ⏳ | <-> |
+| 4 | 安全 | ✅ | [review-round-4.md](./review-round-4.md) |
 | 5 | UX & a11y | ⏳ | <-> |

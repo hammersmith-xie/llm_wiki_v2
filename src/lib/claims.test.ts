@@ -168,6 +168,22 @@ describe("claim index jsonl", () => {
     ]))
   })
 
+  it("redacts sensitive text from claim index warning raw lines", async () => {
+    mockReadFile.mockResolvedValueOnce([
+      "{\"text\":\"<private>customer alice@example.com</private>\",\"page_path\":\"\"}",
+      "not json token=sk-proj-private-secret",
+    ].join("\n"))
+
+    const result = await readClaimIndex("/project")
+    const serialized = JSON.stringify(result.warnings)
+
+    expect(result.claims).toEqual([])
+    expect(serialized).not.toContain("customer alice@example.com")
+    expect(serialized).not.toContain("sk-proj-private-secret")
+    expect(serialized).toContain("[REDACTED:private]")
+    expect(serialized).toContain("[REDACTED:secret]")
+  })
+
   it("returns an empty index when the claim file does not exist", async () => {
     mockReadFile.mockRejectedValueOnce(new Error("missing"))
 

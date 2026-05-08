@@ -1,4 +1,5 @@
 import { appendFile, createDirectory, readFile } from "@/commands/fs"
+import { redactSensitiveText } from "@/lib/audit-redaction"
 import { normalizePath } from "@/lib/path-utils"
 
 export const CLAIM_LIFECYCLES = [
@@ -199,20 +200,20 @@ export async function readClaimIndex(
         warnings.push({
           line: i + 1,
           message: "Invalid claim JSON: expected non-empty text and page_path.",
-          raw: line,
+          raw: redactSensitiveText(line),
         })
         continue
       }
       const normalized = normalizeClaimRecord(parsed)
       claims.push(normalized.claim)
       for (const message of normalized.warnings) {
-        warnings.push({ line: i + 1, message, raw: line })
+        warnings.push({ line: i + 1, message, raw: redactSensitiveText(line) })
       }
     } catch (err) {
       warnings.push({
         line: i + 1,
         message: `Invalid claim JSON: ${err instanceof Error ? err.message : String(err)}`,
-        raw: line,
+        raw: redactSensitiveText(line),
       })
     }
   }
