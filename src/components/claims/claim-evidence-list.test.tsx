@@ -1,4 +1,5 @@
 import "@/i18n"
+import i18n from "@/i18n"
 import { describe, expect, it } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { ClaimEvidenceList } from "./claim-evidence-list"
@@ -31,6 +32,30 @@ describe("ClaimEvidenceList", () => {
     expect(html).toContain("Confidence: 0.92")
     expect(html).toContain("raw/sources/search.md")
     expect(html).toContain("Redacted")
+  })
+
+  it("uses localized default labels", async () => {
+    await i18n.changeLanguage("zh")
+    try {
+      const html = renderToStaticMarkup(
+        <ClaimEvidenceList
+          evidence={[
+            evidence({
+              status: "ok",
+              confidence: "0.92",
+              sourceRefs: [{ path: "raw/sources/search.md" }],
+            }),
+          ]}
+        />,
+      )
+
+      expect(html).toContain("Claim 证据")
+      expect(html).toContain("状态: ok")
+      expect(html).toContain("置信度: 0.92")
+      expect(html).toContain("来源: raw/sources/search.md")
+    } finally {
+      await i18n.changeLanguage("en")
+    }
   })
 })
 

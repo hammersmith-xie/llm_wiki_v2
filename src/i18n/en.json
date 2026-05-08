@@ -67,6 +67,14 @@
     "noResults": "No results found",
     "startSearching": "Type to search wiki pages"
   },
+  "claims": {
+    "evidence": "Claim evidence",
+    "status": "Status",
+    "confidence": "Confidence",
+    "redacted": "Redacted",
+    "source": "Source",
+    "more": "+{{count}} more"
+  },
   "lint": {
     "title": "Lint",
     "runLint": "Run Lint",

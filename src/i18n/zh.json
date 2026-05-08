@@ -67,6 +67,14 @@
     "noResults": "未找到相关结果",
     "startSearching": "输入关键词搜索 Wiki 页面"
   },
+  "claims": {
+    "evidence": "Claim 证据",
+    "status": "状态",
+    "confidence": "置信度",
+    "redacted": "已脱敏",
+    "source": "来源",
+    "more": "另有 {{count}} 条"
+  },
   "lint": {
     "title": "检查",
     "runLint": "开始检查",
