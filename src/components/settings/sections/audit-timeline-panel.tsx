@@ -32,6 +32,7 @@ const CATEGORY_OPTIONS: Array<AuditEventCategory | "all"> = [
   "query",
   "ingest",
   "review",
+  "conflict",
   "crystallize",
   "lifecycle",
   "schema",
@@ -44,6 +45,7 @@ const STATUS_OPTIONS = [
   "all",
   "dry-run",
   "applied",
+  "review-only",
   "ignored",
   "error",
   "restored",
@@ -417,7 +419,7 @@ function AuditTimelineEventRow({
 
 function StatusPill({ status }: { status: string }) {
   const tone =
-    status === "error" || status === "conflict" || status === "missing"
+    status === "error" || status === "conflict" || status === "missing" || status === "review-only"
       ? "border-rose-500/40 text-rose-700 dark:text-rose-400"
       : status === "applied" || status === "restored"
         ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-400"

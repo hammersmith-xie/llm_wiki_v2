@@ -57,13 +57,23 @@ describe("audit timeline ui helpers", () => {
         targetPath: "wiki/concepts/review.md",
         changes: { status: "ignored" },
       },
+      {
+        action: "conflict.review",
+        category: "conflict",
+        timestamp: "2026-05-08T11:00:00.000Z",
+        targetPath: "wiki/concepts/conflict.md",
+        changes: { status: "review-only" },
+        reasons: ["pre-write conflict review required"],
+      },
     ]
 
     expect(filterAuditTimelineEvents(events, { category: "memory_ops" }).map((item) => item.action)).toEqual(["memory_ops.apply"])
+    expect(filterAuditTimelineEvents(events, { category: "conflict" }).map((item) => item.action)).toEqual(["conflict.review"])
     expect(filterAuditTimelineEvents(events, { action: "search" }).map((item) => item.action)).toEqual(["search.run"])
     expect(filterAuditTimelineEvents(events, { path: "wiki/concepts/search.md" }).map((item) => item.action)).toEqual(["search.run"])
     expect(filterAuditTimelineEvents(events, { scope: "private" }).map((item) => item.action)).toEqual(["search.run"])
     expect(filterAuditTimelineEvents(events, { status: "applied" }).map((item) => item.action)).toEqual(["memory_ops.apply"])
+    expect(filterAuditTimelineEvents(events, { status: "review-only" }).map((item) => item.action)).toEqual(["conflict.review"])
     expect(filterAuditTimelineEvents(events, { text: "stale" }).map((item) => item.action)).toEqual(["memory_ops.apply"])
     expect(filterAuditTimelineEvents(events, {
       dateFrom: "2026-05-07T00:00:00.000Z",

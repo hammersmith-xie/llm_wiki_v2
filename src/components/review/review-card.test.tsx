@@ -51,4 +51,37 @@ describe("ReviewCard", () => {
     expect(html).toContain("Confirmed")
     expect(html).not.toContain("Confirm</button>")
   })
+
+  it("preserves multiline pre-write conflict descriptions", () => {
+    const item: ReviewItem = {
+      id: "review-conflict-1",
+      type: "contradiction",
+      title: "Pre-write conflict: Hybrid Search",
+      description: [
+        "Classification: possible-contradiction",
+        "Decision: review-only",
+        "Reasons:",
+        "- Candidate may contradict wiki/concepts/search.md",
+        "Evidence:",
+        "- claim: wiki/concepts/search.md",
+      ].join("\n"),
+      affectedPages: ["wiki/concepts/search.md"],
+      options: [
+        { label: "Review conflict", action: "open:wiki/concepts/search.md" },
+        { label: "Skip write", action: "skip" },
+      ],
+      resolved: false,
+      createdAt: 3,
+    }
+
+    const html = renderToStaticMarkup(
+      <ReviewCard item={item} onResolve={vi.fn()} onDismiss={vi.fn()} />,
+    )
+
+    expect(html).toContain("Pre-write conflict: Hybrid Search")
+    expect(html).toContain("Classification: possible-contradiction")
+    expect(html).toContain("Evidence:")
+    expect(html).toContain("Review conflict")
+    expect(html).toContain("whitespace-pre-wrap")
+  })
 })

@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 17 / 18
+**总体进度**: ✅ 18 / 18
 
 ---
 
@@ -407,7 +407,7 @@ graph TD
 #### 备注
 
 - 🐛 **遇到的问题**: 无回归失败；focused 与全量 mock 均一次通过。
-- 🔧 **最终实现逻辑**: 验证命令：focused Vitest 8 files / 45 tests passed；`npm run typecheck` passed；`npm run test:mocks` 122 files / 1304 tests passed。
+- 🔧 **最终实现逻辑**: 验证命令：focused Vitest 8 files / 45 tests passed；`npm run typecheck` passed；`npm run test:mocks` 最终 122 files / 1308 tests passed。
 - 🎯 **关键决策**: 本期只改 TS/React/lib/docs，未触碰 `src-tauri`，因此不重复跑 `cargo test`；A 期已跑过 Rust 回归。
 
 ---
@@ -416,7 +416,7 @@ graph TD
 
 **目标**: 按中量级 5 轮审核，从不同视角补齐缺漏。
 **依赖**: M5
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 6.1 ✅ Round 1 功能审核
 
@@ -514,7 +514,7 @@ graph TD
 
 ---
 
-### Task 6.5 ⏳ Round 5 UX & 可访问性审核
+### Task 6.5 ✅ Round 5 UX & 可访问性审核
 
 **描述**: 检查 review item 文案、i18n、timeline 可读性，形成 completion audit。
 
@@ -528,15 +528,15 @@ graph TD
 - `docs/llm-wiki-v2-pre-write-conflict/completion-audit.md`
 
 **验收**:
-- [ ] 用户可理解为什么某次写入被转 review。
-- [ ] completion audit 写明最终边界和剩余后续项。
-- [ ] 所有任务状态更新为 ✅。
+- [x] 用户可理解为什么某次写入被转 review。
+- [x] completion audit 写明最终边界和剩余后续项。
+- [x] 所有任务状态更新为 ✅。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: ReviewCard 会把多行 conflict description 渲染为普通段落，影响人工复核；audit timeline 可识别 conflict category，但下拉缺少 conflict 和 review-only 入口。
+- 🔧 **最终实现逻辑**: ReviewCard 改为 `whitespace-pre-wrap` 展示多行冲突摘要；audit timeline category/status 选项和中英文 i18n 补齐 `conflict` / `review-only`；新增对应 UI helper 与 card 测试；报告见 `review-round-5.md`，最终边界见 `completion-audit.md`。
+- 🎯 **关键决策**: 不引入新的 review wizard，继续复用现有 review queue 和 audit timeline，但确保 review-only 的原因、证据摘要、过滤入口可读可查。
 
 ---
 
@@ -549,8 +549,8 @@ graph TD
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
 | M4 | Review / Audit 集成 | 2 | 2 | ✅ |
 | M5 | 文档与回归验证 | 2 | 2 | ✅ |
-| M6 | 最终审核 | 4 | 5 | 🚧 |
-| **总计** | | **17** | **18** | **🚧** |
+| M6 | 最终审核 | 5 | 5 | ✅ |
+| **总计** | | **18** | **18** | **✅** |
 
 ---
 
@@ -560,6 +560,7 @@ graph TD
 |------|------|
 | 2026-05-08 | 初稿，按中量级 5 轮审核 |
 | 2026-05-08 | 最终审核任务数校正为 5 轮，任务总数 18 |
+| 2026-05-08 | 第 5 轮 UX/a11y 审核完成，任务全部收口 |
 
 ---
 
@@ -571,4 +572,4 @@ graph TD
 | 2 | 类型 & 静态分析 | ✅ | [`review-round-2.md`](./review-round-2.md) |
 | 3 | 性能 | ✅ | [`review-round-3.md`](./review-round-3.md) |
 | 4 | 安全 | ✅ | [`review-round-4.md`](./review-round-4.md) |
-| 5 | UX & a11y | ⏳ | - |
+| 5 | UX & a11y | ✅ | [`review-round-5.md`](./review-round-5.md) |

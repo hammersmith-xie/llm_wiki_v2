@@ -70,7 +70,9 @@ export function ReviewCard({
         </button>
       </div>
 
-      <p className="mb-3 text-xs text-muted-foreground">{item.description}</p>
+      <div className="mb-3 whitespace-pre-wrap text-xs text-muted-foreground">
+        {item.description}
+      </div>
 
       {item.affectedPages && item.affectedPages.length > 0 && (
         <div className="mb-3 text-xs text-muted-foreground">
