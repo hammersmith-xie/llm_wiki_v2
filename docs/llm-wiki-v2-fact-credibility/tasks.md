@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 2 / 15
+**总体进度**: 🚧 3 / 15
 
 ---
 
@@ -92,7 +92,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 实现 Markdown claim anchors
+### Task 1.3 ✅ 实现 Markdown claim anchors
 
 **描述**: 支持 claim anchor 插入、解析、定位和 orphan detection，避免把正文改造成复杂 DSL。
 
@@ -106,16 +106,16 @@ graph TD
 - `src/lib/claim-anchors.test.ts` (新建)
 
 **验收**:
-- [ ] `<!-- claim:<id> -->` anchor 插入不破坏 Markdown 渲染。
-- [ ] 重复插入同一 claim id 不产生重复 anchor。
-- [ ] resolver 支持 anchor、heading fallback、orphan 三种状态。
-- [ ] Windows 换行和 CJK 内容测试通过。
+- [x] `<!-- claim:<id> -->` anchor 插入不破坏 Markdown 渲染。
+- [x] 重复插入同一 claim id 不产生重复 anchor。
+- [x] resolver 支持 anchor、heading fallback、orphan 三种状态。
+- [x] Windows 换行和 CJK 内容测试通过。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试按预期失败在 `./claim-anchors` 模块缺失；实现后 focused test 通过，并补跑 `npm run typecheck`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/claim-anchors.ts` 和 `src/lib/claim-anchors.test.ts`，支持 claim comment 格式化、解析、按正文/heading 插入、重复插入去重，以及 explicit anchor / heading fallback / orphan resolution。
+- 🎯 **关键决策**: Markdown 只写轻量 HTML comment `<!-- claim:<id> -->`，不把正文改造成 claim block DSL；没有 explicit anchor 时允许用 heading fallback 定位，找不到时明确返回 orphan。
 
 ---
 
@@ -565,12 +565,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Claim Data Foundation | 2 | 4 | 🚧 |
+| M1 | Claim Data Foundation | 3 | 4 | 🚧 |
 | M2 | Controlled Extraction and Writes | 0 | 4 | ⏳ |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **2** | **15** | **🚧** |
+| **总计** | | **3** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.3：Markdown claim anchors 插入、解析和定位。 |
 | 2026-05-08 | 完成 T1.2：claim JSONL 读写、merge 和 private audit summary。 |
 | 2026-05-08 | 初稿，15 个任务，按中量级 5 轮审核。 |
 
