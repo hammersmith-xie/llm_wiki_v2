@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: ⏳ 0 / 15
+**总体进度**: 🚧 1 / 15
 
 ---
 
@@ -35,9 +35,9 @@ graph TD
 
 **目标**: 建立事实级可信度的类型、存储、anchor 和评分基础，不接入写入路径。
 **依赖**: 无
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 1.1 ⏳ 定义 ClaimRecord contract
+### Task 1.1 ✅ 定义 ClaimRecord contract
 
 **描述**: 新建 claim 类型、字段归一化、稳定 claim id、scope/status/lifecycle 枚举和 JSON 序列化约束。
 
@@ -58,9 +58,9 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 首个 RED 测试按预期失败在 `./claims` 模块缺失；实现后 focused test 通过，并补跑 `npm run typecheck` 确认类型没有被 Vitest 转译掩盖。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/claims.ts` 和 `src/lib/claims.test.ts`，定义 `ClaimRecord`、lifecycle/status/scope 枚举、稳定 claim id、source refs 归一化、数组去重、score/date/default normalize。
+- 🎯 **关键决策**: Claim 默认更保守：缺失或非法 status 归一到 `needs-review`，非法 lifecycle 归一到 `working`，非法 scope 归一到 `shared`；claim id 基于 normalized page path、anchor 和 claim text hash 生成。
 
 ---
 
@@ -565,12 +565,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Claim Data Foundation | 0 | 4 | ⏳ |
+| M1 | Claim Data Foundation | 1 | 4 | 🚧 |
 | M2 | Controlled Extraction and Writes | 0 | 4 | ⏳ |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **0** | **15** | **⏳** |
+| **总计** | | **1** | **15** | **🚧** |
 
 ---
 
