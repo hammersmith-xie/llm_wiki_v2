@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 12 / 15
+**总体进度**: 🚧 13 / 15
 
 ---
 
@@ -398,9 +398,9 @@ graph TD
 
 **目标**: 把 claim evidence 做成可理解入口，并更新 schema/prompt/documentation。
 **依赖**: M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ 增加 claim evidence UI 组件
+### Task 4.1 ✅ 增加 claim evidence UI 组件
 
 **描述**: 在 Search、Chat、Maintenance 中复用 claim evidence 展示组件，默认折叠，支持状态/置信度/source/path。
 
@@ -418,16 +418,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 键盘可达，状态不只靠颜色表达。
-- [ ] 长 claim/path 不撑破布局。
-- [ ] private/redacted claim 显示最小摘要。
-- [ ] 中英文文案齐全。
+- [x] 键盘可达，状态不只靠颜色表达。
+- [x] 长 claim/path 不撑破布局。
+- [x] private/redacted claim 显示最小摘要。
+- [x] 中英文文案齐全。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Search/Chat 里已有临时内联展示，容易分叉；已抽成 `ClaimEvidenceList` 并替换两处调用。
+- 🔧 **最终实现逻辑**: 新增 `src/components/claims/claim-evidence-list.tsx` 和测试，组件显示 label、status、confidence、redacted、text、source，并限制条数；Search 展示前两条，Chat reference badge 展示一条。
+- 🎯 **关键决策**: 状态和置信度用文本标签表达，不只靠颜色；长文本用 `break-words/truncate` 控制布局；Maintenance 先展示 claim health summary，不在 patrol block 内重复复杂 evidence list。
 
 ---
 
@@ -568,9 +568,9 @@ graph TD
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
 | M3 | Evidence Retrieval and Memory Ops | 4 | 4 | ✅ |
-| M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
+| M4 | UI, Schema, and Docs | 1 | 3 | 🚧 |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **12** | **15** | **🚧** |
+| **总计** | | **13** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T4.1：复用 ClaimEvidenceList 并接入 Search/Chat。 |
 | 2026-05-08 | 完成 T3.4：claim index scan/rebuild dry-run 和 apply audit。 |
 | 2026-05-08 | 完成 T3.3：Memory Ops claim health summary 和 review-only suggestions。 |
 | 2026-05-08 | 完成 T3.2：Search/Chat references 接入 claim evidence explanation。 |

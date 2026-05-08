@@ -32,6 +32,7 @@ import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
 import { CrystallizationDigestPreview } from "@/components/crystallization-digest-preview"
+import { ClaimEvidenceList } from "@/components/claims/claim-evidence-list"
 import type { ClaimEvidence } from "@/lib/search-types"
 
 // Module-level cache of source file names
@@ -621,12 +622,14 @@ function CitedReferencesPanel({ content, savedReferences }: { content: string; s
                 <span className="truncate text-foreground/80">{page.title}</span>
               </button>
               {page.claimEvidence && page.claimEvidence.length > 0 && (
-                <span
-                  className="shrink-0 rounded border border-border/60 bg-background px-1 py-0.5 text-[10px] text-muted-foreground"
-                  title={page.claimEvidence[0].text}
-                >
-                  claim {page.claimEvidence[0].status} {page.claimEvidence[0].confidence}
-                </span>
+                <div className="max-w-[16rem] shrink-0">
+                  <ClaimEvidenceList
+                    evidence={page.claimEvidence}
+                    label="Claims"
+                    limit={1}
+                    compact
+                  />
+                </div>
               )}
             </div>
           )
