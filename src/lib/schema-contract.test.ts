@@ -26,6 +26,16 @@ describe("schema contract", () => {
         requiresPreviewForMetadataPatch: true,
         privateScopeRedaction: true,
       },
+      claimLayer: {
+        sourceOfTruth: "markdown",
+        indexPath: ".llm-wiki/claims.jsonl",
+        anchorFormat: "<!-- claim:claim_xxx -->",
+        derivedArtifact: true,
+        appManagedAnchors: true,
+        highValueOnly: true,
+        requiresReviewForContradictions: true,
+        privateScopeRedaction: true,
+      },
       quality: {
         minQualityScore: 0.55,
         minConfidence: 0.45,
@@ -129,6 +139,12 @@ describe("schema contract", () => {
         sourceOfTruth: "database",
         auditPath: "",
       },
+      claimLayer: {
+        sourceOfTruth: "database",
+        indexPath: "claims.jsonl",
+        anchorFormat: "claim id",
+        derivedArtifact: false,
+      },
     })
 
     expect(result.contract.version).toBe(1)
@@ -146,6 +162,12 @@ describe("schema contract", () => {
       sourceOfTruth: "markdown",
       auditPath: ".llm-wiki/audit.jsonl",
     })
+    expect(result.contract.claimLayer).toMatchObject({
+      sourceOfTruth: "markdown",
+      indexPath: ".llm-wiki/claims.jsonl",
+      anchorFormat: "<!-- claim:claim_xxx -->",
+      derivedArtifact: true,
+    })
     expect(result.warnings).toEqual(expect.arrayContaining([
       "version must be 1; using 1.",
       "name must be a non-empty string; using llm-wiki-v2-default.",
@@ -158,6 +180,10 @@ describe("schema contract", () => {
       "quality.minRelationCount must be a non-negative integer; using 1.",
       "quality.requiredSections must be a non-empty string array; using defaults.",
       "memoryOps.sourceOfTruth must be markdown; using markdown.",
+      "claimLayer.sourceOfTruth must be markdown; using markdown.",
+      "claimLayer.indexPath is app-owned and must be .llm-wiki/claims.jsonl; using default.",
+      "claimLayer.anchorFormat is app-owned and must be <!-- claim:claim_xxx -->; using default.",
+      "claimLayer.derivedArtifact must be true; using true.",
     ]))
   })
 
@@ -176,6 +202,11 @@ frontmatterFields:
     values: [low, medium, high]
 quality:
   minQualityScore: 0.7
+claimLayer:
+  sourceOfTruth: markdown
+  indexPath: .llm-wiki/claims.jsonl
+  anchorFormat: "<!-- claim:claim_xxx -->"
+  derivedArtifact: true
 \`\`\`
 `)
 
@@ -189,6 +220,12 @@ quality:
       values: ["low", "medium", "high"],
     })
     expect(result.contract.quality.minQualityScore).toBe(0.7)
+    expect(result.contract.claimLayer).toMatchObject({
+      sourceOfTruth: "markdown",
+      indexPath: ".llm-wiki/claims.jsonl",
+      anchorFormat: "<!-- claim:claim_xxx -->",
+      derivedArtifact: true,
+    })
   })
 
   it("parses a JSON contract block from schema markdown", () => {

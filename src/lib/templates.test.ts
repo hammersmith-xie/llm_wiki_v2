@@ -31,6 +31,16 @@ describe("wiki templates", () => {
     }
   })
 
+  it("include fact-level claim governance without making the claim index authoritative", () => {
+    for (const template of templates) {
+      expect(template.schema, template.id).toContain("Fact-level claim rules")
+      expect(template.schema, template.id).toContain("<!-- claim:claim_xxx -->")
+      expect(template.schema, template.id).toContain(".llm-wiki/claims.jsonl")
+      expect(template.schema, template.id).toContain("derived claim index")
+      expect(template.schema, template.id).toContain("Do not hand-edit or treat it as the source of truth")
+    }
+  })
+
   it("include parseable machine-readable schema contracts", () => {
     for (const template of templates) {
       expect(template.schema, template.id).toContain("```yaml llm-wiki-schema-contract")
@@ -43,6 +53,7 @@ describe("wiki templates", () => {
         relations: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.relations,
         quality: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.quality,
         memoryOps: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.memoryOps,
+        claimLayer: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer,
       })
     }
   })

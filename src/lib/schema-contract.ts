@@ -50,6 +50,17 @@ export interface LlmWikiMemoryOpsContract {
   privateScopeRedaction: boolean
 }
 
+export interface LlmWikiClaimLayerContract {
+  sourceOfTruth: "markdown"
+  indexPath: string
+  anchorFormat: string
+  derivedArtifact: boolean
+  appManagedAnchors: boolean
+  highValueOnly: boolean
+  requiresReviewForContradictions: boolean
+  privateScopeRedaction: boolean
+}
+
 export interface LlmWikiSchemaContract {
   version: typeof LLM_WIKI_SCHEMA_CONTRACT_VERSION
   name: string
@@ -58,6 +69,7 @@ export interface LlmWikiSchemaContract {
   relations: LlmWikiRelationContract
   quality: LlmWikiQualityContract
   memoryOps: LlmWikiMemoryOpsContract
+  claimLayer: LlmWikiClaimLayerContract
 }
 
 export interface SchemaContractNormalizeResult {
@@ -256,6 +268,16 @@ export const DEFAULT_LLM_WIKI_SCHEMA_CONTRACT: LlmWikiSchemaContract = {
     requiresPreviewForMetadataPatch: true,
     privateScopeRedaction: true,
   },
+  claimLayer: {
+    sourceOfTruth: "markdown",
+    indexPath: ".llm-wiki/claims.jsonl",
+    anchorFormat: "<!-- claim:claim_xxx -->",
+    derivedArtifact: true,
+    appManagedAnchors: true,
+    highValueOnly: true,
+    requiresReviewForContradictions: true,
+    privateScopeRedaction: true,
+  },
 }
 
 export const DEFAULT_LLM_WIKI_SCHEMA_CONTRACT_BLOCK = `\`\`\`yaml llm-wiki-schema-contract
@@ -344,6 +366,15 @@ memoryOps:
   auditPath: .llm-wiki/audit.jsonl
   requiresPreviewForMetadataPatch: true
   privateScopeRedaction: true
+claimLayer:
+  sourceOfTruth: markdown
+  indexPath: .llm-wiki/claims.jsonl
+  anchorFormat: "<!-- claim:claim_xxx -->"
+  derivedArtifact: true
+  appManagedAnchors: true
+  highValueOnly: true
+  requiresReviewForContradictions: true
+  privateScopeRedaction: true
 \`\`\``
 
 export function normalizeSchemaContract(input: unknown): SchemaContractNormalizeResult {
@@ -374,6 +405,7 @@ export function normalizeSchemaContract(input: unknown): SchemaContractNormalize
       relations: normalizeRelations(record.relations, warnings),
       quality: normalizeQuality(record.quality, warnings),
       memoryOps: normalizeMemoryOps(record.memoryOps, warnings),
+      claimLayer: normalizeClaimLayer(record.claimLayer, warnings),
     },
     warnings,
   }
@@ -627,6 +659,52 @@ function normalizeMemoryOps(value: unknown, warnings: string[]): LlmWikiMemoryOp
     privateScopeRedaction:
       booleanValue(record.privateScopeRedaction) ??
       DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.memoryOps.privateScopeRedaction,
+  }
+}
+
+function normalizeClaimLayer(value: unknown, warnings: string[]): LlmWikiClaimLayerContract {
+  if (value !== undefined && (!value || typeof value !== "object" || Array.isArray(value))) {
+    warnings.push("claimLayer must be an object; using default claim layer contract.")
+    return DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer
+  }
+
+  const record = (value ?? {}) as Record<string, unknown>
+  if (record.sourceOfTruth !== undefined && record.sourceOfTruth !== "markdown") {
+    warnings.push("claimLayer.sourceOfTruth must be markdown; using markdown.")
+  }
+  if (
+    record.indexPath !== undefined &&
+    stringValue(record.indexPath) !== DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.indexPath
+  ) {
+    warnings.push("claimLayer.indexPath is app-owned and must be .llm-wiki/claims.jsonl; using default.")
+  }
+  if (
+    record.anchorFormat !== undefined &&
+    stringValue(record.anchorFormat) !== DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.anchorFormat
+  ) {
+    warnings.push("claimLayer.anchorFormat is app-owned and must be <!-- claim:claim_xxx -->; using default.")
+  }
+  if (record.derivedArtifact !== undefined && record.derivedArtifact !== true) {
+    warnings.push("claimLayer.derivedArtifact must be true; using true.")
+  }
+
+  return {
+    sourceOfTruth: "markdown",
+    indexPath: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.indexPath,
+    anchorFormat: DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.anchorFormat,
+    derivedArtifact: true,
+    appManagedAnchors:
+      booleanValue(record.appManagedAnchors) ??
+      DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.appManagedAnchors,
+    highValueOnly:
+      booleanValue(record.highValueOnly) ??
+      DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.highValueOnly,
+    requiresReviewForContradictions:
+      booleanValue(record.requiresReviewForContradictions) ??
+      DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.requiresReviewForContradictions,
+    privateScopeRedaction:
+      booleanValue(record.privateScopeRedaction) ??
+      DEFAULT_LLM_WIKI_SCHEMA_CONTRACT.claimLayer.privateScopeRedaction,
   }
 }
 

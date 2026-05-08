@@ -76,6 +76,17 @@ describe("buildGenerationPrompt language directive", () => {
     expect(prompt).toContain("uses, depends_on, contradicts, supports, supersedes, superseded_by")
   })
 
+  it("documents claim-friendly generation without asking the model to own the derived claim index", () => {
+    const prompt = buildGenerationPrompt("", "", "", "my-paper.pdf")
+    expect(prompt).toContain("Claim-friendly body rules")
+    expect(prompt).toContain("high-value factual claims")
+    expect(prompt).toContain("<!-- claim:claim_xxx -->")
+    expect(prompt).toContain(".llm-wiki/claims.jsonl")
+    expect(prompt).toContain("do not generate claim ids")
+    expect(prompt).toContain("derived app-owned index")
+    expect(prompt).toContain("not a source of truth")
+  })
+
   it("respects user setting regardless of source content language", () => {
     useWikiStore.getState().setOutputLanguage("English")
     const prompt = buildGenerationPrompt("", "", "", "x.pdf", undefined, "私は日本語の文章を書きます")

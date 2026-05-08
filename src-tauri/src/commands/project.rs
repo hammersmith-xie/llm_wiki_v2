@@ -150,6 +150,15 @@ memoryOps:
   auditPath: .llm-wiki/audit.jsonl
   requiresPreviewForMetadataPatch: true
   privateScopeRedaction: true
+claimLayer:
+  sourceOfTruth: markdown
+  indexPath: .llm-wiki/claims.jsonl
+  anchorFormat: "<!-- claim:claim_xxx -->"
+  derivedArtifact: true
+  appManagedAnchors: true
+  highValueOnly: true
+  requiresReviewForContradictions: true
+  privateScopeRedaction: true
 ```
 
 ## Frontmatter
@@ -219,6 +228,16 @@ Memory Ops and audit rules:
 - When evidence reconfirms a page, update `last_confirmed`,
   `reinforcement_count`, and `confidence_reasons` instead of only changing
   prose.
+
+Fact-level claim rules:
+- Markdown pages remain the source of truth for factual statements.
+- The app may insert app-managed claim anchors near high-value factual claims:
+  `<!-- claim:claim_xxx -->`.
+- `.llm-wiki/claims.jsonl` is a derived claim index for search evidence,
+  Memory Ops patrol, rebuild, and audit handoff. Do not hand-edit or treat it as the source of truth.
+- Only extract durable findings, decisions, recommendations, contradictions,
+  and conclusions. Do not create claim records for every sentence.
+- Private claim text and source snippets must be redacted in audit surfaces.
 
 Source pages also include:
 ```yaml
@@ -493,6 +512,12 @@ mod tests {
         assert!(schema.contains("Memory Ops and audit rules"));
         assert!(schema.contains(".llm-wiki/audit.jsonl"));
         assert!(schema.contains("previewing the frontmatter diff"));
+        assert!(schema.contains("Fact-level claim rules"));
+        assert!(schema.contains("anchorFormat: \"<!-- claim:claim_xxx -->\""));
+        assert!(schema.contains("indexPath: .llm-wiki/claims.jsonl"));
+        assert!(schema.contains("derivedArtifact: true"));
+        assert!(schema.contains("derived claim index"));
+        assert!(schema.contains("Do not hand-edit or treat it as the source of truth"));
 
         let _ = fs::remove_dir_all(parent);
     }

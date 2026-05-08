@@ -90,6 +90,16 @@ Memory Ops and audit rules:
   \`reinforcement_count\`, and \`confidence_reasons\` instead of only changing
   prose.
 
+Fact-level claim rules:
+- Markdown pages remain the source of truth for factual statements.
+- The app may insert app-managed claim anchors near high-value factual claims:
+  \`<!-- claim:claim_xxx -->\`.
+- \`.llm-wiki/claims.jsonl\` is a derived claim index for search evidence,
+  Memory Ops patrol, rebuild, and audit handoff. Do not hand-edit or treat it as the source of truth.
+- Only extract durable findings, decisions, recommendations, contradictions,
+  and conclusions. Do not create claim records for every sentence.
+- Private claim text and source snippets must be redacted in audit surfaces.
+
 Source pages also include:
 \`\`\`yaml
 authors: []

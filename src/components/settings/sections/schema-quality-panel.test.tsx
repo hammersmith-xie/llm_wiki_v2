@@ -99,6 +99,16 @@ function scanResult(): ProjectSchemaQualityScanResult {
           requiresPreviewForMetadataPatch: true,
           privateScopeRedaction: true,
         },
+        claimLayer: {
+          sourceOfTruth: "markdown",
+          indexPath: ".llm-wiki/claims.jsonl",
+          anchorFormat: "<!-- claim:claim_xxx -->",
+          derivedArtifact: true,
+          appManagedAnchors: true,
+          highValueOnly: true,
+          requiresReviewForContradictions: true,
+          privateScopeRedaction: true,
+        },
       },
       contractWarnings: [],
       findings: [

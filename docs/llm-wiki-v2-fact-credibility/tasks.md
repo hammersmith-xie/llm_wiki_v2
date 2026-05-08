@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 13 / 15
+**总体进度**: 🚧 14 / 15
 
 ---
 
@@ -431,7 +431,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ 更新 schema contract、templates 和 ingest prompt
+### Task 4.2 ✅ 更新 schema contract、templates 和 ingest prompt
 
 **描述**: 让新项目 schema 和 LLM prompt 知道 claim anchors、claim index 和高价值 claim 生成约束。
 
@@ -449,16 +449,16 @@ graph TD
 - `src/lib/ingest.prompt.test.ts`
 
 **验收**:
-- [ ] TS/Rust schema template parity 测试通过。
-- [ ] Schema 明确 claim index 是 derived governance artifact。
-- [ ] Prompt 要求 only high-value findings/decisions become claim-friendly content。
-- [ ] 不承诺历史全量 claim extraction。
+- [x] TS/Rust schema template parity 测试通过。
+- [x] Schema 明确 claim index 是 derived governance artifact。
+- [x] Prompt 要求 only high-value findings/decisions become claim-friendly content。
+- [x] 不承诺历史全量 claim extraction。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 新增 `claimLayer` 后，`schema-quality-panel` 的测试 fixture 手写 contract 缺字段，`npm run typecheck` 报错；已补齐 fixture。Rust scaffold 也有一份独立 schema 模板，需同步更新。
+- 🔧 **最终实现逻辑**: `schema-contract.ts` 增加 `claimLayer` 机器可读契约和 normalize 规则；TS templates、Tauri create-project schema、ingest generation prompt 都补充 claim anchor、`.llm-wiki/claims.jsonl` 和高价值 claim 约束；测试覆盖 schema contract、templates、prompt 和 Rust scaffold parity。
+- 🎯 **关键决策**: prompt 不要求模型生成 claim id，也不把 claim index 当权威存储；claim anchors 是 app-managed，`.llm-wiki/claims.jsonl` 是可重建的 derived index，历史全量 claim extraction 仍保持非目标。
 
 ---
 
@@ -568,9 +568,9 @@ graph TD
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
 | M3 | Evidence Retrieval and Memory Ops | 4 | 4 | ✅ |
-| M4 | UI, Schema, and Docs | 1 | 3 | 🚧 |
+| M4 | UI, Schema, and Docs | 2 | 3 | 🚧 |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **13** | **15** | **🚧** |
+| **总计** | | **14** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T4.2：schema contract、templates、ingest prompt 和 Rust scaffold 补齐 claim layer。 |
 | 2026-05-08 | 完成 T4.1：复用 ClaimEvidenceList 并接入 Search/Chat。 |
 | 2026-05-08 | 完成 T3.4：claim index scan/rebuild dry-run 和 apply audit。 |
 | 2026-05-08 | 完成 T3.3：Memory Ops claim health summary 和 review-only suggestions。 |
