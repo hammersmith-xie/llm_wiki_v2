@@ -924,10 +924,10 @@ async function writeFileBlocks(
           appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "review", {
             reviewItemId: reviewItem?.id,
           }).catch((err) => {
-              console.warn(
-                `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
-              )
-            })
+            console.warn(
+              `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+            )
+          })
           continue
         }
         appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "accept").catch((err) => {

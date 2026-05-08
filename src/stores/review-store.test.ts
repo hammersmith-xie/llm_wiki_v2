@@ -138,6 +138,33 @@ describe("review-store addItems dedupe", () => {
     expect(useReviewStore.getState().items[0].searchQueries).toEqual(["q1", "q2"])
   })
 
+  it("addItemsAndReturn returns newly added items with generated ids", () => {
+    const [item] = useReviewStore.getState().addItemsAndReturn([
+      makeInput({ title: "Pre-write conflict: A", type: "contradiction" }),
+    ])
+
+    expect(item).toMatchObject({
+      type: "contradiction",
+      title: "Pre-write conflict: A",
+      resolved: false,
+    })
+    expect(item?.id).toMatch(/^review-\d+$/)
+    expect(useReviewStore.getState().items[0].id).toBe(item?.id)
+  })
+
+  it("addItemsAndReturn returns the merged existing item id", () => {
+    const [first] = useReviewStore.getState().addItemsAndReturn([
+      makeInput({ title: "Pre-write conflict: A", affectedPages: ["a.md"] }),
+    ])
+    const [second] = useReviewStore.getState().addItemsAndReturn([
+      makeInput({ title: "Pre-write conflict: A", affectedPages: ["b.md"] }),
+    ])
+
+    expect(second?.id).toBe(first?.id)
+    expect(second?.affectedPages).toEqual(["a.md", "b.md"])
+    expect(useReviewStore.getState().items).toHaveLength(1)
+  })
+
   it("sets affectedPages to undefined when the merged result is empty", () => {
     useReviewStore.getState().addItems([
       makeInput({ title: "A" }),
