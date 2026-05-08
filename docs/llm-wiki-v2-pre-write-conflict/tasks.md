@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 8 / 15
+**总体进度**: 🚧 9 / 15
 
 ---
 
@@ -209,7 +209,7 @@ graph TD
 
 **目标**: 在主要落盘点前执行 conflict gate，风险写入进入 review。
 **依赖**: M2
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ Ingest FILE block 写入前 gate
 
@@ -265,7 +265,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ Review-created page gate
+### Task 3.3 ✅ Review-created page gate
 
 **描述**: 在 `buildReviewCreatedPageWrite` / 实际写入调用链中接入 candidate 构建和 preview，避免人工 review 生成的新页绕过冲突检查。
 
@@ -279,15 +279,15 @@ graph TD
 - 相关 review-page 测试
 
 **验收**:
-- [ ] review-created page 能生成 candidate。
-- [ ] 高风险 candidate 有 review handoff 或明确 safe bypass 理由。
-- [ ] 不破坏既有 claim anchor 插入。
+- [x] review-created page 能生成 candidate。
+- [x] 高风险 candidate 有 review handoff 或明确 safe bypass 理由。
+- [x] 不破坏既有 claim anchor 插入。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 原模块只构造 target/content，实际 UI 直接 `writeFile`；仅新增 helper 不足以覆盖写入链路。已把 Review create-page 分支切到 preview helper。
+- 🔧 **最终实现逻辑**: `buildReviewCreatedPageWrite` 生成 target/content/prewrite candidate；`previewReviewCreatedPageWrite` 返回 preview + write payload；UI 在 review-only 时停止写入并 resolve 为 review-required。
+- 🎯 **关键决策**: 保留原 `buildReviewCreatedPageContent/Target` 以兼容既有测试和调用，新增组合 helper 作为写入前入口。
 
 ---
 
@@ -295,7 +295,7 @@ graph TD
 
 **目标**: 让冲突 preview 的处置有可操作 review 和可追踪 audit。
 **依赖**: M3
-**状态**: ⏳
+**状态**: 🚧
 
 ### Task 4.1 ⏳ Review item 转换与去重
 
@@ -546,11 +546,11 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
-| M3 | 写入路径集成 | 2 | 3 | 🚧 |
-| M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
+| M3 | 写入路径集成 | 3 | 3 | ✅ |
+| M4 | Review / Audit 集成 | 0 | 2 | 🚧 |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **8** | **15** | **🚧** |
+| **总计** | | **9** | **15** | **🚧** |
 
 ---
 

@@ -2,6 +2,11 @@ import { insertClaimAnchor } from "@/lib/claim-anchors"
 import { extractClaimCandidates } from "@/lib/claim-extract"
 import { enrichLifecycleFrontmatter } from "@/lib/lifecycle"
 import { normalizePath } from "@/lib/path-utils"
+import { buildPreWriteCandidate, type PreWriteCandidate } from "@/lib/prewrite-conflict"
+import {
+  previewPreWriteConflict,
+  type PreWritePreviewResolverResult,
+} from "@/lib/prewrite-conflict-resolver"
 import { makeQuerySlug } from "@/lib/wiki-filename"
 import { WIKI_GRAPH_SEED_ARRAY_FIELDS, WIKI_TYPED_RELATION_ARRAY_FIELDS } from "@/lib/wiki-frontmatter-fields"
 
@@ -25,6 +30,16 @@ export interface ReviewCreatedPageTarget {
   fileName: string
   filePath: string
   linkTarget: string
+}
+
+export interface BuildReviewCreatedPageWriteInput
+  extends BuildReviewCreatedPageContentInput,
+    BuildReviewCreatedPageTargetInput {}
+
+export interface ReviewCreatedPageWrite {
+  target: ReviewCreatedPageTarget
+  content: string
+  candidate: PreWriteCandidate
 }
 
 export function buildReviewCreatedPageTarget(
@@ -80,6 +95,47 @@ export function buildReviewCreatedPageContent(
     })
   }
   return enrichLifecycleFrontmatter(frontmatter + body, { today: input.date }).content
+}
+
+export function buildReviewCreatedPageWrite(
+  input: BuildReviewCreatedPageWriteInput,
+): ReviewCreatedPageWrite {
+  const target = buildReviewCreatedPageTarget(input)
+  const title = input.title.trim() || "Untitled"
+  const content = buildReviewCreatedPageContent(input)
+  const relativePath = `wiki/${target.dir}/${target.fileName}`
+  const extraction = extractClaimCandidates({
+    pagePath: relativePath,
+    pageTitle: title,
+    content,
+    today: input.date,
+    lifecycle: lifecycleForPageType(input.pageType),
+  })
+  return {
+    target,
+    content,
+    candidate: buildPreWriteCandidate({
+      kind: "review-created-page",
+      targetPath: relativePath,
+      title,
+      content,
+      sourcePath: "review-create",
+      claimSummaries: extraction.claims.map((candidate) => ({
+        claimId: candidate.claim.claim_id,
+        text: candidate.claim.text,
+        status: candidate.claim.status,
+        pagePath: candidate.claim.page_path,
+      })),
+    }),
+  }
+}
+
+export async function previewReviewCreatedPageWrite(
+  input: BuildReviewCreatedPageWriteInput,
+): Promise<PreWritePreviewResolverResult & { write: ReviewCreatedPageWrite }> {
+  const write = buildReviewCreatedPageWrite(input)
+  const result = await previewPreWriteConflict(input.projectPath, write.candidate)
+  return { ...result, write }
 }
 
 function lifecycleForPageType(pageType: string): "working" | "episodic" | "semantic" | "procedural" | "archived" {

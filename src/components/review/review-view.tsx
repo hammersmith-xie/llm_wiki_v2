@@ -18,8 +18,7 @@ import {
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
 import {
-  buildReviewCreatedPageContent,
-  buildReviewCreatedPageTarget,
+  previewReviewCreatedPageWrite,
 } from "@/lib/review-page"
 import { ReviewCard } from "./review-card"
 
@@ -223,19 +222,23 @@ export function ReviewView() {
 
           // Determine page type from review type or action text
           const pageType = detectPageType(realAction, item.type)
-          const { dir, fileName, filePath, linkTarget } = buildReviewCreatedPageTarget({
+          const conflictResult = await previewReviewCreatedPageWrite({
             projectPath: pp,
-            pageType,
-            title,
-            date,
-          })
-
-          const content = buildReviewCreatedPageContent({
             pageType,
             title,
             description: item.description,
             date,
           })
+          if (conflictResult.preview.decision === "review-only") {
+            console.warn(
+              `[review] create-page skipped by pre-write conflict gate for ${conflictResult.write.target.filePath}: ${conflictResult.preview.classification}`,
+            )
+            resolveWithAudit("Create skipped: pre-write conflict review required", "review-required")
+            return
+          }
+
+          const { dir, fileName, filePath, linkTarget } = conflictResult.write.target
+          const content = conflictResult.write.content
           await writeFile(filePath, content)
 
           // Update index

@@ -1,9 +1,28 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { parseFrontmatter } from "@/lib/frontmatter"
 import {
+  buildReviewCreatedPageWrite,
   buildReviewCreatedPageContent,
   buildReviewCreatedPageTarget,
+  previewReviewCreatedPageWrite,
 } from "./review-page"
+
+vi.mock("@/commands/fs", () => ({
+  listDirectory: vi.fn(async () => []),
+  readFile: vi.fn(async () => ""),
+}))
+
+import { listDirectory, readFile } from "@/commands/fs"
+
+const mockListDirectory = vi.mocked(listDirectory)
+const mockReadFile = vi.mocked(readFile)
+
+beforeEach(() => {
+  mockListDirectory.mockReset()
+  mockListDirectory.mockResolvedValue([])
+  mockReadFile.mockReset()
+  mockReadFile.mockResolvedValue("")
+})
 
 describe("review page creation", () => {
   it("builds v2 lifecycle frontmatter for pages created from review items", () => {
@@ -67,5 +86,63 @@ describe("review page creation", () => {
         date: "2026-05-07",
       }).dir,
     ).toBe("synthesis")
+  })
+
+  it("builds review-created page write candidates without losing claim anchors", () => {
+    const write = buildReviewCreatedPageWrite({
+      projectPath: "/p",
+      pageType: "concept",
+      title: "Conflict Gate",
+      description: "Finding: review-created pages should also pass the conflict gate.",
+      date: "2026-05-08",
+    })
+
+    expect(write.target.filePath).toBe("/p/wiki/concepts/conflict-gate-2026-05-08.md")
+    expect(write.content).toContain("<!-- claim:")
+    expect(write.candidate).toMatchObject({
+      kind: "review-created-page",
+      targetPath: "wiki/concepts/conflict-gate-2026-05-08.md",
+      title: "Conflict Gate",
+    })
+    expect(write.candidate.claimSummaries).toHaveLength(1)
+  })
+
+  it("previews review-created page conflicts before callers write files", async () => {
+    const contradictedClaim = {
+      claim_id: "claim_old",
+      text: "Review-created pages should also pass the conflict gate.",
+      page_path: "wiki/concepts/conflict-gate-2026-05-08.md",
+      source_refs: [],
+      lifecycle: "semantic",
+      status: "contradicted",
+      confidence: "0.30",
+      confidence_reasons: ["contradiction signal present"],
+      last_confirmed: "2026-05-08",
+      reinforcement_count: "0",
+      supports: [],
+      contradicts: [],
+      supersedes: [],
+      superseded_by: [],
+      scope: "shared",
+      created_at: "2026-05-08",
+      updated_at: "2026-05-08",
+    }
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/p/.llm-wiki/claims.jsonl") return `${JSON.stringify(contradictedClaim)}\n`
+      return ""
+    })
+
+    const result = await previewReviewCreatedPageWrite({
+      projectPath: "/p",
+      pageType: "concept",
+      title: "Conflict Gate",
+      description: "Finding: Review-created pages should also pass the conflict gate.",
+      date: "2026-05-08",
+    })
+
+    expect(result.preview).toMatchObject({
+      classification: "possible-contradiction",
+      decision: "review-only",
+    })
   })
 })
