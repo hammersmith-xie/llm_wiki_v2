@@ -1,12 +1,19 @@
+import { listDirectory, readFile } from "@/commands/fs"
 import { readClaimIndex, type ClaimIndexWarning, type ClaimRecord } from "@/lib/claims"
+import { parseFrontmatter } from "@/lib/frontmatter"
+import { getFileStem, normalizePath } from "@/lib/path-utils"
 import {
   type PreWriteCandidate,
   type PreWriteEvidence,
+  summarizePreWriteContent,
 } from "@/lib/prewrite-conflict"
+import type { FileNode } from "@/types/wiki"
 
 export interface PreWriteEvidenceResolverOptions {
   maxClaims?: number
   maxEvidence?: number
+  maxPages?: number
+  maxPageExcerptLength?: number
 }
 
 export interface PreWriteEvidenceResolverResult {
@@ -16,6 +23,8 @@ export interface PreWriteEvidenceResolverResult {
 
 const DEFAULT_MAX_CLAIMS = 40
 const DEFAULT_MAX_EVIDENCE = 10
+const DEFAULT_MAX_PAGES = 20
+const DEFAULT_PAGE_EXCERPT_LENGTH = 220
 
 export async function resolvePreWriteClaimEvidence(
   projectPath: string,
@@ -32,6 +41,22 @@ export async function resolvePreWriteClaimEvidence(
     .sort(compareEvidence)
     .slice(0, maxEvidence)
   return { evidence, warnings: index.warnings }
+}
+
+export async function resolvePreWritePageEvidence(
+  projectPath: string,
+  candidate: PreWriteCandidate,
+  options: PreWriteEvidenceResolverOptions = {},
+): Promise<PreWriteEvidenceResolverResult> {
+  const maxPages = Math.max(0, Math.floor(options.maxPages ?? DEFAULT_MAX_PAGES))
+  const maxEvidence = Math.max(0, Math.floor(options.maxEvidence ?? DEFAULT_MAX_EVIDENCE))
+  const pages = await readWikiPageSummaries(projectPath, maxPages, options.maxPageExcerptLength)
+  const evidence = pages
+    .map((page) => pageToEvidence(candidate, page))
+    .filter((item): item is PreWriteEvidence => Boolean(item))
+    .sort(compareEvidence)
+    .slice(0, maxEvidence)
+  return { evidence, warnings: [] }
 }
 
 function claimToEvidence(
@@ -132,6 +157,111 @@ function compareEvidence(a: PreWriteEvidence, b: PreWriteEvidence): number {
   return [a.pagePath ?? "", a.claimId ?? ""].join("\n").localeCompare(
     [b.pagePath ?? "", b.claimId ?? ""].join("\n"),
   )
+}
+
+interface WikiPageSummary {
+  path: string
+  title: string
+  excerpt: string
+}
+
+async function readWikiPageSummaries(
+  projectPath: string,
+  maxPages: number,
+  maxExcerptLength = DEFAULT_PAGE_EXCERPT_LENGTH,
+): Promise<WikiPageSummary[]> {
+  let tree: FileNode[]
+  try {
+    tree = await listDirectory(`${normalizeProjectPath(projectPath)}/wiki`)
+  } catch {
+    return []
+  }
+
+  const files = flattenMarkdownFiles(tree).slice(0, maxPages)
+  const pages: WikiPageSummary[] = []
+  for (const file of files) {
+    try {
+      const content = await readFile(file.path)
+      const relativePath = toProjectRelativePath(projectPath, file.path)
+      pages.push({
+        path: relativePath,
+        title: pageTitle(content, file.name),
+        excerpt: summarizePreWriteContent(content, maxExcerptLength),
+      })
+    } catch {
+      // Ignore unreadable pages; later combined preview can conservatively
+      // downgrade only when the resolver itself fails.
+    }
+  }
+  return pages
+}
+
+function pageToEvidence(
+  candidate: PreWriteCandidate,
+  page: WikiPageSummary,
+): PreWriteEvidence | null {
+  if (samePath(candidate.targetPath, page.path)) {
+    return {
+      kind: "page",
+      pagePath: page.path,
+      pageTitle: page.title,
+      pageExcerpt: page.excerpt,
+      score: 1,
+      reasons: ["target path already exists"],
+    }
+  }
+
+  const candidateTitle = normalizeTitle(candidate.title ?? "")
+  if (candidateTitle && candidateTitle === normalizeTitle(page.title)) {
+    return {
+      kind: "page",
+      pagePath: page.path,
+      pageTitle: page.title,
+      pageExcerpt: page.excerpt,
+      score: 0.85,
+      reasons: ["same title exists at a different path"],
+    }
+  }
+
+  return null
+}
+
+function flattenMarkdownFiles(nodes: readonly FileNode[]): FileNode[] {
+  const files: FileNode[] = []
+  for (const node of nodes) {
+    if (node.is_dir && node.children) {
+      files.push(...flattenMarkdownFiles(node.children))
+    } else if (!node.is_dir && node.name.endsWith(".md")) {
+      files.push(node)
+    }
+  }
+  return files
+}
+
+function pageTitle(content: string, fileName: string): string {
+  const parsed = parseFrontmatter(content)
+  const frontmatterTitle = stringValue(parsed.frontmatter?.title)
+  if (frontmatterTitle) return frontmatterTitle
+  const heading = content.match(/^\s{0,3}#\s+(.+?)\s*$/m)?.[1]?.trim()
+  return heading || getFileStem(fileName)
+}
+
+function normalizeTitle(title: string): string {
+  return title.replace(/\s+/g, " ").trim().toLowerCase()
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function normalizeProjectPath(projectPath: string): string {
+  return normalizePath(projectPath).replace(/\/$/, "")
+}
+
+function toProjectRelativePath(projectPath: string, path: string): string {
+  const pp = normalizeProjectPath(projectPath)
+  const normalized = normalizePath(path)
+  return normalized.startsWith(`${pp}/`) ? normalized.slice(pp.length + 1) : normalized
 }
 
 function uniqueStrings(values: readonly string[]): string[] {

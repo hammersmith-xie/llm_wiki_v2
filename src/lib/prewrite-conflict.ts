@@ -62,6 +62,7 @@ export interface PreWriteEvidence {
   kind: PreWriteEvidenceKind
   pagePath?: string
   pageTitle?: string
+  pageExcerpt?: string
   claimId?: string
   claimText?: string
   status?: ClaimStatus

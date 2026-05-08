@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 4 / 15
+**总体进度**: 🚧 5 / 15
 
 ---
 
@@ -152,7 +152,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 解析页面级证据
+### Task 2.2 ✅ 解析页面级证据
 
 **描述**: resolver 读取目标路径、同标题、alias/related 指向的页面摘要，生成 page evidence。
 
@@ -167,15 +167,15 @@ graph TD
 - `src/lib/wiki-alias-index.ts` (按需复用)
 
 **验收**:
-- [ ] target path 已存在时返回 same-target evidence。
-- [ ] 同标题不同路径返回 duplicate evidence。
-- [ ] evidence 数量和摘要长度受限。
+- [x] target path 已存在时返回 same-target evidence。
+- [x] 同标题不同路径返回 duplicate evidence。
+- [x] evidence 数量和摘要长度受限。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初始测试要求 `pageExcerpt` 字段，基础 evidence 类型未声明；已补入类型并保持摘要上限。
+- 🔧 **最终实现逻辑**: `resolvePreWritePageEvidence` 读取 bounded wiki Markdown，解析 frontmatter/title/heading，生成 same-target 和 same-title-different-path evidence。
+- 🎯 **关键决策**: 页面 resolver 只处理确定性证据，不做模糊全文相似扫描，避免写入路径性能和误报失控。
 
 ---
 
@@ -545,12 +545,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
-| M2 | 本地证据解析 | 1 | 3 | 🚧 |
+| M2 | 本地证据解析 | 2 | 3 | 🚧 |
 | M3 | 写入路径集成 | 0 | 3 | ⏳ |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **4** | **15** | **🚧** |
+| **总计** | | **5** | **15** | **🚧** |
 
 ---
 

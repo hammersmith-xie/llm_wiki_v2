@@ -1,17 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { normalizeClaimRecord } from "./claims"
 import { buildPreWriteCandidate } from "./prewrite-conflict"
-import { resolvePreWriteClaimEvidence } from "./prewrite-conflict-resolver"
+import {
+  resolvePreWriteClaimEvidence,
+  resolvePreWritePageEvidence,
+} from "./prewrite-conflict-resolver"
 
 vi.mock("@/commands/fs", () => ({
+  listDirectory: vi.fn(),
   readFile: vi.fn(),
 }))
 
-import { readFile } from "@/commands/fs"
+import { listDirectory, readFile } from "@/commands/fs"
 
+const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
 
 beforeEach(() => {
+  mockListDirectory.mockReset()
   mockReadFile.mockReset()
 })
 
@@ -113,5 +119,95 @@ describe("pre-write claim evidence resolver", () => {
         message: expect.stringContaining("Invalid claim JSON"),
       }),
     ])
+  })
+})
+
+describe("pre-write page evidence resolver", () => {
+  it("returns same-target page evidence when the target already exists", async () => {
+    mockListDirectory.mockResolvedValue([{
+      name: "search.md",
+      path: "/project/wiki/concepts/search.md",
+      is_dir: false,
+    }])
+    mockReadFile.mockResolvedValue([
+      "---",
+      "title: Hybrid Search",
+      "---",
+      "",
+      "# Hybrid Search",
+      "",
+      "Existing page body.",
+    ].join("\n"))
+
+    const candidate = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      title: "Hybrid Search",
+      content: "# Hybrid Search",
+    })
+
+    const result = await resolvePreWritePageEvidence("/project", candidate)
+
+    expect(result.evidence).toEqual([
+      expect.objectContaining({
+        kind: "page",
+        pagePath: "wiki/concepts/search.md",
+        pageTitle: "Hybrid Search",
+        score: 1,
+      }),
+    ])
+    expect(result.evidence[0]?.reasons).toContain("target path already exists")
+  })
+
+  it("returns duplicate page evidence for the same title at a different path", async () => {
+    mockListDirectory.mockResolvedValue([{
+      name: "hybrid-search.md",
+      path: "/project/wiki/patterns/hybrid-search.md",
+      is_dir: false,
+    }])
+    mockReadFile.mockResolvedValue("# Hybrid Search\n\nExisting page body.")
+
+    const candidate = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      title: "Hybrid Search",
+      content: "# Hybrid Search",
+    })
+
+    const result = await resolvePreWritePageEvidence("/project", candidate)
+
+    expect(result.evidence).toEqual([
+      expect.objectContaining({
+        kind: "page",
+        pagePath: "wiki/patterns/hybrid-search.md",
+        pageTitle: "Hybrid Search",
+        score: 0.85,
+      }),
+    ])
+    expect(result.evidence[0]?.reasons).toContain("same title exists at a different path")
+  })
+
+  it("bounds page evidence and page excerpts", async () => {
+    mockListDirectory.mockResolvedValue(Array.from({ length: 6 }, (_, index) => ({
+      name: `search-${index}.md`,
+      path: `/project/wiki/concepts/search-${index}.md`,
+      is_dir: false,
+    })))
+    mockReadFile.mockResolvedValue(`# Hybrid Search\n\n${"x".repeat(500)}`)
+
+    const candidate = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      title: "Hybrid Search",
+      content: "# Hybrid Search",
+    })
+
+    const result = await resolvePreWritePageEvidence("/project", candidate, {
+      maxEvidence: 2,
+      maxPageExcerptLength: 120,
+    })
+
+    expect(result.evidence).toHaveLength(2)
+    expect(result.evidence[0]?.pageExcerpt?.length).toBeLessThanOrEqual(120)
   })
 })
