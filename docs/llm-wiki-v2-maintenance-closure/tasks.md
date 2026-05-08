@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: ⏳ 0 / 18
+**总体进度**: 🚧 1 / 18
 
 ---
 
@@ -35,9 +35,9 @@ graph TD
 
 **目标**: 让 Memory Ops 复用 pre-write conflict resolver，发现历史遗留 duplicate / contradiction / supersession 风险。
 **依赖**: Spec A/B 已完成
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 1.1 ⏳ 建立 maintenance candidate builder
+### Task 1.1 ✅ 建立 maintenance candidate builder
 
 **描述**: 将已有 wiki page 转成 `PreWriteCandidate`，支持历史巡检场景。
 
@@ -52,15 +52,15 @@ graph TD
 - `src/lib/memory-ops-conflicts.test.ts` (新建)
 
 **验收**:
-- [ ] 支持 `maintenance-page` 或等价明确 kind。
-- [ ] candidate id 对同一 page 稳定。
-- [ ] content summary 脱敏并限长。
+- [x] 支持 `maintenance-page` 或等价明确 kind。
+- [x] candidate id 对同一 page 稳定。
+- [x] content summary 脱敏并限长。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: TDD 首轮按预期失败在 `./memory-ops-conflicts` 模块不存在。
+- 🔧 **最终实现逻辑**: `PreWriteCandidateKind` 增加 `maintenance-page`；新增 `buildMemoryOpsConflictCandidate`，把 `MemoryOpsWikiPage` 转成稳定 target/title/content summary candidate。
+- 🎯 **关键决策**: 历史巡检复用 pre-write candidate 模型，而不是新建一套 Memory Ops 专用冲突类型，后续 resolver/classifier 可以直接复用。
 
 ---
 
@@ -571,13 +571,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 历史冲突巡检 | 0 | 4 | ⏳ |
+| M1 | 历史冲突巡检 | 1 | 4 | 🚧 |
 | M2 | 自定义 Search Health scenarios | 0 | 4 | ⏳ |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **0** | **18** | **⏳** |
+| **总计** | | **1** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.1：maintenance page candidate builder |
 | 2026-05-08 | 初稿，18 个任务，按中量级 5 轮审核 |
 
 ---

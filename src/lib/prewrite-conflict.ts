@@ -6,6 +6,7 @@ export const PREWRITE_CANDIDATE_KINDS = [
   "ingest-page",
   "crystallization-page",
   "review-created-page",
+  "maintenance-page",
 ] as const
 
 export const PREWRITE_CLASSIFICATIONS = [
