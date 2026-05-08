@@ -26,6 +26,7 @@ import { writeExtractedClaimArtifacts } from "@/lib/claim-write"
 import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 import { buildPreWriteCandidate } from "@/lib/prewrite-conflict"
+import { preWriteConflictToReviewItem } from "@/lib/prewrite-conflict-review"
 import { previewPreWriteConflict } from "@/lib/prewrite-conflict-resolver"
 
 /**
@@ -911,6 +912,9 @@ async function writeFileBlocks(
           const msg = `Pre-write conflict review required for "${relativePath}": ${conflict.preview.classification}.`
           console.warn(`[ingest] ${msg}`)
           warnings.push(msg)
+          useReviewStore.getState().addItems([
+            preWriteConflictToReviewItem(conflict.preview),
+          ])
           continue
         }
         await writeFile(fullPath, toWrite)

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { parseFrontmatter } from "@/lib/frontmatter"
+import { preWriteConflictToReviewItem } from "@/lib/prewrite-conflict-review"
 import {
   buildReviewCreatedPageWrite,
   buildReviewCreatedPageContent,
@@ -143,6 +144,10 @@ describe("review page creation", () => {
     expect(result.preview).toMatchObject({
       classification: "possible-contradiction",
       decision: "review-only",
+    })
+    expect(preWriteConflictToReviewItem(result.preview)).toMatchObject({
+      type: "contradiction",
+      affectedPages: ["wiki/concepts/conflict-gate-2026-05-08.md"],
     })
   })
 })

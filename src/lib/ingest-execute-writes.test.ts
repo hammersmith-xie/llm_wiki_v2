@@ -24,6 +24,7 @@ import { appendFile, readFile, writeFile, listDirectory, createDirectory } from 
 import { streamChat } from "./llm-client"
 import { executeIngestWrites } from "./ingest"
 import { useChatStore } from "@/stores/chat-store"
+import { useReviewStore } from "@/stores/review-store"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 const mockAppendFile = vi.mocked(appendFile)
@@ -71,6 +72,7 @@ beforeEach(() => {
     mode: "chat",
     ingestSource: null,
   })
+  useReviewStore.setState({ items: [] })
 })
 
 describe("executeIngestWrites", () => {
@@ -249,5 +251,12 @@ describe("executeIngestWrites", () => {
       "/project/wiki/concepts/safe.md",
       expect.stringContaining("safe writes should still land"),
     )
+    const reviewItems = useReviewStore.getState().items
+    expect(reviewItems).toHaveLength(1)
+    expect(reviewItems[0]).toMatchObject({
+      type: "contradiction",
+      title: "Pre-write conflict: wiki/concepts/risky.md",
+      affectedPages: ["wiki/concepts/risky.md"],
+    })
   })
 })

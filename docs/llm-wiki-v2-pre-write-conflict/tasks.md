@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 9 / 15
+**总体进度**: 🚧 10 / 15
 
 ---
 
@@ -297,7 +297,7 @@ graph TD
 **依赖**: M3
 **状态**: 🚧
 
-### Task 4.1 ⏳ Review item 转换与去重
+### Task 4.1 ✅ Review item 转换与去重
 
 **描述**: 新建 `src/lib/prewrite-conflict-review.ts`，将 review-only preview 转为现有 `ReviewItem`。
 
@@ -312,15 +312,15 @@ graph TD
 - `src/stores/review-store.ts` (只复用接口，尽量不改)
 
 **验收**:
-- [ ] possible contradiction 转 `type: "contradiction"`。
-- [ ] duplicate/uncertain/supersession 转可确认 review。
-- [ ] affected pages、search queries、options 非空。
+- [x] possible contradiction 转 `type: "contradiction"`。
+- [x] duplicate/uncertain/supersession 转可确认 review。
+- [x] affected pages、search queries、options 非空。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 需要避免在纯转换层依赖 Zustand store；先实现 pure converter，再由 ingest/UI 调用。
+- 🔧 **最终实现逻辑**: `preWriteConflictToReviewItem` 将 review-only preview 转成现有 ReviewItem draft；ingest risk 分支调用 `useReviewStore.getState().addItems`，复用 store 去重。
+- 🎯 **关键决策**: contradiction 单独映射为 `type: "contradiction"`；duplicate/supersession/uncertain 先走 `confirm`，因为本期不自动裁决。
 
 ---
 
@@ -547,10 +547,10 @@ graph TD
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
-| M4 | Review / Audit 集成 | 0 | 2 | 🚧 |
+| M4 | Review / Audit 集成 | 1 | 2 | 🚧 |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **9** | **15** | **🚧** |
+| **总计** | | **10** | **15** | **🚧** |
 
 ---
 
