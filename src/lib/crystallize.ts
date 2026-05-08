@@ -1,11 +1,13 @@
 import { readFile, writeFile } from "@/commands/fs"
-import { appendAuditEvent } from "@/lib/audit-timeline"
 import { insertClaimAnchor } from "@/lib/claim-anchors"
 import {
   extractClaimCandidates,
   type ClaimExtractionDigestInput,
 } from "@/lib/claim-extract"
-import { appendClaimRecords, claimRecordAuditSummary } from "@/lib/claims"
+import {
+  writeExtractedClaimArtifacts,
+  type ClaimWriteArtifactResult,
+} from "@/lib/claim-write"
 import {
   appendLifecycleAuditEvent,
   enrichLifecycleFrontmatter,
@@ -45,12 +47,7 @@ export interface CrystallizeClaimExtractionOptions {
   maxClaims?: number
 }
 
-export interface CrystallizeClaimWriteResult {
-  claimCount: number
-  warnings: string[]
-  error?: string
-  auditError?: string
-}
+export type CrystallizeClaimWriteResult = ClaimWriteArtifactResult
 
 export interface CrystallizeCandidateAuditMetadata {
   origin: string
@@ -119,7 +116,7 @@ export async function writeCrystallizedQueryPage(
 
   const enriched = enrichLifecycleFrontmatter(frontmatter + body + "\n")
   await writeFile(filePath, enriched.content)
-  const claimWrite = await writeClaimArtifacts({
+  const claimWrite = await writeExtractedClaimArtifacts({
     projectPath: pp,
     relativePath,
     extraction: claimExtraction,
@@ -180,56 +177,6 @@ export async function writeCrystallizedQueryPage(
     sources,
     claimWrite,
   }
-}
-
-async function writeClaimArtifacts(input: {
-  projectPath: string
-  relativePath: string
-  extraction: ReturnType<typeof extractClaimCandidates>
-}): Promise<CrystallizeClaimWriteResult> {
-  const claimCount = input.extraction.claims.length
-  const warnings = [...input.extraction.warnings]
-  if (claimCount === 0) return { claimCount, warnings }
-
-  try {
-    const appendResult = await appendClaimRecords(
-      input.projectPath,
-      input.extraction.claims.map((candidate) => candidate.claim),
-    )
-    warnings.push(...appendResult.warnings)
-  } catch (err) {
-    return {
-      claimCount,
-      warnings,
-      error: err instanceof Error ? err.message : String(err),
-    }
-  }
-
-  try {
-    await appendAuditEvent(input.projectPath, {
-      action: "claim.write",
-      category: "lifecycle",
-      actor: "system",
-      pagePath: input.relativePath,
-      targetPath: ".llm-wiki/claims.jsonl",
-      changes: { status: "applied" },
-      after: {
-        claimCount,
-        claims: input.extraction.claims.map((candidate) =>
-          claimRecordAuditSummary(candidate.claim),
-        ),
-      },
-      reasons: [`wrote ${claimCount} claim record${claimCount === 1 ? "" : "s"}`],
-    })
-  } catch (err) {
-    return {
-      claimCount,
-      warnings,
-      auditError: err instanceof Error ? err.message : String(err),
-    }
-  }
-
-  return { claimCount, warnings }
 }
 
 async function sourceNameFromReference(

@@ -20,6 +20,9 @@ import {
   appendLifecycleAuditEvent,
   enrichLifecycleFrontmatter,
 } from "@/lib/lifecycle"
+import { insertClaimAnchor } from "@/lib/claim-anchors"
+import { extractClaimCandidates } from "@/lib/claim-extract"
+import { writeExtractedClaimArtifacts } from "@/lib/claim-write"
 import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
@@ -874,8 +877,30 @@ async function writeFileBlocks(
           },
         )
         const enriched = enrichLifecycleFrontmatter(merged)
-        const toWrite = enriched.content
+        const claimExtraction = extractClaimCandidates({
+          pagePath: relativePath,
+          content: enriched.content,
+          sourceRefs: claimSourceRefsForIngest(sourceFileName),
+        })
+        let toWrite = enriched.content
+        for (const candidate of claimExtraction.claims) {
+          toWrite = insertClaimAnchor(toWrite, {
+            claimId: candidate.claim.claim_id,
+            claimText: candidate.anchorText,
+            pageAnchor: candidate.claim.page_anchor,
+          })
+        }
         await writeFile(fullPath, toWrite)
+        const claimWrite = await writeExtractedClaimArtifacts({
+          projectPath,
+          relativePath,
+          extraction: claimExtraction,
+        })
+        if (claimWrite.error || claimWrite.auditError) {
+          warnings.push(
+            `Claim artifact write failed for "${relativePath}": ${claimWrite.error ?? claimWrite.auditError}`,
+          )
+        }
         if (enriched.changed) {
           appendLifecycleAuditEvent(projectPath, {
             action: "lifecycle.enrich",
@@ -905,6 +930,15 @@ async function writeFileBlocks(
   }
 
   return { writtenPaths, warnings, hardFailures }
+}
+
+function claimSourceRefsForIngest(sourceFileName: string): { path: string }[] {
+  const normalized = normalizePath(sourceFileName).trim()
+  if (!normalized || normalized === "chat") return []
+  if (normalized.startsWith("raw/") || normalized.startsWith("wiki/")) {
+    return [{ path: normalized }]
+  }
+  return [{ path: `raw/sources/${normalized}` }]
 }
 
 const REVIEW_BLOCK_REGEX = /---REVIEW:\s*(\w[\w-]*)\s*\|\s*(.+?)\s*---\n([\s\S]*?)---END REVIEW---/g

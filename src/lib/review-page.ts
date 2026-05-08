@@ -1,3 +1,5 @@
+import { insertClaimAnchor } from "@/lib/claim-anchors"
+import { extractClaimCandidates } from "@/lib/claim-extract"
 import { enrichLifecycleFrontmatter } from "@/lib/lifecycle"
 import { normalizePath } from "@/lib/path-utils"
 import { makeQuerySlug } from "@/lib/wiki-filename"
@@ -62,8 +64,26 @@ export function buildReviewCreatedPageContent(
     "",
   ].join("\n")
 
-  const body = `# ${title}\n\n${description}\n`
+  let body = `# ${title}\n\n${description}\n`
+  const extraction = extractClaimCandidates({
+    pagePath: `wiki/${directoryForPageType(input.pageType)}/${makeQuerySlug(title)}-${input.date}.md`,
+    pageTitle: title,
+    content: body,
+    today: input.date,
+    lifecycle: lifecycleForPageType(input.pageType),
+  })
+  for (const candidate of extraction.claims) {
+    body = insertClaimAnchor(body, {
+      claimId: candidate.claim.claim_id,
+      claimText: candidate.anchorText,
+      pageAnchor: candidate.claim.page_anchor,
+    })
+  }
   return enrichLifecycleFrontmatter(frontmatter + body, { today: input.date }).content
+}
+
+function lifecycleForPageType(pageType: string): "working" | "episodic" | "semantic" | "procedural" | "archived" {
+  return pageType === "query" ? "episodic" : "semantic"
 }
 
 function directoryForPageType(pageType: string): string {

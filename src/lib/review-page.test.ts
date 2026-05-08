@@ -10,7 +10,7 @@ describe("review page creation", () => {
     const content = buildReviewCreatedPageContent({
       pageType: "concept",
       title: 'Agent Search: "Tavily"',
-      description: "Review item body.",
+      description: "Conclusion: Tavily should be treated as an external search provider.",
       date: "2026-05-07",
     })
 
@@ -39,7 +39,8 @@ describe("review page creation", () => {
     expect(parsed.frontmatter?.supersedes).toEqual([])
     expect(parsed.frontmatter?.superseded_by).toEqual([])
     expect(parsed.body).toContain("# Agent Search: \"Tavily\"")
-    expect(parsed.body).toContain("Review item body.")
+    expect(parsed.body).toContain("<!-- claim:")
+    expect(parsed.body).toContain("Conclusion: Tavily should be treated as an external search provider.")
   })
 
   it("maps review-created page targets to schema directories with unicode-safe slugs", () => {

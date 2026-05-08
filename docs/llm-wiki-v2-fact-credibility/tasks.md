@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 6 / 15
+**总体进度**: 🚧 7 / 15
 
 ---
 
@@ -211,7 +211,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ 接入 ingest / review-created page 写入路径
+### Task 2.3 ✅ 接入 ingest / review-created page 写入路径
 
 **描述**: 在 auto-ingest content pages 和 review create page helper 中为高价值 findings/decisions 写入 claim records。
 
@@ -228,16 +228,16 @@ graph TD
 - `src/lib/review-page.test.ts`
 
 **验收**:
-- [ ] ingest 写入 content pages 后 best-effort 生成 claims。
-- [ ] review-created pages 包含 claim-friendly anchors。
-- [ ] index/log/overview 等 listing pages 不生成 claims。
-- [ ] claim extraction 失败不阻断 ingest。
+- [x] ingest 写入 content pages 后 best-effort 生成 claims。
+- [x] review-created pages 包含 claim-friendly anchors。
+- [x] index/log/overview 等 listing pages 不生成 claims。
+- [x] claim extraction 失败不阻断 ingest。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 需要避免复制 T2.2 的 best-effort claim 写入逻辑；已抽出 `writeExtractedClaimArtifacts` 供 crystallize 和 ingest 共用。
+- 🔧 **最终实现逻辑**: ingest content page 写入分支在 lifecycle enrich 后提取 claim、插入 anchors、写入 claim index/audit；review-created page builder 为 claim-friendly description 插入 anchors；index/log/overview listing pages 保持跳过。
+- 🎯 **关键决策**: claim artifact 写入失败只追加 ingest warning，不进入 hard failure，也不影响原页面写入和 memory.write audit；review page builder 只负责页面 anchor，不在纯 builder 中做文件副作用。
 
 ---
 
@@ -566,11 +566,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
-| M2 | Controlled Extraction and Writes | 2 | 4 | 🚧 |
+| M2 | Controlled Extraction and Writes | 3 | 4 | 🚧 |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **6** | **15** | **🚧** |
+| **总计** | | **7** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.3：ingest/review-created page 接入 claim anchors 和 best-effort claim artifacts。 |
 | 2026-05-08 | 完成 T2.2：digest/Save to Wiki 写入 claim anchors、claim records 和 claim audit。 |
 | 2026-05-08 | 完成 T2.1：受控写入路径 claim extraction helper。 |
 | 2026-05-08 | 完成 T1.4：claim-level confidence scoring 和写回 helper。 |

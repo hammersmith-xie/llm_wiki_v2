@@ -6,6 +6,7 @@ vi.mock("./llm-client", () => ({
 }))
 
 vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(),
   readFile: vi.fn(),
   writeFile: vi.fn(),
   listDirectory: vi.fn(),
@@ -19,12 +20,13 @@ vi.mock("@/lib/wiki-automation-events", () => ({
   })),
 }))
 
-import { readFile, writeFile, createDirectory } from "@/commands/fs"
+import { appendFile, readFile, writeFile, createDirectory } from "@/commands/fs"
 import { streamChat } from "./llm-client"
 import { executeIngestWrites } from "./ingest"
 import { useChatStore } from "@/stores/chat-store"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
+const mockAppendFile = vi.mocked(appendFile)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
@@ -43,6 +45,8 @@ function fakeLlmConfig(): LlmConfig {
 }
 
 beforeEach(() => {
+  mockAppendFile.mockReset()
+  mockAppendFile.mockResolvedValue(undefined as unknown as void)
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
   mockCreateDirectory.mockReset()
@@ -83,7 +87,7 @@ describe("executeIngestWrites", () => {
         "",
         "# Chat Written",
         "",
-        "Generated from a chat discussion.",
+        "Conclusion: chat-written pages should preserve claim-level evidence.",
         "---END FILE---",
       ].join("\n"))
       callbacks.onDone()
@@ -96,6 +100,7 @@ describe("executeIngestWrites", () => {
       ([path]) => path === "/project/wiki/concepts/chat-written.md",
     )
     expect(pageWrite?.[1]).toContain("lifecycle: semantic")
+    expect(pageWrite?.[1]).toContain("<!-- claim:")
     expect(pageWrite?.[1]).toContain("confidence:")
     expect(pageWrite?.[1]).toContain("review_status:")
     expect(mockRecordWikiAutomationEvent).toHaveBeenCalledWith(
@@ -107,5 +112,49 @@ describe("executeIngestWrites", () => {
         status: "applied",
       }),
     )
+    const claimCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/claims.jsonl")
+    expect(claimCall?.[1]).toContain("chat-written pages should preserve claim-level evidence")
+  })
+
+  it("does not generate claims for listing pages and does not block on claim write failure", async () => {
+    mockAppendFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/claims.jsonl") throw new Error("claim disk full")
+    })
+    mockStreamChat.mockImplementation(async (_config, _messages, callbacks) => {
+      callbacks.onToken([
+        "---FILE: wiki/index.md---",
+        "# Wiki Index",
+        "",
+        "Conclusion: listing pages should not become claim sources.",
+        "---END FILE---",
+        "---FILE: wiki/concepts/claimable.md---",
+        "---",
+        "type: concept",
+        "title: Claimable",
+        "created: 2026-05-07",
+        "updated: 2026-05-07",
+        "tags: []",
+        "related: []",
+        "sources: []",
+        "---",
+        "",
+        "# Claimable",
+        "",
+        "Finding: claim write failure should not block ingest writes.",
+        "---END FILE---",
+      ].join("\n"))
+      callbacks.onDone()
+    })
+
+    const writtenPaths = await executeIngestWrites("/project", fakeLlmConfig())
+
+    expect(writtenPaths).toEqual([
+      "/project/wiki/index.md",
+      "/project/wiki/concepts/claimable.md",
+    ])
+    const indexWrite = mockWriteFile.mock.calls.find(([path]) => path === "/project/wiki/index.md")
+    expect(indexWrite?.[1]).not.toContain("<!-- claim:")
+    const contentWrite = mockWriteFile.mock.calls.find(([path]) => path === "/project/wiki/concepts/claimable.md")
+    expect(contentWrite?.[1]).toContain("<!-- claim:")
   })
 })
