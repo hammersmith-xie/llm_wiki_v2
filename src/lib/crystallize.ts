@@ -138,6 +138,11 @@ export async function writeCrystallizedQueryPage(
       })),
     }),
   )
+  await appendPreWriteConflictAuditEvent(pp, conflictResult.preview, "preview").catch((err) => {
+    console.warn(
+      `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+    )
+  })
   if (conflictResult.preview.decision === "review-only") {
     await appendPreWriteConflictAuditEvent(pp, conflictResult.preview, "review").catch((err) => {
       console.warn(

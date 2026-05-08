@@ -260,11 +260,19 @@ describe("executeIngestWrites", () => {
     })
     expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"conflict.preview\""),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"conflict.review\""),
     )
     expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"conflict.accept\""),
     )
+    const reviewAudit = mockAppendFile.mock.calls.find(([, contents]) =>
+      String(contents).includes("\"action\":\"conflict.review\"")
+    )
+    expect(reviewAudit?.[1]).toContain("\"reviewItemId\":\"review-")
   })
 })

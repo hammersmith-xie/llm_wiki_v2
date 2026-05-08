@@ -244,6 +244,10 @@ describe("writeCrystallizedQueryPage", () => {
     expect(result.claimWrite).toBeUndefined()
     expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"conflict.preview\""),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"conflict.review\""),
     )
   })

@@ -909,18 +909,25 @@ async function writeFileBlocks(
             })),
           }),
         )
+        appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "preview").catch((err) => {
+          console.warn(
+            `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+          )
+        })
         if (conflict.preview.decision === "review-only") {
           const msg = `Pre-write conflict review required for "${relativePath}": ${conflict.preview.classification}.`
           console.warn(`[ingest] ${msg}`)
           warnings.push(msg)
-          useReviewStore.getState().addItems([
+          const [reviewItem] = useReviewStore.getState().addItemsAndReturn([
             preWriteConflictToReviewItem(conflict.preview),
           ])
-          appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "review").catch((err) => {
-            console.warn(
-              `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
-            )
-          })
+          appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "review", {
+            reviewItemId: reviewItem?.id,
+          }).catch((err) => {
+              console.warn(
+                `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+              )
+            })
           continue
         }
         appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "accept").catch((err) => {

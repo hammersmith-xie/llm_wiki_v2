@@ -24,6 +24,7 @@ interface ReviewState {
   items: ReviewItem[]
   addItem: (item: Omit<ReviewItem, "id" | "resolved" | "createdAt">) => void
   addItems: (items: Omit<ReviewItem, "id" | "resolved" | "createdAt">[]) => void
+  addItemsAndReturn: (items: Omit<ReviewItem, "id" | "resolved" | "createdAt">[]) => ReviewItem[]
   setItems: (items: ReviewItem[]) => void
   resolveItem: (id: string, action: string) => void
   dismissItem: (id: string) => void
@@ -95,6 +96,50 @@ export const useReviewStore = create<ReviewState>((set) => ({
 
       return { items: result }
     }),
+
+  addItemsAndReturn: (items) => {
+    let addedOrMerged: ReviewItem[] = []
+    set((state) => {
+      const result = [...state.items]
+      const keyFor = (t: string, title: string) => `${t}::${normalizeReviewTitle(title)}`
+      const pendingIndex = new Map<string, number>()
+      result.forEach((it, idx) => {
+        if (!it.resolved) pendingIndex.set(keyFor(it.type, it.title), idx)
+      })
+
+      for (const incoming of items) {
+        const k = keyFor(incoming.type, incoming.title)
+        const existingIdx = pendingIndex.get(k)
+        if (existingIdx !== undefined) {
+          const old = result[existingIdx]
+          const mergedPages = Array.from(new Set([...(old.affectedPages ?? []), ...(incoming.affectedPages ?? [])]))
+          const mergedQueries = Array.from(new Set([...(old.searchQueries ?? []), ...(incoming.searchQueries ?? [])]))
+          const merged = {
+            ...old,
+            description: incoming.description || old.description,
+            sourcePath: incoming.sourcePath ?? old.sourcePath,
+            affectedPages: mergedPages.length > 0 ? mergedPages : undefined,
+            searchQueries: mergedQueries.length > 0 ? mergedQueries : undefined,
+          }
+          result[existingIdx] = merged
+          addedOrMerged.push(merged)
+        } else {
+          const newItem = {
+            ...incoming,
+            id: `review-${++counter}`,
+            resolved: false,
+            createdAt: Date.now(),
+          }
+          result.push(newItem)
+          pendingIndex.set(k, result.length - 1)
+          addedOrMerged.push(newItem)
+        }
+      }
+
+      return { items: result }
+    })
+    return addedOrMerged
+  },
 
   setItems: (items) => set({ items }),
 
