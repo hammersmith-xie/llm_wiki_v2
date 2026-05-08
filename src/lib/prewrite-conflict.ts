@@ -168,6 +168,21 @@ export function classifyPreWriteConflict(
   ])
 }
 
+export function buildUncertainPreWritePreview(
+  candidate: PreWriteCandidate,
+  error: unknown,
+): PreWriteConflictPreview {
+  const message = redactSensitiveText(error instanceof Error ? error.message : String(error))
+  const reason = message
+    ? `Pre-write conflict check failed; review is required. ${message}`
+    : "Pre-write conflict check failed; review is required."
+  return buildPreview(candidate, "uncertain", "review-only", "blocking", [{
+    kind: "error",
+    score: 1,
+    reasons: [reason],
+  }], [reason])
+}
+
 function normalizeClaimSummaries(
   claims: readonly PreWriteClaimSummary[],
   maxClaims: number,

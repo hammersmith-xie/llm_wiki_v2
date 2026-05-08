@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 2 / 15
+**总体进度**: 🚧 3 / 15
 
 ---
 
@@ -35,7 +35,7 @@ graph TD
 
 **目标**: 建立可纯函数测试的写入前冲突模型，先不碰主写入路径。
 **依赖**: A 事实级可信度已完成
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 定义 PreWriteCandidate / Evidence / Preview 类型
 
@@ -92,7 +92,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 冲突判定失败的保守降级
+### Task 1.3 ✅ 冲突判定失败的保守降级
 
 **描述**: 提供 `buildUncertainPreWritePreview`，当 resolver 或分类器遇到不可恢复读取错误时返回 review-only preview。
 
@@ -106,15 +106,15 @@ graph TD
 - `src/lib/prewrite-conflict.test.ts`
 
 **验收**:
-- [ ] 降级 preview 分类为 `uncertain`。
-- [ ] decision 为 `review-only`。
-- [ ] reason 不暴露 raw 异常文本中的路径外敏感片段。
+- [x] 降级 preview 分类为 `uncertain`。
+- [x] decision 为 `review-only`。
+- [x] reason 不暴露 raw 异常文本中的路径外敏感片段。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 先写失败测试时函数未实现；补实现后 focused test 和 typecheck 均通过。
+- 🔧 **最终实现逻辑**: `buildUncertainPreWritePreview` 统一构造 `uncertain` / `review-only` / `blocking` preview，并把异常消息经 `redactSensitiveText` 后放入 reason 和 error evidence。
+- 🎯 **关键决策**: 检查器异常不回退到 allow，后续写入集成必须把该 preview 当作人工确认路径。
 
 ---
 
@@ -122,7 +122,7 @@ graph TD
 
 **目标**: 从现有 Markdown 和 claim 索引中提取 bounded evidence。
 **依赖**: M1
-**状态**: ⏳
+**状态**: 🚧
 
 ### Task 2.1 ⏳ 解析 claim index 证据
 
@@ -544,13 +544,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Candidate 与分类内核 | 2 | 3 | 🚧 |
-| M2 | 本地证据解析 | 0 | 3 | ⏳ |
+| M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
+| M2 | 本地证据解析 | 0 | 3 | 🚧 |
 | M3 | 写入路径集成 | 0 | 3 | ⏳ |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **2** | **15** | **🚧** |
+| **总计** | | **3** | **15** | **🚧** |
 
 ---
 

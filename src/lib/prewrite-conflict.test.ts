@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   buildPreWriteCandidate,
+  buildUncertainPreWritePreview,
   classifyPreWriteConflict,
   summarizePreWriteContent,
 } from "./prewrite-conflict"
@@ -177,5 +178,21 @@ describe("pre-write conflict classification", () => {
       decision: "review-only",
       severity: "blocking",
     })
+  })
+
+  it("builds a conservative review-only preview when checking fails", () => {
+    const preview = buildUncertainPreWritePreview(
+      candidate,
+      new Error("failed with token=sk-proj-secret-token-1234567890"),
+    )
+
+    expect(preview).toMatchObject({
+      classification: "uncertain",
+      decision: "review-only",
+      severity: "blocking",
+    })
+    expect(preview.evidence).toHaveLength(1)
+    expect(preview.reasons.join(" ")).toContain("[REDACTED:secret]")
+    expect(preview.reasons.join(" ")).not.toContain("sk-proj-secret-token")
   })
 })
