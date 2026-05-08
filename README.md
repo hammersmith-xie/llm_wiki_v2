@@ -36,8 +36,8 @@
 - **Louvain Community Detection** — automatic knowledge cluster discovery with cohesion scoring
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
-- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, fact-level claim evidence, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, pre-write conflict gates, and append-only audit events
-- **Memory Ops Workbench** — local maintenance patrol, schema/quality scans, claim health, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, search health checks, digest preview, and coordination summary
+- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, fact-level claim evidence, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, pre-write conflict gates, historical conflict patrol, and append-only audit events
+- **Memory Ops Workbench** — local maintenance patrol, schema/quality scans, claim health, historical conflict review suggestions, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, custom search health checks, digest preview, and coordination summary
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
@@ -255,6 +255,7 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Claim confidence boundaries** — claim confidence is a maintenance and evidence signal, not an automatic truth verdict. Contradicted, stale, or superseded claims are surfaced for review instead of silently rewriting or deleting Markdown.
 - **Claim index recovery** — Maintenance can scan/rebuild the derived claim index from wiki pages and anchors, list recovered/orphan/stale records, and audit confirmed rebuilds without reading large `raw/sources/` files
 - **Pre-write conflict gate** — ingest content pages, crystallized saves, and review-created pages build bounded write candidates before landing. Related pages and claim evidence classify writes as new, reinforcement, update, duplicate, possible contradiction, supersession, or uncertain; safe writes continue with `conflict.accept` audit, while risky writes skip direct overwrite, create or expose review handoff, and write `conflict.review`.
+- **Historical conflict patrol** — Memory Ops reuses the same bounded conflict resolver for existing wiki pages during explicit patrol. Duplicate, possible contradiction, supersession, or uncertain findings become review-only suggestions with summary stats in patrol audit; same-target updates and reinforcement are filtered out.
 - **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM
 - **Cooldown reminders without daemon** — query, search, and review activity can mark that a patrol is due, but there is no cron, daemon, or background full scan; users run patrol explicitly from Maintenance
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
@@ -264,7 +265,7 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Rollback for recent patches** — recently applied metadata patches expose rollback preview/apply controls; conflicts are preview-only by default and rollback results are audited
 - **Audit Timeline Explorer** — Settings -> Maintenance includes filterable audit browsing by category, action, path, scope, status, and text, including bad-line warnings and target-file opening
 - **Lifecycle Policy panel** — local half-life, low-confidence, promotion, and archive thresholds can be tuned per project; saving reruns patrol with the new policy
-- **Search Health panel** — users can run built-in smoke evals for exact title, alias/keyword, CJK, typed graph, and contradiction-deprioritize retrieval, then inspect failures and the latest `.llm-wiki/search-eval-report.json`
+- **Search Health panel** — users can run built-in smoke evals plus project-local custom scenarios from `.llm-wiki/search-health-scenarios.json`, then inspect built-in/custom/skipped counts, failures, and the latest `.llm-wiki/search-eval-report.json`
 - **Crystallization candidates and digest preview** — high-value chat, research, and review outputs can prompt a low-noise Save to Wiki suggestion, show lessons/decisions/entities/relation candidates, and save a confirmed digest as a query or synthesis page
 - **Coordination summary** — Settings -> Maintenance summarizes local actor activity, recent audit events, pending reviews, blocked schema findings, and private-to-shared promotion candidates, with target opening and timeline filtering; it is local audit-derived context, not cloud sync or team permissions
 - **Search evaluation harness** — deterministic scenarios can be run from tests or the Search Health panel before retrieval tuning
@@ -285,8 +286,9 @@ Pre-write conflict handling follows the same migration boundary. Missing
 claim indexes are treated as empty evidence for new projects, not as corruption.
 When related contradicted or superseded claims, duplicate targets, or uncertain
 resolver failures are found, the write is routed to review instead of silently
-rewriting Markdown. The gate is local and deterministic; it does not run a full
-historical conflict scan or ask an LLM to decide which fact is true.
+rewriting Markdown. The gate is local and deterministic; historical checks run
+only when the user starts Memory Ops patrol, and neither path asks an LLM to
+decide which fact is true.
 
 ### 10. Thinking / Reasoning Display
 
@@ -479,6 +481,8 @@ my-wiki/
 ├── .obsidian/              # Obsidian vault config (auto-generated)
 └── .llm-wiki/              # App config, chat history, review items
     ├── audit.jsonl         # Append-only redacted audit timeline
+    ├── claims.jsonl        # Derived claim evidence index
+    ├── search-health-scenarios.json # Project-local custom Search Health scenarios
     └── search-eval-report.json # Latest Search Health report
 ```
 

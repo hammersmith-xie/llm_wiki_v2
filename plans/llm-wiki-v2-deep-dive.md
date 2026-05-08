@@ -58,10 +58,13 @@ keeps the system inspectable and Git-friendly while avoiding a premature
 Neo4j/LightRAG-style replacement of the wiki itself.
 
 The next useful step is not to add a remote memory server or more generated
-prose. Trust now has two local slices: high-value claims can be anchored back to
-Markdown, indexed in `.llm-wiki/claims.jsonl`, scored, surfaced as search/chat
-evidence, and included in Memory Ops claim health; controlled write paths also
-run a bounded pre-write conflict gate before risky content lands.
+prose. Trust now has local maintenance slices: high-value claims can be anchored
+back to Markdown, indexed in `.llm-wiki/claims.jsonl`, scored, surfaced as
+search/chat evidence, and included in Memory Ops claim health; controlled write
+paths run a bounded pre-write conflict gate before risky content lands; explicit
+Memory Ops patrol can reuse that gate to find historical conflict risks; Search
+Health can protect project-specific retrieval scenarios; and cooldown reminders
+pull users back to manual patrol without introducing a daemon.
 
 ## Gap Matrix
 
@@ -70,8 +73,8 @@ run a bounded pre-write conflict gate before risky content lands.
 | Lifecycle metadata | Implemented page-level deterministic model plus claim-level credibility for high-value new write paths | Full span/PDF-coordinate provenance and exhaustive historical extraction remain future work | Medium: score semantics can be over-interpreted | Done for page scope and first claim slice |
 | Typed graph | Implemented helper over frontmatter/wikilinks; explicit typed edges now appear in visual graph and chat context expansion; seed matching covers lightweight aliases/tags/summary text | Claim/span-level typed edges and a full graph pipeline rewrite remain future work | Medium: parsing conventions must remain simple | Done for page-level retrieval, graph view, and chat expansion |
 | Hybrid retrieval | Lexical + vector + graph RRF | Full BM25 remains future improvement | Medium: search latency | Done for v2 slice |
-| Event hooks | Ingest, explicit save/crystallization, lint | Scheduled background maintenance remains future work | Medium: avoid failing ingest due to metadata | Done for local hooks |
-| Quality/self-repair | Structural/semantic lint and deterministic lifecycle lint | Automatic safe repair not added | Low | Done for warning/audit |
+| Event hooks | Ingest, explicit save/crystallization, lint, maintenance markers, cooldown reminders | Scheduled background maintenance remains intentionally out of scope | Medium: avoid failing ingest due to metadata | Done for local hooks without daemon |
+| Quality/self-repair | Structural/semantic lint, deterministic lifecycle lint, historical conflict review suggestions | Automatic safe repair not added | Low | Done for warning/audit/review-action |
 | Crystallization | Explicit save paths produce v2 query pages | Autonomous session digestion remains future work | Medium-high UI/product scope | Done for explicit user actions |
 | Governance | Audit log and scope metadata | Multi-user ACL/private sync not implemented | Low for local audit, high for ACL | Done for local audit |
 | Multi-agent mesh | None | Shared/private memory sync | High | Later |
@@ -98,7 +101,7 @@ boundaries: markdown, frontmatter, graph/search helpers, lint, review queue, and
 `.llm-wiki/` persistence. It avoids the high-ambiguity parts of v2 such as full
 multi-agent memory sync and autonomous background crystallization.
 
-## Current Trust Slice and Next Work
+## Current Trust and Maintenance Slice
 
 ### 1. Fact-Level Credibility
 
@@ -154,6 +157,29 @@ safety, and does not become an LLM debate loop. Follow-up work can add richer
 alias/BM25/vector/typed-graph evidence to the resolver, but risky writes should
 continue to route through review rather than automatic truth adjudication.
 
+### 3. Maintenance Closure
+
+The highest-priority closure gaps are now implemented inside the same local
+Maintenance Workbench instead of as a new memory server:
+
+- Memory Ops historical conflict patrol converts existing pages into
+  `maintenance-page` candidates, reuses the bounded pre-write conflict resolver,
+  and turns duplicate, possible-contradiction, supersession, and uncertain
+  results into review-only suggestions. Same-target updates and reinforcement
+  are filtered out.
+- Search Health supports project-local custom scenarios in
+  `.llm-wiki/search-health-scenarios.json`. Built-in and custom scenarios run
+  together, and report/audit metadata records built-in, custom, and skipped
+  counts.
+- Patrol reminders expose clean, dirty, and reminder-due states from persisted
+  maintenance markers. Routine events update counters and cooldown state only;
+  full patrol remains an explicit user action.
+
+This keeps the operating model deliberately conservative: preview, review,
+ignore, and apply remain user-visible decisions; historical conflict findings do
+not batch-apply metadata or rewrite facts; and there is still no cron, daemon, or
+background full scan.
+
 ## Non-Goals
 
 - No remote backend or database.
@@ -163,8 +189,9 @@ continue to route through review rather than automatic truth adjudication.
 - No autonomous background crystallization workflow in this pass.
 - No exhaustive historical claim extraction or span/PDF-coordinate provenance.
 - No automatic truth adjudication from claim confidence.
-- No full historical conflict scan or automatic semantic truth adjudication in
-  the pre-write gate.
+- No automatic semantic truth adjudication in the pre-write gate or historical
+  conflict patrol.
+- No cron, daemon, scheduled patrol, or background full-project scan.
 - No full typed graph rewrite of the visual graph/chat graph pipeline in this
   pass; current graph consumers incorporate explicit page-level typed
   relationship edges but still rely on existing relevance/layout helpers.

@@ -36,8 +36,8 @@
 - **Louvain 社区检测** — 自动发现知识聚类，内聚度评分
 - **图谱洞察** — 惊奇连接与知识空白检测，一键触发 Deep Research
 - **向量语义搜索** — 可选的 embedding 检索，基于 LanceDB，支持任意 OpenAI 兼容端点
-- **LLM Wiki v2 本地切片** — 页面级生命周期、事实级 claim evidence、置信度信号、typed relationship 字段、图谱感知 RRF 检索、BM25 证据、写入前冲突 gate 和 append-only audit
-- **Memory Ops 工作台** — 本地维护巡检、Schema 与质量扫描、claim health、批量 metadata 治理、回滚、审计时间线浏览、生命周期策略调参、搜索健康度检查、digest 预览和协同摘要
+- **LLM Wiki v2 本地切片** — 页面级生命周期、事实级 claim evidence、置信度信号、typed relationship 字段、图谱感知 RRF 检索、BM25 证据、写入前冲突 gate、历史冲突巡检和 append-only audit
+- **Memory Ops 工作台** — 本地维护巡检、Schema 与质量扫描、claim health、历史冲突审阅建议、批量 metadata 治理、回滚、审计时间线浏览、生命周期策略调参、自定义搜索健康度检查、digest 预览和协同摘要
 - **持久化摄入队列** — 串行处理，崩溃恢复，取消/重试，进度可视化
 - **文件夹导入** — 递归导入保留目录结构，文件夹路径作为 LLM 分类上下文
 - **深度研究** — LLM 智能生成搜索主题，多查询网络搜索，研究结果自动摄入 Wiki
@@ -255,6 +255,7 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **Claim 可信度边界** —— claim confidence 是维护和证据解释信号，不是自动判真机制。contradicted、stale、superseded claim 会进入 review 提示，而不是静默重写或删除 Markdown。
 - **Claim index 恢复** —— Maintenance 可以从 Wiki 页面和 anchors 显式 scan/rebuild 派生 claim index，列出 recovered/orphan/stale records，并在确认写入时审计；扫描不读取大型 `raw/sources/` 文件
 - **写入前冲突 gate** —— ingest 内容页、crystallized save 和 review-created page 会在落盘前构建 bounded write candidate。系统用相关页面和 claim evidence 将候选写入分类为 new、reinforcement、update、duplicate、possible contradiction、supersession 或 uncertain；安全写入继续并记录 `conflict.accept` audit，高风险写入跳过直接覆盖、进入或暴露 review handoff，并记录 `conflict.review`。
+- **历史冲突巡检** —— Memory Ops 在用户显式运行 patrol 时复用同一套 bounded conflict resolver 检查已有 Wiki 页面；duplicate、possible contradiction、supersession、uncertain 会生成 review-only 建议并写入巡检统计，同路径 update 和 reinforcement 会被过滤。
 - **确定性巡检入口** —— Settings -> Maintenance 可扫描本地项目状态，不依赖 LLM 配置
 - **无 daemon 的 Cooldown 提醒** —— query、search、review 活动可以标记“需要巡检”，但没有 cron、daemon 或后台全量扫描；用户需要在 Maintenance 里显式运行巡检
 - **生命周期建议** —— stale、low-confidence、superseded、archivable、promotion candidate 以 metadata suggestion 呈现，不自动重写页面
@@ -264,7 +265,7 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **近期 patch 回滚** —— 最近应用的 metadata patch 提供 rollback preview/apply；冲突默认只能预览不能覆盖，rollback 结果也会进入 audit
 - **审计时间线浏览器** —— Settings -> Maintenance 支持按 category、action、path、scope、status、文本过滤 audit，显示坏行警告，并可打开目标文件
 - **生命周期策略面板** —— 可按项目调整 half-life、低置信度、promotion 和归档阈值；保存后会使用新策略重新巡检
-- **搜索健康度面板** —— 可运行内置 smoke eval，覆盖精确标题、alias/keyword、中文、typed graph 和冲突降权检索，并查看失败详情和最新 `.llm-wiki/search-eval-report.json`
+- **搜索健康度面板** —— 可运行内置 smoke eval，也可读取 `.llm-wiki/search-health-scenarios.json` 中的项目级自定义场景，并查看 built-in/custom/skipped 数量、失败详情和最新 `.llm-wiki/search-eval-report.json`
 - **Crystallization candidates 与 digest 预览** —— 高价值 chat、research、review 输出会低干扰提示 Save to Wiki，展示 lessons/decisions/entities/relation candidates，并可在确认后保存为 query 或 synthesis 页面
 - **协同摘要** —— Settings -> Maintenance 会汇总本地 actor activity、最近 audit 事件、待审阅项、blocked schema findings 和 private-to-shared promotion candidates，并支持打开目标或过滤时间线；它只来自本地 audit，不是云同步或团队权限系统
 - **检索评估 harness** —— 可通过测试或 Search Health 面板运行确定性场景，再决定是否调检索权重
@@ -283,7 +284,8 @@ scan/rebuild；它会从 Markdown anchors 恢复可恢复记录，并报告 orph
 写入前冲突处理沿用同一个迁移边界。新项目缺少 claim index 时会被视为空证据，
 不是损坏状态。只有发现相关的 contradicted/superseded claim、重复目标或
 resolver 不确定失败时，系统才把写入转到 review，而不是静默改写 Markdown。
-这个 gate 是本地、确定性的，不做全库历史冲突重扫，也不让 LLM 自动判定哪个事实为真。
+这个 gate 是本地、确定性的；历史检查只在用户显式运行 Memory Ops patrol 时发生，
+两条路径都不会让 LLM 自动判定哪个事实为真。
 
 ### 10. 思维链 / 推理过程展示
 
@@ -476,6 +478,8 @@ my-wiki/
 ├── .obsidian/              # Obsidian 仓库配置（自动生成）
 └── .llm-wiki/              # 应用配置、聊天历史、审核项
     ├── audit.jsonl         # append-only 脱敏审计时间线
+    ├── claims.jsonl        # 派生 claim evidence index
+    ├── search-health-scenarios.json # 项目级自定义搜索健康度场景
     └── search-eval-report.json # 最新搜索健康度报告
 ```
 

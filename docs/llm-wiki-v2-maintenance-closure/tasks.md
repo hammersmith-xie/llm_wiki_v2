@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 12 / 18
+**总体进度**: 🚧 13 / 18
 
 ---
 
@@ -377,7 +377,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ README / plans / completion audit 更新
+### Task 4.2 ✅ README / plans / completion audit 更新
 
 **描述**: 更新 README、README_CN、deep dive plan 和本 spec completion audit。
 
@@ -394,15 +394,15 @@ graph TD
 - `docs/llm-wiki-v2-maintenance-closure/completion-audit.md`
 
 **验收**:
-- [ ] 文档说明三项闭环缺口已落地。
-- [ ] 文档说明仍无 daemon / 自动裁决 / 自动合并。
-- [ ] completion audit 对照 F1-F10。
+- [x] 文档说明三项闭环缺口已落地。
+- [x] 文档说明仍无 daemon / 自动裁决 / 自动合并。
+- [x] completion audit 对照 F1-F10。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README/deep-dive 原先仍把 historical conflict scan 描述为后续项，没有反映本轮手动 patrol 版本已经落地。
+- 🔧 **最终实现逻辑**: 更新 README/README_CN、deep-dive、completion audit，并新增本 spec `completion-audit.md`，按 F1-F11 对照实现证据和边界。
+- 🎯 **关键决策**: 文档明确 historical conflict patrol 是手动、bounded、review-only；custom Search Health 是本地评估配置；reminder 不是 daemon/cron。
 
 ---
 
@@ -574,10 +574,10 @@ graph TD
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
 | M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
-| M4 | UI 与文档整合 | 1 | 2 | 🚧 |
+| M4 | UI 与文档整合 | 2 | 2 | ✅ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **12** | **18** | **🚧** |
+| **总计** | | **13** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T4.2：README / plans / completion audit 更新 |
 | 2026-05-08 | 完成 T4.1：Memory Ops UI 展示 historical conflict summary |
 | 2026-05-08 | 完成 T3.3：保持无后台扫描/无 daemon 边界 |
 | 2026-05-08 | 完成 T3.2：Patrol reminder UI 三态提示 |

@@ -212,11 +212,26 @@ The two high-value trust improvements have now landed:
   risky writes skip direct overwrite and route to or expose review handoff with
   `conflict.review` audit.
 
-The remaining conflict-handling work should stay inside the same product
-boundary: richer evidence retrieval is useful, but the gate should remain
-local-first, auditable, bounded, and Markdown-compatible. It should not require a
-remote memory server, Neo4j/LightRAG replacement, multi-user ACL, or autonomous
-destructive repair.
+The highest-priority maintenance closure work has now landed inside the same
+product boundary:
+
+- **Historical conflict patrol**: Memory Ops reuses the bounded pre-write
+  resolver on existing pages during explicit patrol. Duplicate, possible
+  contradiction, supersession, and uncertain results become review-only
+  suggestions with patrol stats/audit; same-target updates and reinforcement are
+  filtered out.
+- **Custom Search Health scenarios**: project-local scenarios are persisted in
+  `.llm-wiki/search-health-scenarios.json`, normalized, merged with built-in
+  smoke scenarios, and counted separately in report/audit output.
+- **Lightweight patrol reminders**: maintenance events update persisted
+  clean/dirty/reminder-due state and user-visible reminders, but the app still
+  has no cron, daemon, or background full-project scan.
+
+Remaining conflict-handling work should stay inside that product boundary:
+richer evidence retrieval is useful, but the gate and patrol should remain
+local-first, auditable, bounded, and Markdown-compatible. They should not require
+a remote memory server, Neo4j/LightRAG replacement, multi-user ACL, or
+autonomous destructive repair.
 
 ## Remaining Non-Goals
 
@@ -224,8 +239,9 @@ destructive repair.
 - No autonomous background crystallization of every chat session.
 - No exhaustive historical claim extraction or span/PDF-coordinate provenance.
 - No automatic truth adjudication from claim confidence.
-- No full historical conflict scan, automatic truth adjudication, or destructive
-  repair in the pre-write conflict gate.
+- No automatic truth adjudication or destructive repair in the pre-write
+  conflict gate or historical conflict patrol.
+- No cron, daemon, scheduled patrol, or background full-project scan.
 - No full rewrite of the existing visual/chat graph pipeline onto the typed graph
   helper; page-level explicit typed edges are now included, but visual layout,
   insights, and weighting still use the existing graph pipeline.
