@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 17 / 18
+**总体进度**: 🚧 18 / 19
 
 ---
 
@@ -517,7 +517,7 @@ graph TD
 
 ---
 
-### Task 6.4 ⏳ Round 4 安全审核
+### Task 6.4 ✅ Round 4 安全审核
 
 **描述**: 检查 path normalize、private content redaction、audit/report 泄漏和无自动改写边界。
 
@@ -530,14 +530,14 @@ graph TD
 - `docs/llm-wiki-v2-maintenance-closure/review-round-4.md`
 
 **验收**:
-- [ ] 报告记录泄漏检查。
-- [ ] 高风险问题修复并验证。
+- [x] 报告记录泄漏检查。
+- [x] 高风险问题修复并验证。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 发现 custom Search Health path normalize 对项目外绝对路径和 `//server/...` 样式路径不够严格。
+- 🔧 **最终实现逻辑**: `normalizeScenarioPath` 先识别绝对路径/UNC，再只允许当前 project root 下的绝对路径转为项目相对路径；其他逃逸路径转 skipped/warning；报告见 `review-round-4.md`。
+- 🎯 **关键决策**: Search Health custom scenario expectation 只接受项目内路径；historical conflict suggestion 保持 review-only，不写入 raw claim/page text，也不进入 batch apply。
 
 ---
 
@@ -576,8 +576,8 @@ graph TD
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 2 | 2 | ✅ |
 | M5 | 回归验证 | 1 | 1 | ✅ |
-| M6 | 最终审核 | 3 | 5 | 🚧 |
-| **总计** | | **17** | **18** | **🚧** |
+| M6 | 最终审核 | 4 | 5 | 🚧 |
+| **总计** | | **18** | **19** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T6.4：Round 4 安全审核；修正任务总数统计为 19 |
 | 2026-05-08 | 完成 T6.3：Round 3 性能审核 |
 | 2026-05-08 | 完成 T6.2：Round 2 类型 & 静态分析审核 |
 | 2026-05-08 | 完成 T6.1：Round 1 功能审核 |
@@ -613,5 +614,5 @@ graph TD
 | 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
 | 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
 | 3 | 性能 | ✅ | [review-round-3.md](./review-round-3.md) |
-| 4 | 安全 | ⏳ | - |
+| 4 | 安全 | ✅ | [review-round-4.md](./review-round-4.md) |
 | 5 | UX & a11y | ⏳ | - |

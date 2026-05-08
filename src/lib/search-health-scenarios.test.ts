@@ -66,6 +66,8 @@ describe("search health custom scenarios", () => {
         { id: "dup", query: "second", expectedInTopK: [{ path: "wiki/b.md", topK: 2 }] },
         { id: "bad-topk", query: "beta", expectedInTopK: [{ path: "wiki/b.md", topK: -1 }] },
         { id: "outside", query: "escape", expectedTopPaths: ["../outside.md"] },
+        { id: "absolute-outside", query: "escape", expectedTopPaths: ["/other/wiki/a.md"] },
+        { id: "unc", query: "escape", expectedTopPaths: ["//server/share/wiki/a.md"] },
       ],
     })
 
@@ -82,12 +84,16 @@ describe("search health custom scenarios", () => {
       "dup",
       "bad-topk",
       "outside",
+      "absolute-outside",
+      "unc",
     ])
     expect(result.warnings).toEqual(expect.arrayContaining([
       expect.stringContaining("missing-query"),
       expect.stringContaining("duplicate"),
       expect.stringContaining("bad-topk"),
       expect.stringContaining("outside"),
+      expect.stringContaining("absolute-outside"),
+      expect.stringContaining("unc"),
     ]))
   })
 

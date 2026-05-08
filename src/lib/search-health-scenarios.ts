@@ -222,21 +222,41 @@ function normalizeScenarioPaths(
 }
 
 function normalizeScenarioPath(value: string, projectPath: string | undefined): string | null {
-  let normalized = normalizePath(value.trim())
-  if (projectPath && normalized.startsWith(`${projectPath}/`)) {
-    normalized = normalized.slice(projectPath.length + 1)
+  const normalized = normalizePath(value.trim())
+  const root = projectPath ? projectRoot(projectPath) : undefined
+  if (normalized.startsWith("//")) return null
+  if (isAbsoluteScenarioPath(normalized)) {
+    if (!root || !isUnderProjectRoot(normalized, root)) return null
+    return projectRelativePath(normalized, root)
   }
-  normalized = normalized.replace(/^\/+/, "")
+
+  if (root && isUnderProjectRoot(normalized, root)) {
+    return projectRelativePath(normalized, root)
+  }
   if (!isProjectRelativePath(normalized)) return null
   return normalized
 }
 
 function isProjectRelativePath(value: string): boolean {
   if (!value || value === "." || value.includes("\0")) return false
+  if (value.startsWith("/")) return false
   if (value.split("/").some((segment) => segment === "..")) return false
   if (/^[A-Za-z]:\//.test(value)) return false
   if (value.startsWith("//")) return false
   return true
+}
+
+function isAbsoluteScenarioPath(value: string): boolean {
+  return value.startsWith("/") || /^[A-Za-z]:\//.test(value)
+}
+
+function isUnderProjectRoot(value: string, root: string): boolean {
+  return value.startsWith(`${root}/`)
+}
+
+function projectRelativePath(value: string, root: string): string | null {
+  const relative = value.slice(root.length + 1)
+  return isProjectRelativePath(relative) ? relative : null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
