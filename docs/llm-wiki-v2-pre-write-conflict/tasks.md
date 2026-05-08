@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 1 / 15
+**总体进度**: 🚧 2 / 15
 
 ---
 
@@ -63,7 +63,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 实现纯函数冲突分类
+### Task 1.2 ✅ 实现纯函数冲突分类
 
 **描述**: 基于 candidate + evidence 实现 `classifyPreWriteConflict`，覆盖 new、reinforcement、update、duplicate、possible-contradiction、supersession、uncertain。
 
@@ -77,18 +77,18 @@ graph TD
 - `src/lib/prewrite-conflict.test.ts`
 
 **验收**:
-- [ ] 无证据分类为 `new` 且 allow。
-- [ ] active 高相似 claim 分类为 `reinforcement` 且 allow。
-- [ ] 同路径已有页分类为 `update` 且 allow。
-- [ ] 不同路径同标题或同 claim 分类为 `duplicate`。
-- [ ] contradicted / contradicts relation 分类为 `possible-contradiction` 且 review-only。
-- [ ] superseded / supersedes relation 分类为 `supersession` 且 review-only。
+- [x] 无证据分类为 `new` 且 allow。
+- [x] active 高相似 claim 分类为 `reinforcement` 且 allow。
+- [x] 同路径已有页分类为 `update` 且 allow。
+- [x] 不同路径同标题或同 claim 分类为 `duplicate`。
+- [x] contradicted / contradicts relation 分类为 `possible-contradiction` 且 review-only。
+- [x] superseded / supersedes relation 分类为 `supersession` 且 review-only。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 分类测试先因 `classifyPreWriteConflict` 未导出失败，符合 TDD 预期。
+- 🔧 **最终实现逻辑**: 在 `src/lib/prewrite-conflict.ts` 实现分类优先级：contradiction > supersession > duplicate > reinforcement > update > uncertain > new，并对 evidence 做稳定排序和上限裁剪。
+- 🎯 **关键决策**: 风险 relation/status 的优先级高于相似度，避免一条高相似但 contradicted 的 claim 被误当作 reinforcement。
 
 ---
 
@@ -544,13 +544,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Candidate 与分类内核 | 1 | 3 | 🚧 |
+| M1 | Candidate 与分类内核 | 2 | 3 | 🚧 |
 | M2 | 本地证据解析 | 0 | 3 | ⏳ |
 | M3 | 写入路径集成 | 0 | 3 | ⏳ |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **1** | **15** | **🚧** |
+| **总计** | | **2** | **15** | **🚧** |
 
 ---
 
