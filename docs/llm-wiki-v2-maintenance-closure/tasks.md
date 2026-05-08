@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 4 / 18
+**总体进度**: 🚧 5 / 18
 
 ---
 
@@ -146,9 +146,9 @@ graph TD
 
 **目标**: 让用户能保存并运行自己的检索健康场景。
 **依赖**: 无
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ 定义 custom scenario schema / normalize
+### Task 2.1 ✅ 定义 custom scenario schema / normalize
 
 **描述**: 新建 custom scenario 模型和 normalize/load result。
 
@@ -162,15 +162,15 @@ graph TD
 - `src/lib/search-health-scenarios.test.ts` (新建)
 
 **验收**:
-- [ ] 支持 `id/query/expectedTopPaths/expectedInTopK/expectedOutsideTopK/excludedPaths/topK`。
-- [ ] 坏 scenario 返回 skipped/warning，不抛出。
-- [ ] 重复 id 有确定性处理。
+- [x] 支持 `id/query/expectedTopPaths/expectedInTopK/expectedOutsideTopK/excludedPaths/topK`。
+- [x] 坏 scenario 返回 skipped/warning，不抛出。
+- [x] 重复 id 有确定性处理。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: TDD 首轮按预期失败在 `./search-health-scenarios` 模块不存在。
+- 🔧 **最终实现逻辑**: 新增 `normalizeSearchHealthScenarioConfig`，将项目级 custom scenarios 归一为 `SearchEvalScenario[]`，并对缺 query、缺 expectation、重复 id、非法 topK 生成 skipped/warnings。
+- 🎯 **关键决策**: normalize 层不做文件 IO，坏配置只跳过对应 scenario，避免阻断 built-in Search Health。
 
 ---
 
@@ -572,12 +572,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
-| M2 | 自定义 Search Health scenarios | 0 | 4 | ⏳ |
+| M2 | 自定义 Search Health scenarios | 1 | 4 | 🚧 |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **4** | **18** | **🚧** |
+| **总计** | | **5** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.1：custom Search Health scenario schema / normalize |
 | 2026-05-08 | 完成 T1.4：Memory Ops patrol 接入 historical conflict stats / audit |
 | 2026-05-08 | 完成 T1.3：historical conflict review-action suggestion |
 | 2026-05-08 | 完成 T1.2：historical conflict preview |
