@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 5 / 15
+**总体进度**: 🚧 6 / 15
 
 ---
 
@@ -181,7 +181,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 接入 crystallization digest 和 Save to Wiki
+### Task 2.2 ✅ 接入 crystallization digest 和 Save to Wiki
 
 **描述**: 保存 digest/query/synthesis 页面时写入 anchors 和 claim records，并记录 claim audit。
 
@@ -198,16 +198,16 @@ graph TD
 - `src/lib/crystallization-digest.test.ts`
 
 **验收**:
-- [ ] digest save 生成 claim records 和 anchors。
-- [ ] `writeCrystallizedQueryPage` 保持现有 lifecycle/supports/sources 行为。
-- [ ] claim 写入失败不阻断页面保存，但有 warning/audit。
-- [ ] `reinforcement_count` 与 claim supports 不互相覆盖。
+- [x] digest save 生成 claim records 和 anchors。
+- [x] `writeCrystallizedQueryPage` 保持现有 lifecycle/supports/sources 行为。
+- [x] claim 写入失败不阻断页面保存，但有 warning/audit。
+- [x] `reinforcement_count` 与 claim supports 不互相覆盖。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初次接入后 digest 同时从 plan 和页面正文重复抽取 claim；已收敛为“有 digest plan 时只信 plan”。另一个噪声是自动生成 claim id 的内部 warning，已从 extraction 正常路径中过滤。
+- 🔧 **最终实现逻辑**: `writeCrystallizedQueryPage` 现在会提取 claim candidates、给正文插入 `<!-- claim:<id> -->` anchors、写入 `.llm-wiki/claims.jsonl`，并追加 `claim.write` audit；`saveCrystallizationDigestPage` 将 plan decisions/lessons 传给 claim extraction。
+- 🎯 **关键决策**: claim 写入是附属治理 artifact：页面 `writeFile` 先成功，claim index/audit 失败只回填 `claimWrite.error/auditError`，不阻断 Save to Wiki；page-level `supports/sources/reinforcement_count` 保持原逻辑。
 
 ---
 
@@ -566,11 +566,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
-| M2 | Controlled Extraction and Writes | 1 | 4 | 🚧 |
+| M2 | Controlled Extraction and Writes | 2 | 4 | 🚧 |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **5** | **15** | **🚧** |
+| **总计** | | **6** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.2：digest/Save to Wiki 写入 claim anchors、claim records 和 claim audit。 |
 | 2026-05-08 | 完成 T2.1：受控写入路径 claim extraction helper。 |
 | 2026-05-08 | 完成 T1.4：claim-level confidence scoring 和写回 helper。 |
 | 2026-05-08 | 完成 T1.3：Markdown claim anchors 插入、解析和定位。 |

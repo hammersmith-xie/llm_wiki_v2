@@ -25,14 +25,16 @@ vi.mock("@/lib/wiki-automation-events", () => ({
   })),
 }))
 
-import { readFile, writeFile } from "@/commands/fs"
+import { appendFile, readFile, writeFile } from "@/commands/fs"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
 const mockRecordWikiAutomationEvent = vi.mocked(recordWikiAutomationEvent)
+const mockAppendFile = vi.mocked(appendFile)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
+  mockAppendFile.mockReset()
   mockReadFile.mockReset()
   mockReadFile.mockImplementation(async (path: string) => {
     if (path.endsWith("index.md")) return "# Wiki Index\n\n## Queries\n\n## Synthesis\n"
@@ -185,7 +187,11 @@ describe("crystallization digest planner", () => {
       String(path).includes("/wiki/synthesis/query-planner-tradeoffs"),
     )
     expect(pageWrite?.[1]).toContain("## Decisions")
+    expect(pageWrite?.[1]).toContain("<!-- claim:")
     expect(pageWrite?.[1]).toContain("## Relation Candidates")
+    const claimCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/claims.jsonl")
+    expect(claimCall?.[1]).toContain("keep graph expansion query-time")
+    expect(result.claimWrite).toMatchObject({ claimCount: 3 })
     expect(mockRecordWikiAutomationEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "digest.save",

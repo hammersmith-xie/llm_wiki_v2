@@ -70,10 +70,11 @@ interface DraftCandidate {
 
 export function extractClaimCandidates(input: ClaimExtractionInput): ClaimExtractionResult {
   const warnings: string[] = []
+  const markdownCandidates = input.digest ? [] : markdownSignalCandidates(input)
   const candidates = uniqueCandidateTexts([
     ...digestDecisionCandidates(input, warnings),
     ...digestLessonCandidates(input, warnings),
-    ...markdownSignalCandidates(input),
+    ...markdownCandidates,
   ])
   const maxClaims = Math.max(0, Math.floor(input.maxClaims ?? DEFAULT_MAX_CLAIMS))
   const selected = candidates.slice(0, maxClaims)
@@ -97,7 +98,9 @@ export function extractClaimCandidates(input: ClaimExtractionInput): ClaimExtrac
       updated_at: input.today,
       last_confirmed: input.today,
     }, { today: input.today })
-    warnings.push(...normalized.warnings)
+    warnings.push(...normalized.warnings.filter((warning) =>
+      warning !== "claim_id missing or invalid; generated a stable claim id."
+    ))
     return [{
       origin: candidate.origin,
       anchorText: candidate.anchorText,

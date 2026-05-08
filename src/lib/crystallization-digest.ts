@@ -284,6 +284,12 @@ export async function saveCrystallizationDigestPage(
       reasons: input.candidate.reasons,
       dedupeKey: input.candidate.dedupeKey,
     },
+    claimExtraction: {
+      digest: {
+        decisions: input.plan.decisions,
+        lessons: input.plan.lessons,
+      },
+    },
   })
 
   await updateDigestIndex(pp, {

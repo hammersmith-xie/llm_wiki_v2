@@ -131,6 +131,64 @@ describe("writeCrystallizedQueryPage", () => {
     expect(auditCall?.[1]).toContain('"dedupeKey":"content:abc123"')
   })
 
+  it("writes claim anchors and claim records for claim-friendly saved pages", async () => {
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      return ""
+    })
+
+    const result = await writeCrystallizedQueryPage({
+      projectPath: "/project",
+      filePath: "/project/wiki/queries/claim-save.md",
+      title: "Claim Save",
+      body: [
+        "# Claim Save",
+        "",
+        "Conclusion: hybrid retrieval should expose token, BM25, vector, and graph streams separately.",
+      ].join("\n"),
+      date: "2026-05-08",
+      origin: "chat-save",
+      tags: ["research"],
+      references: [{ title: "Search", path: "/project/wiki/concepts/search.md" }],
+    })
+
+    expect(result.claimWrite).toMatchObject({ claimCount: 1, warnings: [] })
+    const pageContent = mockWriteFile.mock.calls[0][1]
+    expect(pageContent).toContain("<!-- claim:")
+    expect(pageContent).toContain('supports: ["search"]')
+    expect(pageContent).toContain('reinforcement_count: "1"')
+
+    const claimCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/claims.jsonl")
+    expect(claimCall?.[1]).toContain("hybrid retrieval should expose token")
+    expect(claimCall?.[1]).toContain("\"page_path\":\"wiki/queries/claim-save.md\"")
+    const claimAuditCall = mockAppendFile.mock.calls.find(([, contents]) =>
+      String(contents).includes("\"action\":\"claim.write\""),
+    )
+    expect(claimAuditCall?.[1]).toContain("\"claimCount\":1")
+  })
+
+  it("does not block page save when claim index write fails", async () => {
+    mockAppendFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/claims.jsonl") throw new Error("disk full")
+    })
+
+    const result = await writeCrystallizedQueryPage({
+      projectPath: "/project",
+      filePath: "/project/wiki/queries/claim-warning.md",
+      title: "Claim Warning",
+      body: "Finding: claim write failure should not block the saved page.",
+      date: "2026-05-08",
+      origin: "chat-save",
+    })
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "/project/wiki/queries/claim-warning.md",
+      expect.stringContaining("Finding: claim write failure should not block"),
+    )
+    expect(result.claimWrite?.error).toContain("disk full")
+    expect(result.claimWrite?.claimCount).toBe(1)
+  })
+
   it("writes a confirmed candidate through the existing crystallized query path", async () => {
     mockReadFile.mockImplementation(async (path) => {
       if (path === "/project/.llm-wiki/audit.jsonl") return ""

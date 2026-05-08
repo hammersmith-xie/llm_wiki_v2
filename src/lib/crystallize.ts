@@ -1,4 +1,11 @@
 import { readFile, writeFile } from "@/commands/fs"
+import { appendAuditEvent } from "@/lib/audit-timeline"
+import { insertClaimAnchor } from "@/lib/claim-anchors"
+import {
+  extractClaimCandidates,
+  type ClaimExtractionDigestInput,
+} from "@/lib/claim-extract"
+import { appendClaimRecords, claimRecordAuditSummary } from "@/lib/claims"
 import {
   appendLifecycleAuditEvent,
   enrichLifecycleFrontmatter,
@@ -22,6 +29,7 @@ export interface CrystallizeQueryInput {
   tags?: string[]
   references?: CrystallizeReference[]
   candidate?: CrystallizeCandidateAuditMetadata
+  claimExtraction?: CrystallizeClaimExtractionOptions
 }
 
 export interface CrystallizeQueryResult {
@@ -29,6 +37,19 @@ export interface CrystallizeQueryResult {
   relativePath: string
   supports: string[]
   sources: string[]
+  claimWrite?: CrystallizeClaimWriteResult
+}
+
+export interface CrystallizeClaimExtractionOptions {
+  digest?: ClaimExtractionDigestInput
+  maxClaims?: number
+}
+
+export interface CrystallizeClaimWriteResult {
+  claimCount: number
+  warnings: string[]
+  error?: string
+  auditError?: string
 }
 
 export interface CrystallizeCandidateAuditMetadata {
@@ -57,6 +78,28 @@ export async function writeCrystallizedQueryPage(
     sourceValues.filter((source): source is string => source !== null),
   )
   const candidate = input.candidate ? normalizeCandidateAudit(input.candidate) : undefined
+  const claimExtraction = extractClaimCandidates({
+    pagePath: relativePath,
+    pageTitle: input.title,
+    content: input.body,
+    digest: input.claimExtraction?.digest,
+    sourceRefs: (input.references ?? []).map((ref) => ({
+      path: toProjectRelativePath(pp, resolveReferencePath(ref.path, pp)),
+      ...(ref.title ? { title: ref.title } : {}),
+    })),
+    supports,
+    maxClaims: input.claimExtraction?.maxClaims,
+    today: input.date,
+    lifecycle: input.pageType === "synthesis" ? "semantic" : "episodic",
+  })
+  let body = input.body.trimEnd()
+  for (const candidate of claimExtraction.claims) {
+    body = insertClaimAnchor(body, {
+      claimId: candidate.claim.claim_id,
+      claimText: candidate.anchorText,
+      pageAnchor: candidate.claim.page_anchor,
+    })
+  }
 
   const frontmatter = [
     "---",
@@ -74,8 +117,13 @@ export async function writeCrystallizedQueryPage(
     "",
   ].join("\n")
 
-  const enriched = enrichLifecycleFrontmatter(frontmatter + input.body.trimEnd() + "\n")
+  const enriched = enrichLifecycleFrontmatter(frontmatter + body + "\n")
   await writeFile(filePath, enriched.content)
+  const claimWrite = await writeClaimArtifacts({
+    projectPath: pp,
+    relativePath,
+    extraction: claimExtraction,
+  })
   await appendLifecycleAuditEvent(pp, {
     action: "crystallize.query",
     actor: "system",
@@ -130,7 +178,58 @@ export async function writeCrystallizedQueryPage(
     relativePath,
     supports,
     sources,
+    claimWrite,
   }
+}
+
+async function writeClaimArtifacts(input: {
+  projectPath: string
+  relativePath: string
+  extraction: ReturnType<typeof extractClaimCandidates>
+}): Promise<CrystallizeClaimWriteResult> {
+  const claimCount = input.extraction.claims.length
+  const warnings = [...input.extraction.warnings]
+  if (claimCount === 0) return { claimCount, warnings }
+
+  try {
+    const appendResult = await appendClaimRecords(
+      input.projectPath,
+      input.extraction.claims.map((candidate) => candidate.claim),
+    )
+    warnings.push(...appendResult.warnings)
+  } catch (err) {
+    return {
+      claimCount,
+      warnings,
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+
+  try {
+    await appendAuditEvent(input.projectPath, {
+      action: "claim.write",
+      category: "lifecycle",
+      actor: "system",
+      pagePath: input.relativePath,
+      targetPath: ".llm-wiki/claims.jsonl",
+      changes: { status: "applied" },
+      after: {
+        claimCount,
+        claims: input.extraction.claims.map((candidate) =>
+          claimRecordAuditSummary(candidate.claim),
+        ),
+      },
+      reasons: [`wrote ${claimCount} claim record${claimCount === 1 ? "" : "s"}`],
+    })
+  } catch (err) {
+    return {
+      claimCount,
+      warnings,
+      auditError: err instanceof Error ? err.message : String(err),
+    }
+  }
+
+  return { claimCount, warnings }
 }
 
 async function sourceNameFromReference(
