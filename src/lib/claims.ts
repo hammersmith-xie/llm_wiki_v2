@@ -1,3 +1,4 @@
+import { appendFile, createDirectory, readFile } from "@/commands/fs"
 import { normalizePath } from "@/lib/path-utils"
 
 export const CLAIM_LIFECYCLES = [
@@ -68,6 +69,47 @@ export interface ClaimNormalizeResult {
   warnings: string[]
 }
 
+export interface ClaimIndexWarning {
+  line: number
+  message: string
+  raw: string
+}
+
+export interface ClaimIndexReadResult {
+  claims: ClaimRecord[]
+  warnings: ClaimIndexWarning[]
+}
+
+export interface ClaimAppendOptions extends ClaimNormalizeOptions {}
+
+export interface ClaimAppendResult {
+  writtenCount: number
+  warnings: string[]
+}
+
+export type ClaimAuditSummary =
+  | {
+      claim_id: string
+      page_path: string
+      page_anchor?: string
+      status: ClaimStatus
+      lifecycle: ClaimLifecycle
+      scope: "private"
+      redacted: true
+    }
+  | {
+      claim_id: string
+      text: string
+      page_path: string
+      page_anchor?: string
+      status: ClaimStatus
+      lifecycle: ClaimLifecycle
+      scope: "shared"
+      confidence: string
+      source_ref_count: number
+      redacted: false
+    }
+
 export function createClaimId(input: ClaimIdInput): string {
   const identity = [
     normalizePath(input.pagePath).trim().toLowerCase(),
@@ -128,6 +170,177 @@ export function normalizeClaimRecord(
     },
     warnings,
   }
+}
+
+export function claimIndexPath(projectPath: string): string {
+  return `${normalizeProjectPath(projectPath)}/.llm-wiki/claims.jsonl`
+}
+
+export async function readClaimIndex(
+  projectPath: string,
+): Promise<ClaimIndexReadResult> {
+  let raw = ""
+  try {
+    raw = await readFile(claimIndexPath(projectPath))
+  } catch {
+    return { claims: [], warnings: [] }
+  }
+
+  const claims: ClaimRecord[] = []
+  const warnings: ClaimIndexWarning[] = []
+  const lines = raw.split(/\r?\n/)
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.trim()) continue
+    try {
+      const parsed = JSON.parse(line) as unknown
+      if (!isClaimRecordDraft(parsed)) {
+        warnings.push({
+          line: i + 1,
+          message: "Invalid claim JSON: expected non-empty text and page_path.",
+          raw: line,
+        })
+        continue
+      }
+      const normalized = normalizeClaimRecord(parsed)
+      claims.push(normalized.claim)
+      for (const message of normalized.warnings) {
+        warnings.push({ line: i + 1, message, raw: line })
+      }
+    } catch (err) {
+      warnings.push({
+        line: i + 1,
+        message: `Invalid claim JSON: ${err instanceof Error ? err.message : String(err)}`,
+        raw: line,
+      })
+    }
+  }
+
+  return { claims, warnings }
+}
+
+export async function appendClaimRecords(
+  projectPath: string,
+  drafts: readonly ClaimRecordDraft[],
+  options: ClaimAppendOptions = {},
+): Promise<ClaimAppendResult> {
+  const pp = normalizeProjectPath(projectPath)
+  const warnings: string[] = []
+  const claims: ClaimRecord[] = []
+
+  for (const draft of drafts) {
+    if (!isClaimRecordDraft(draft)) {
+      warnings.push("Invalid claim JSON: expected non-empty text and page_path.")
+      continue
+    }
+    const normalized = normalizeClaimRecord(draft, options)
+    claims.push(normalized.claim)
+    warnings.push(...normalized.warnings)
+  }
+
+  if (claims.length === 0) return { writtenCount: 0, warnings }
+
+  await createDirectory(`${pp}/.llm-wiki`).catch(() => {})
+  await appendFile(
+    claimIndexPath(pp),
+    claims.map((claim) => JSON.stringify(claim)).join("\n") + "\n",
+  )
+
+  return { writtenCount: claims.length, warnings }
+}
+
+export function mergeClaimRecords(
+  existing: readonly ClaimRecord[],
+  incoming: readonly ClaimRecord[],
+): ClaimRecord[] {
+  const order: string[] = []
+  const byId = new Map<string, ClaimRecord>()
+
+  for (const claim of existing) {
+    order.push(claim.claim_id)
+    byId.set(claim.claim_id, claim)
+  }
+
+  for (const claim of incoming) {
+    const current = byId.get(claim.claim_id)
+    if (!current) {
+      order.push(claim.claim_id)
+      byId.set(claim.claim_id, claim)
+      continue
+    }
+    byId.set(claim.claim_id, {
+      ...current,
+      ...claim,
+      source_refs: mergeSourceRefs(current.source_refs, claim.source_refs),
+      confidence_reasons: uniqueStrings([
+        ...current.confidence_reasons,
+        ...claim.confidence_reasons,
+      ]),
+      supports: uniqueStrings([...current.supports, ...claim.supports]),
+      contradicts: uniqueStrings([...current.contradicts, ...claim.contradicts]),
+      supersedes: uniqueStrings([...current.supersedes, ...claim.supersedes]),
+      superseded_by: uniqueStrings([...current.superseded_by, ...claim.superseded_by]),
+    })
+  }
+
+  return order.map((id) => byId.get(id)).filter((claim): claim is ClaimRecord => Boolean(claim))
+}
+
+export function claimRecordAuditSummary(claim: ClaimRecord): ClaimAuditSummary {
+  if (claim.scope === "private") {
+    return {
+      claim_id: claim.claim_id,
+      page_path: claim.page_path,
+      ...(claim.page_anchor ? { page_anchor: claim.page_anchor } : {}),
+      status: claim.status,
+      lifecycle: claim.lifecycle,
+      scope: "private",
+      redacted: true,
+    }
+  }
+
+  return {
+    claim_id: claim.claim_id,
+    text: claim.text,
+    page_path: claim.page_path,
+    ...(claim.page_anchor ? { page_anchor: claim.page_anchor } : {}),
+    status: claim.status,
+    lifecycle: claim.lifecycle,
+    scope: "shared",
+    confidence: claim.confidence,
+    source_ref_count: claim.source_refs.length,
+    redacted: false,
+  }
+}
+
+function normalizeProjectPath(projectPath: string): string {
+  return normalizePath(projectPath).replace(/\/$/, "")
+}
+
+function isClaimRecordDraft(value: unknown): value is ClaimRecordDraft {
+  if (!value || typeof value !== "object") return false
+  const raw = value as Record<string, unknown>
+  return Boolean(stringValue(raw.text).trim() && stringValue(raw.page_path).trim())
+}
+
+function mergeSourceRefs(
+  existing: readonly ClaimSourceRef[],
+  incoming: readonly ClaimSourceRef[],
+): ClaimSourceRef[] {
+  const refs: ClaimSourceRef[] = []
+  const seen = new Set<string>()
+  for (const ref of [...existing, ...incoming]) {
+    const key = [
+      ref.path.toLowerCase(),
+      ref.anchor?.toLowerCase() ?? "",
+      ref.snippet_hash ?? "",
+    ].join("\n")
+    if (seen.has(key)) continue
+    seen.add(key)
+    refs.push(ref)
+  }
+  return refs
 }
 
 function normalizeLifecycle(value: unknown, warnings: string[]): ClaimLifecycle {

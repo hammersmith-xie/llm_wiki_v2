@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 1 / 15
+**总体进度**: 🚧 2 / 15
 
 ---
 
@@ -64,7 +64,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 实现 `.llm-wiki/claims.jsonl` 读写层
+### Task 1.2 ✅ 实现 `.llm-wiki/claims.jsonl` 读写层
 
 **描述**: 增加 claim JSONL append/read/filter/merge helpers，容忍坏行，保持派生索引可重建。
 
@@ -79,16 +79,16 @@ graph TD
 - `src/lib/audit-redaction.ts`
 
 **验收**:
-- [ ] 读取坏 JSONL 行返回 warnings，不阻断结果。
-- [ ] append/merge by claim id 不重复记录。
-- [ ] private scope claim 的 audit summary 不泄漏正文/snippet。
-- [ ] 缺失 `.llm-wiki/claims.jsonl` 时返回空索引。
+- [x] 读取坏 JSONL 行返回 warnings，不阻断结果。
+- [x] append/merge by claim id 不重复记录。
+- [x] private scope claim 的 audit summary 不泄漏正文/snippet。
+- [x] 缺失 `.llm-wiki/claims.jsonl` 时返回空索引。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试按预期失败在 `claimIndexPath/readClaimIndex/appendClaimRecords/mergeClaimRecords/claimRecordAuditSummary` 未导出；补实现后 focused test 通过，并补跑 `npm run typecheck`。
+- 🔧 **最终实现逻辑**: 在 `src/lib/claims.ts` 增加 project-local `claims.jsonl` path、容错读取、append 写入、claim id merge、private audit redaction summary；新增测试覆盖坏 JSONL 行、缺失文件、写入目录、数组去重合并和 private scope 脱敏。
+- 🎯 **关键决策**: `.llm-wiki/claims.jsonl` 保持派生索引定位：读失败返回空索引，坏行只进入 warnings；private claim 的 audit 摘要只暴露 id/path/status/lifecycle/scope，不暴露正文或 snippet hash。
 
 ---
 
@@ -565,12 +565,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Claim Data Foundation | 1 | 4 | 🚧 |
+| M1 | Claim Data Foundation | 2 | 4 | 🚧 |
 | M2 | Controlled Extraction and Writes | 0 | 4 | ⏳ |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **1** | **15** | **🚧** |
+| **总计** | | **2** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.2：claim JSONL 读写、merge 和 private audit summary。 |
 | 2026-05-08 | 初稿，15 个任务，按中量级 5 轮审核。 |
 
 ---

@@ -1,11 +1,35 @@
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   CLAIM_LIFECYCLES,
   CLAIM_SCOPES,
   CLAIM_STATUSES,
+  appendClaimRecords,
+  claimIndexPath,
+  claimRecordAuditSummary,
   createClaimId,
+  mergeClaimRecords,
   normalizeClaimRecord,
+  readClaimIndex,
 } from "./claims"
+
+vi.mock("@/commands/fs", () => ({
+  appendFile: vi.fn(async () => {}),
+  createDirectory: vi.fn(async () => {}),
+  readFile: vi.fn(async () => ""),
+}))
+
+import { appendFile, createDirectory, readFile } from "@/commands/fs"
+
+const mockAppendFile = vi.mocked(appendFile)
+const mockCreateDirectory = vi.mocked(createDirectory)
+const mockReadFile = vi.mocked(readFile)
+
+beforeEach(() => {
+  mockAppendFile.mockClear()
+  mockCreateDirectory.mockClear()
+  mockReadFile.mockReset()
+  mockReadFile.mockResolvedValue("")
+})
 
 describe("claim record contract", () => {
   it("creates stable claim ids from page path, anchor, and text", () => {
@@ -113,5 +137,106 @@ describe("claim record contract", () => {
 
     expect(a).toBe(b)
     expect(a.length).toBeGreaterThan("claim_".length)
+  })
+})
+
+describe("claim index jsonl", () => {
+  it("resolves the project-local claim index path", () => {
+    expect(claimIndexPath("/project\\demo")).toBe("/project/demo/.llm-wiki/claims.jsonl")
+  })
+
+  it("reads valid claim lines and keeps bad lines as warnings", async () => {
+    const valid = normalizeClaimRecord({
+      text: "Hybrid retrieval should expose each stream separately.",
+      page_path: "wiki/concepts/search.md",
+      confidence: "0.8",
+      source_refs: [{ path: "raw/sources/search.md" }],
+    }, { today: "2026-05-08" }).claim
+    mockReadFile.mockResolvedValueOnce([
+      JSON.stringify(valid),
+      "{bad",
+      JSON.stringify({ text: "", page_path: "" }),
+    ].join("\n"))
+
+    const result = await readClaimIndex("/project")
+
+    expect(result.claims).toHaveLength(1)
+    expect(result.claims[0]?.text).toBe("Hybrid retrieval should expose each stream separately.")
+    expect(result.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ line: 2, message: expect.stringContaining("Invalid claim JSON") }),
+      expect.objectContaining({ line: 3, message: "Invalid claim JSON: expected non-empty text and page_path." }),
+    ]))
+  })
+
+  it("returns an empty index when the claim file does not exist", async () => {
+    mockReadFile.mockRejectedValueOnce(new Error("missing"))
+
+    const result = await readClaimIndex("/project")
+
+    expect(result).toEqual({ claims: [], warnings: [] })
+  })
+
+  it("appends normalized claim records to jsonl", async () => {
+    const result = await appendClaimRecords("/project", [{
+      text: "Graph evidence should remain explainable.",
+      page_path: "wiki/concepts/graph.md",
+      confidence: "0.7",
+    }], { today: "2026-05-08" })
+
+    expect(result.writtenCount).toBe(1)
+    expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/claims.jsonl",
+      expect.stringContaining("\"text\":\"Graph evidence should remain explainable.\""),
+    )
+  })
+
+  it("merges records by claim id without duplicating relation arrays", () => {
+    const existing = normalizeClaimRecord({
+      claim_id: "claim_existing",
+      text: "A claim",
+      page_path: "wiki/a.md",
+      supports: ["old", "shared"],
+    }, { today: "2026-05-08" }).claim
+    const incoming = normalizeClaimRecord({
+      claim_id: "claim_existing",
+      text: "A claim, revised",
+      page_path: "wiki/a.md",
+      supports: ["shared", "new"],
+      contradicts: ["risk"],
+    }, { today: "2026-05-08" }).claim
+
+    const merged = mergeClaimRecords([existing], [incoming])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0]).toMatchObject({
+      text: "A claim, revised",
+      supports: ["old", "shared", "new"],
+      contradicts: ["risk"],
+    })
+  })
+
+  it("redacts private claim text and snippets from audit summaries", () => {
+    const claim = normalizeClaimRecord({
+      text: "Private customer detail should not leak.",
+      page_path: "wiki/private/customer.md",
+      scope: "private",
+      source_refs: [{
+        path: "raw/sources/customer.md",
+        snippet_hash: "hash-only",
+      }],
+    }, { today: "2026-05-08" }).claim
+
+    const summary = claimRecordAuditSummary(claim)
+    const json = JSON.stringify(summary)
+
+    expect(summary).toMatchObject({
+      claim_id: claim.claim_id,
+      page_path: "wiki/private/customer.md",
+      scope: "private",
+      redacted: true,
+    })
+    expect(json).not.toContain("Private customer detail")
+    expect(json).not.toContain("hash-only")
   })
 })
