@@ -499,7 +499,7 @@ graph TD
 **依赖**: M4
 **状态**: ⏳
 
-### Task 5.1 ⏳ 运行 focused tests、typecheck、mock regression 和 Rust tests
+### Task 5.1 ✅ 运行 focused tests、typecheck、mock regression 和 Rust tests
 
 **描述**: 跑 claim 相关 focused suites、全量 typecheck、mock regression；如果 Rust scaffold 改动，跑 cargo test。
 
@@ -517,16 +517,16 @@ graph TD
 - `src-tauri/src/commands/project.rs`
 
 **验收**:
-- [ ] Focused Vitest suites 通过。
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过或明确记录失败和原因。
-- [ ] Rust scaffold 有改动时 `cd src-tauri && cargo test` 通过。
+- [x] Focused Vitest suites 通过。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过或明确记录失败和原因。
+- [x] Rust scaffold 有改动时 `cd src-tauri && cargo test` 通过。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无新的测试失败；Rust 保留 1 个本地 PDF probe ignored，属于现有 opt-in probe。
+- 🔧 **最终实现逻辑**: 跑完 claim/schema/prompt/search/Memory Ops/UI focused suites、全量 TS typecheck、mock regression 和 Rust cargo test。
+- 🎯 **关键决策**: 将 `npm run test:mocks` 作为本阶段主回归门禁；真实 LLM 测试仍是 opt-in，不纳入本地 deterministic 完成条件。
 
 ---
 
@@ -569,7 +569,7 @@ graph TD
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
 | M3 | Evidence Retrieval and Memory Ops | 4 | 4 | ✅ |
 | M4 | UI, Schema, and Docs | 3 | 3 | ✅ |
-| M5 | Verification and Final Review | 0 | 2 | ⏳ |
+| M5 | Verification and Final Review | 1 | 2 | 🚧 |
 | **总计** | | **15** | **15** | **🚧** |
 
 ---
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T5.1：focused Vitest、typecheck、test:mocks 和 cargo test 全部通过。 |
 | 2026-05-08 | 完成 T4.3：README/README_CN、v2 plans 和 migration notes 对齐事实级可信度边界。 |
 | 2026-05-08 | 完成 T4.2：schema contract、templates、ingest prompt 和 Rust scaffold 补齐 claim layer。 |
 | 2026-05-08 | 完成 T4.1：复用 ClaimEvidenceList 并接入 Search/Chat。 |
