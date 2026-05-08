@@ -530,7 +530,7 @@ graph TD
 
 ---
 
-### Task 5.2 🚧 五轮最终审核与 completion audit
+### Task 5.2 ✅ 五轮最终审核与 completion audit
 
 **描述**: 按中型项目执行 5 轮最终审核：功能、类型/静态分析、性能、安全、UX/a11y，并补齐发现。
 
@@ -548,16 +548,16 @@ graph TD
 - `docs/llm-wiki-v2-fact-credibility/completion-audit.md` (新建)
 
 **验收**:
-- [ ] 5 轮 review reports 存在。
-- [ ] 每轮发现修复或明确记录为 follow-up/非目标。
-- [ ] completion audit 对照 F1-F9 和验证命令。
-- [ ] 文档顶部进度和底部进度总览一致。
+- [x] 5 轮 review reports 存在。
+- [x] 每轮发现修复或明确记录为 follow-up/非目标。
+- [x] completion audit 对照 F1-F9 和验证命令。
+- [x] 文档顶部进度和底部进度总览一致。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 五轮审核共发现并修复 3 个问题：rebuild apply 未先建 `.llm-wiki/`、claim index warning raw 未脱敏、claim evidence UI 文案硬编码英文。
+- 🔧 **最终实现逻辑**: 生成 5 份 review report 和 `completion-audit.md`，对照 F1-F10 记录实现证据、验证命令、修复项和后续 Spec B 入口。
+- 🎯 **关键决策**: A 阶段收口在事实级可信度基础设施和 evidence/review/audit 能力，不把 pre-write conflict gate 偷偷并入本期。
 
 ---
 
@@ -569,8 +569,8 @@ graph TD
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
 | M3 | Evidence Retrieval and Memory Ops | 4 | 4 | ✅ |
 | M4 | UI, Schema, and Docs | 3 | 3 | ✅ |
-| M5 | Verification and Final Review | 1 | 2 | 🚧 |
-| **总计** | | **15** | **15** | **🚧** |
+| M5 | Verification and Final Review | 2 | 2 | ✅ |
+| **总计** | | **15** | **15** | **✅** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T5.2：五轮最终审核、completion audit 和三项 review 修复。 |
 | 2026-05-08 | 完成 T5.1：focused Vitest、typecheck、test:mocks 和 cargo test 全部通过。 |
 | 2026-05-08 | 完成 T4.3：README/README_CN、v2 plans 和 migration notes 对齐事实级可信度边界。 |
 | 2026-05-08 | 完成 T4.2：schema contract、templates、ingest prompt 和 Rust scaffold 补齐 claim layer。 |
