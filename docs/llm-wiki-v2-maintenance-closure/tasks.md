@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 13 / 18
+**总体进度**: 🚧 14 / 18
 
 ---
 
@@ -410,9 +410,9 @@ graph TD
 
 **目标**: 跑 focused suites、typecheck、mock regression，并收口任务状态。
 **依赖**: M4
-**状态**: ⏳
+**状态**: ✅
 
-### Task 5.1 ⏳ Focused regression / typecheck / test:mocks
+### Task 5.1 ✅ Focused regression / typecheck / test:mocks
 
 **描述**: 验证 Memory Ops conflicts、Search Health custom scenarios、reminder UI 和文档相关回归。
 
@@ -426,16 +426,16 @@ graph TD
 - 测试命令输出
 
 **验收**:
-- [ ] Focused Vitest 通过。
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过。
-- [ ] 如未改 Rust，记录无需 `cargo test`。
+- [x] Focused Vitest 通过。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过。
+- [x] 如未改 Rust，记录无需 `cargo test`。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 未发现阻塞；`.dev-spec-flow/` 仍是既有未跟踪目录，未纳入本轮提交。
+- 🔧 **最终实现逻辑**: Focused Vitest 覆盖 historical conflicts、Search Health custom scenarios、reminder UI、automation boundary 和 Memory Ops UI；随后跑完整 TypeScript typecheck 和 mock regression。
+- 🎯 **关键决策**: 本轮未改 Rust/Tauri 代码，最终验证记录为无需 `cargo test`；M6 继续做 5 轮中量级审核。
 
 ---
 
@@ -575,9 +575,9 @@ graph TD
 | M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 2 | 2 | ✅ |
-| M5 | 回归验证 | 0 | 1 | ⏳ |
+| M5 | 回归验证 | 1 | 1 | ✅ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **13** | **18** | **🚧** |
+| **总计** | | **14** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T5.1：Focused regression / typecheck / test:mocks |
 | 2026-05-08 | 完成 T4.2：README / plans / completion audit 更新 |
 | 2026-05-08 | 完成 T4.1：Memory Ops UI 展示 historical conflict summary |
 | 2026-05-08 | 完成 T3.3：保持无后台扫描/无 daemon 边界 |
