@@ -39,7 +39,10 @@ export async function loadSearchHealthScenarioConfig(
 
   try {
     const parsed = JSON.parse(raw) as unknown
-    return { path, ...normalizeSearchHealthScenarioConfig(parsed) }
+    return {
+      path,
+      ...normalizeSearchHealthScenarioConfig(withProjectPath(parsed, projectPath)),
+    }
   } catch (err) {
     return {
       path,
@@ -50,6 +53,11 @@ export async function loadSearchHealthScenarioConfig(
       ],
     }
   }
+}
+
+function withProjectPath(input: unknown, projectPath: string): unknown {
+  if (isRecord(input)) return { ...input, projectPath }
+  return { projectPath, scenarios: input }
 }
 
 export async function saveSearchHealthScenarioConfig(
@@ -73,6 +81,7 @@ export function normalizeSearchHealthScenarioConfig(
   const warnings: string[] = []
   const skipped: SearchHealthSkippedScenario[] = []
   const records = scenarioRecords(input)
+  const root = configProjectRoot(input)
   if (!records) {
     return {
       scenarios: [],
@@ -99,15 +108,20 @@ export function normalizeSearchHealthScenarioConfig(
       continue
     }
 
-    const expectedTopPaths = stringArray(record.expectedTopPaths).map(normalizeScenarioPath)
-    const expectedInTopK = topKExpectations(record.expectedInTopK)
-    const expectedOutsideTopK = topKExpectations(record.expectedOutsideTopK)
-    const excludedPaths = stringArray(record.excludedPaths).map(normalizeScenarioPath)
+    const expectedTopPaths = normalizeScenarioPaths(record.expectedTopPaths, root)
+    const expectedInTopK = topKExpectations(record.expectedInTopK, root)
+    const expectedOutsideTopK = topKExpectations(record.expectedOutsideTopK, root)
+    const excludedPaths = normalizeScenarioPaths(record.excludedPaths, root)
     const topK = positiveInteger(record.topK)
 
     if (expectedInTopK === null || expectedOutsideTopK === null || topK === null) {
       skipped.push({ id, reason: "Invalid topK value." })
       warnings.push(`Custom scenario ${id} skipped: invalid topK value.`)
+      continue
+    }
+    if (expectedTopPaths === null || excludedPaths === null) {
+      skipped.push({ id, reason: "Invalid project-relative path." })
+      warnings.push(`Custom scenario ${id} skipped: invalid project-relative path.`)
       continue
     }
 
@@ -137,13 +151,22 @@ export function normalizeSearchHealthScenarioConfig(
   return { scenarios, skipped, warnings }
 }
 
+function configProjectRoot(input: unknown): string | undefined {
+  if (!isRecord(input)) return undefined
+  const raw = stringValue(input.projectPath)
+  return raw ? projectRoot(raw) : undefined
+}
+
 function scenarioRecords(input: unknown): Array<Record<string, unknown>> | null {
   const root = isRecord(input) ? input.scenarios : input
   if (!Array.isArray(root)) return null
   return root.filter(isRecord)
 }
 
-function topKExpectations(value: unknown): SearchEvalTopKExpectation[] | null {
+function topKExpectations(
+  value: unknown,
+  projectPath: string | undefined,
+): SearchEvalTopKExpectation[] | null {
   if (!Array.isArray(value)) return []
   const expectations: SearchEvalTopKExpectation[] = []
   for (const item of value) {
@@ -151,8 +174,10 @@ function topKExpectations(value: unknown): SearchEvalTopKExpectation[] | null {
     const path = stringValue(item.path)
     const topK = positiveInteger(item.topK)
     if (!path || topK === null || topK === undefined) return null
+    const normalizedPath = normalizeScenarioPath(path, projectPath)
+    if (!normalizedPath) return null
     expectations.push({
-      path: normalizeScenarioPath(path),
+      path: normalizedPath,
       topK,
     })
   }
@@ -183,8 +208,35 @@ function normalizeScenarioId(value: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
-function normalizeScenarioPath(value: string): string {
-  return normalizePath(value.trim()).replace(/^\/+/, "")
+function normalizeScenarioPaths(
+  value: unknown,
+  projectPath: string | undefined,
+): string[] | null {
+  const normalized: string[] = []
+  for (const item of stringArray(value)) {
+    const path = normalizeScenarioPath(item, projectPath)
+    if (!path) return null
+    normalized.push(path)
+  }
+  return normalized
+}
+
+function normalizeScenarioPath(value: string, projectPath: string | undefined): string | null {
+  let normalized = normalizePath(value.trim())
+  if (projectPath && normalized.startsWith(`${projectPath}/`)) {
+    normalized = normalized.slice(projectPath.length + 1)
+  }
+  normalized = normalized.replace(/^\/+/, "")
+  if (!isProjectRelativePath(normalized)) return null
+  return normalized
+}
+
+function isProjectRelativePath(value: string): boolean {
+  if (!value || value === "." || value.includes("\0")) return false
+  if (value.split("/").some((segment) => segment === "..")) return false
+  if (/^[A-Za-z]:\//.test(value)) return false
+  if (value.startsWith("//")) return false
+  return true
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

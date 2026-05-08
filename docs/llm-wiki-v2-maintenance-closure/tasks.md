@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 14 / 18
+**总体进度**: 🚧 15 / 18
 
 ---
 
@@ -445,7 +445,7 @@ graph TD
 **依赖**: M5
 **状态**: ⏳
 
-### Task 6.1 ⏳ Round 1 功能审核
+### Task 6.1 ✅ Round 1 功能审核
 
 **描述**: 对照 requirements F1-F11，检查三个闭环缺口是否完整。
 
@@ -458,14 +458,14 @@ graph TD
 - `docs/llm-wiki-v2-maintenance-closure/review-round-1.md`
 
 **验收**:
-- [ ] 报告列出发现和修复。
-- [ ] 如有修复，单独 commit。
+- [x] 报告列出发现和修复。
+- [x] 如有修复，单独 commit。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 发现 custom Search Health scenario path normalize 不够严格，项目绝对路径和 `../` 逃逸没有被正确处理。
+- 🔧 **最终实现逻辑**: normalize 增加 projectPath 感知，项目绝对路径转项目相对路径，逃逸路径转 skipped/warning；报告见 `review-round-1.md`。
+- 🎯 **关键决策**: custom scenario path 只允许项目相对路径参与 eval，坏 path 不阻断 built-in scenarios。
 
 ---
 
@@ -576,8 +576,8 @@ graph TD
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 2 | 2 | ✅ |
 | M5 | 回归验证 | 1 | 1 | ✅ |
-| M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **14** | **18** | **🚧** |
+| M6 | 最终审核 | 1 | 5 | 🚧 |
+| **总计** | | **15** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T6.1：Round 1 功能审核 |
 | 2026-05-08 | 完成 T5.1：Focused regression / typecheck / test:mocks |
 | 2026-05-08 | 完成 T4.2：README / plans / completion audit 更新 |
 | 2026-05-08 | 完成 T4.1：Memory Ops UI 展示 historical conflict summary |
@@ -607,7 +608,7 @@ graph TD
 
 | Round | 视角 | 状态 | 报告 |
 |-------|------|------|------|
-| 1 | 功能 | ⏳ | - |
+| 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
 | 2 | 类型 & 静态分析 | ⏳ | - |
 | 3 | 性能 | ⏳ | - |
 | 4 | 安全 | ⏳ | - |

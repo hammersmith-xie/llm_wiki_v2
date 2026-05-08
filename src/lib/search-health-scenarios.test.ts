@@ -28,6 +28,7 @@ beforeEach(() => {
 describe("search health custom scenarios", () => {
   it("normalizes supported custom scenario fields", () => {
     const result = normalizeSearchHealthScenarioConfig({
+      projectPath: "/project",
       scenarios: [
         {
           id: " Critical Query ",
@@ -45,7 +46,7 @@ describe("search health custom scenarios", () => {
       {
         id: "critical-query",
         query: "hybrid search",
-        expectedTopPaths: ["project/wiki/concepts/search.md"],
+        expectedTopPaths: ["wiki/concepts/search.md"],
         expectedInTopK: [{ path: "wiki/concepts/hybrid.md", topK: 3 }],
         expectedOutsideTopK: [{ path: "wiki/archive/old.md", topK: 1 }],
         excludedPaths: ["wiki/private/draft.md"],
@@ -57,12 +58,14 @@ describe("search health custom scenarios", () => {
 
   it("skips invalid and duplicate scenarios without throwing", () => {
     const result = normalizeSearchHealthScenarioConfig({
+      projectPath: "/project",
       scenarios: [
         { id: "missing-query", expectedTopPaths: ["wiki/a.md"] },
         { id: "no-expectations", query: "alpha" },
         { id: "dup", query: "first", expectedInTopK: [{ path: "wiki/a.md", topK: 2 }] },
         { id: "dup", query: "second", expectedInTopK: [{ path: "wiki/b.md", topK: 2 }] },
         { id: "bad-topk", query: "beta", expectedInTopK: [{ path: "wiki/b.md", topK: -1 }] },
+        { id: "outside", query: "escape", expectedTopPaths: ["../outside.md"] },
       ],
     })
 
@@ -78,11 +81,13 @@ describe("search health custom scenarios", () => {
       "no-expectations",
       "dup",
       "bad-topk",
+      "outside",
     ])
     expect(result.warnings).toEqual(expect.arrayContaining([
       expect.stringContaining("missing-query"),
       expect.stringContaining("duplicate"),
       expect.stringContaining("bad-topk"),
+      expect.stringContaining("outside"),
     ]))
   })
 

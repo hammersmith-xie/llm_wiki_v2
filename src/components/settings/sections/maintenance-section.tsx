@@ -809,6 +809,7 @@ export function MaintenanceSection() {
     setCustomSearchScenariosSaved(false)
     try {
       const normalized = normalizeSearchHealthScenarioConfig({
+        projectPath: project.path,
         scenarios: customSearchScenarios,
       })
       const result = await saveSearchHealthScenarioConfig(
