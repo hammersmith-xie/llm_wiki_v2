@@ -13,15 +13,17 @@ vi.mock("@/commands/fs", () => ({
   writeFile: vi.fn(async () => {}),
 }))
 
-import { appendFile, listDirectory, readFile, writeFile } from "@/commands/fs"
+import { appendFile, createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
 
 const mockAppendFile = vi.mocked(appendFile)
+const mockCreateDirectory = vi.mocked(createDirectory)
 const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 
 beforeEach(() => {
   mockAppendFile.mockReset()
+  mockCreateDirectory.mockReset()
   mockListDirectory.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
@@ -121,6 +123,10 @@ describe("claim index scan and rebuild", () => {
     const result = await applyClaimIndexRebuild("/project")
 
     expect(result.dryRun).toBe(false)
+    expect(mockCreateDirectory).toHaveBeenCalledWith("/project/.llm-wiki")
+    expect(mockCreateDirectory.mock.invocationCallOrder[0]).toBeLessThan(
+      mockWriteFile.mock.invocationCallOrder[0],
+    )
     expect(mockWriteFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/claims.jsonl",
       expect.stringContaining("\"claim_id\":\"claim_anchor1\""),

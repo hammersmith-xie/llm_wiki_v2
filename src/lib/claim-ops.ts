@@ -1,4 +1,4 @@
-import { listDirectory, readFile, writeFile } from "@/commands/fs"
+import { createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
 import { appendAuditEvent } from "@/lib/audit-timeline"
 import { parseClaimAnchors } from "@/lib/claim-anchors"
 import {
@@ -84,6 +84,7 @@ export async function applyClaimIndexRebuild(
   for (const claim of dryRun.recovered) existingById.set(claim.claim_id, claim)
   const claims = [...existingById.values()]
 
+  await createDirectory(`${pp}/.llm-wiki`).catch(() => {})
   await writeFile(`${pp}/.llm-wiki/claims.jsonl`, claims.map((claim) => JSON.stringify(claim)).join("\n") + "\n")
   await appendAuditEvent(pp, {
     action: "claim.rebuild",
