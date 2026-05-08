@@ -195,13 +195,15 @@ lifecycle metadata, typed graph retrieval, schema scans, Memory Ops, audit
 events, and crystallization operate as derived or governance layers around that
 wiki.
 
-The next two high-value improvements are:
+The first high-value improvement has now landed, and the next one remains:
 
-- **Fact-level credibility**: move beyond page-level confidence for high-value
-  claims. Claims should carry source references, optional source spans,
-  confidence reasons, last confirmation date, reinforcement count, supersession
-  links, contradiction links, and scope. Search, chat, and Memory Ops should be
-  able to reason about weak or stale claims without demoting an entire page.
+- **Fact-level credibility**: implemented as a bounded local layer around
+  Markdown. High-value claims receive stable IDs, source references, confidence
+  reasons, last confirmation date, reinforcement count, supersession and
+  contradiction links, scope, and app-managed Markdown anchors. Search, chat,
+  and Memory Ops can reason about weak or stale claims without demoting an
+  entire page. `.llm-wiki/claims.jsonl` is a derived, rebuildable index, not a
+  replacement source of truth.
 - **Pre-write conflict handling**: before ingest or crystallization writes new
   knowledge, retrieve related pages/claims through title/alias, lexical/BM25,
   vector, and typed graph signals, classify the candidate as new, reinforcement,
@@ -209,16 +211,19 @@ The next two high-value improvements are:
   them to review. The system should audit preview/accept/ignore/review handoff
   events and avoid silent rewrites.
 
-Both should stay inside the existing product boundary: local-first, auditable,
-bounded, and Markdown-compatible. They should not require a remote memory server,
-Neo4j/LightRAG replacement, multi-user ACL, or autonomous destructive repair.
+The next conflict-handling phase should stay inside the existing product
+boundary: local-first, auditable, bounded, and Markdown-compatible. It should not
+require a remote memory server, Neo4j/LightRAG replacement, multi-user ACL, or
+autonomous destructive repair.
 
 ## Remaining Non-Goals
 
 - No remote backend, database, auth, or multi-user ACL.
 - No autonomous background crystallization of every chat session.
-- No claim/span-level provenance in the current implementation; fact-level
-  credibility is the recommended next trust-focused increment.
+- No exhaustive historical claim extraction or span/PDF-coordinate provenance.
+- No automatic truth adjudication from claim confidence.
+- No write-blocking pre-write conflict gate in the current fact-level
+  credibility implementation.
 - No full rewrite of the existing visual/chat graph pipeline onto the typed graph
   helper; page-level explicit typed edges are now included, but visual layout,
   insights, and weighting still use the existing graph pipeline.

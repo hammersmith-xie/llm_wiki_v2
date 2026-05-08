@@ -58,15 +58,17 @@ keeps the system inspectable and Git-friendly while avoiding a premature
 Neo4j/LightRAG-style replacement of the wiki itself.
 
 The next useful step is not to add a remote memory server or more generated
-prose. The highest-value follow-up is to make trust more granular and make
-writes safer before they land. That means two priorities: fact-level credibility
-and pre-write conflict handling.
+prose. Trust now has a first fact-level slice: high-value claims can be anchored
+back to Markdown, indexed in `.llm-wiki/claims.jsonl`, scored, surfaced as
+search/chat evidence, and included in Memory Ops claim health. The remaining
+high-value follow-up is to make writes safer before they land through pre-write
+conflict handling.
 
 ## Gap Matrix
 
 | v2 Capability | Current Support | Missing Piece | Risk | Priority |
 | --- | --- | --- | --- | --- |
-| Lifecycle metadata | Implemented page-level deterministic model | Claim/span-level provenance remains future work | Medium: score semantics can be over-interpreted | Done for page scope |
+| Lifecycle metadata | Implemented page-level deterministic model plus claim-level credibility for high-value new write paths | Full span/PDF-coordinate provenance and exhaustive historical extraction remain future work | Medium: score semantics can be over-interpreted | Done for page scope and first claim slice |
 | Typed graph | Implemented helper over frontmatter/wikilinks; explicit typed edges now appear in visual graph and chat context expansion; seed matching covers lightweight aliases/tags/summary text | Claim/span-level typed edges and a full graph pipeline rewrite remain future work | Medium: parsing conventions must remain simple | Done for page-level retrieval, graph view, and chat expansion |
 | Hybrid retrieval | Lexical + vector + graph RRF | Full BM25 remains future improvement | Medium: search latency | Done for v2 slice |
 | Event hooks | Ingest, explicit save/crystallization, lint | Scheduled background maintenance remains future work | Medium: avoid failing ingest due to metadata | Done for local hooks |
@@ -97,43 +99,45 @@ boundaries: markdown, frontmatter, graph/search helpers, lint, review queue, and
 `.llm-wiki/` persistence. It avoids the high-ambiguity parts of v2 such as full
 multi-agent memory sync and autonomous background crystallization.
 
-## Recommended Next Work
+## Current Trust Slice and Next Work
 
 ### 1. Fact-Level Credibility
 
-Current confidence is page-level. That is enough for the v2 local slice, but it
-is still too coarse for long-lived knowledge: one page can contain strong facts,
-weak interpretations, stale claims, and unresolved contradictions at the same
-time.
+Page-level confidence remains useful, but it is too coarse for long-lived
+knowledge: one page can contain strong facts, weak interpretations, stale
+claims, and unresolved contradictions at the same time.
 
-The next iteration should introduce claim-level credibility for high-value facts:
+The current implementation introduces claim-level credibility for high-value
+facts:
 
-- Give important claims stable IDs and attach source references, optional source
-  spans or quote anchors, `last_confirmed`, `confidence`, `confidence_reasons`,
-  `reinforcement_count`, `supersedes`, `superseded_by`, `contradicts`, and
-  `scope`.
-- Keep the durable claim representation inspectable from the wiki, either inside
-  Markdown claim sections or in an auditable project artifact that points back to
-  Markdown pages and source files. Any vector or graph claim index should remain
-  derived.
-- Let search/chat surface claim evidence separately from page evidence, so an
+- Important claims have stable IDs plus source references, optional source
+  snippets/hashes, `last_confirmed`, `confidence`, `confidence_reasons`,
+  `reinforcement_count`, `supersedes`, `superseded_by`, `contradicts`,
+  `supports`, `status`, and `scope`.
+- Markdown remains the source of truth. Claim anchors such as
+  `<!-- claim:claim_xxx -->` point back into wiki pages, while
+  `.llm-wiki/claims.jsonl` is a derived, rebuildable governance index.
+- Search/chat surface claim evidence separately from page evidence, so an
   answer can say which claim was used and why it is trusted or downgraded.
-- Let Memory Ops patrol stale or contradicted claims without demoting an entire
+- Memory Ops can patrol stale, contradicted, and superseded claims without demoting an entire
   page when only one claim is weak.
-- Add deterministic tests for claim parsing, claim confidence scoring, stale
-  claim detection, supersession handling, audit redaction, and search evidence
-  formatting.
+- Deterministic tests cover claim parsing, claim confidence scoring, stale and
+  superseded claim handling, audit redaction, search evidence, Memory Ops
+  suggestions, prompt/schema contracts, and rebuild behavior.
 
-This should be introduced narrowly. Start with claims created by ingest,
-crystallization, and explicit user save flows; do not try to retroactively
-extract every claim from every existing page in one pass.
+The boundaries remain intentionally narrow. Claims are created from controlled
+new write paths such as ingest, crystallization, review-created pages, and
+explicit save flows. The system does not retroactively extract every sentence
+from every existing page, does not make claim confidence a truth verdict, and
+does not replace Markdown with a claim database.
 
 ### 2. Pre-Write Conflict Handling
 
 Current conflict handling is mostly post-write: ingest, lint, schema scans, and
 Memory Ops can flag stale, contradictory, or superseded material after content
-exists. The safer next step is to run a lightweight conflict gate before new
-knowledge is written or crystallized.
+exists, and claim records now provide finer-grained inputs for this. The safer
+next step is to run a lightweight conflict gate before new knowledge is written
+or crystallized.
 
 The pre-write flow should:
 
@@ -161,8 +165,10 @@ candidate conflicts after retrieval has already found the relevant pages.
 - No automatic rewrite/delete of stale content.
 - No real-LLM test requirement.
 - No autonomous background crystallization workflow in this pass.
-- No claim/span-level provenance in this pass; it is the next trust-focused
-  priority, not current behavior.
+- No exhaustive historical claim extraction or span/PDF-coordinate provenance.
+- No automatic truth adjudication from claim confidence.
+- No pre-write conflict gate in the fact-level credibility slice; it remains the
+  next implementation phase.
 - No full typed graph rewrite of the visual graph/chat graph pipeline in this
   pass; current graph consumers incorporate explicit page-level typed
   relationship edges but still rely on existing relevance/layout helpers.

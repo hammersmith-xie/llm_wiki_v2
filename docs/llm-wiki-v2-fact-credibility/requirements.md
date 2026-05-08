@@ -312,7 +312,27 @@
 - [ ] Prompt 测试覆盖 claim 字段/anchor 说明。
 - [ ] README/plans 不把 claim index 描述成 source of truth。
 
-### F9: Review and audit integration
+### F9: Migration and rebuild notes
+
+**描述**: 旧项目在没有 claim index 的情况下也能继续使用，并且能通过显式维护入口恢复派生索引。
+
+**输入**: legacy project、缺失或损坏的 `.llm-wiki/claims.jsonl`、已有 Markdown anchors。
+
+**行为**:
+- 旧项目没有 `.llm-wiki/claims.jsonl` 时，search/chat/Memory Ops 回退到 page-level evidence。
+- 新写入路径逐步增加 claim anchors 和 claim records，不触发历史全量重写。
+- claim index scan/rebuild 从 `wiki/**/*.md` 和 anchors 恢复可恢复记录，列出 orphan/stale/bad-line warnings。
+- rebuild apply 写入 `claim.rebuild` audit；dry-run 不写文件。
+
+**输出**: README/plans migration notes、scan/rebuild 操作说明。
+
+**验收标准**:
+- [ ] README/README_CN 说明旧项目无需立即迁移。
+- [ ] README/README_CN 说明 claim index 是可重建派生层，不是事实数据库。
+- [ ] 文档说明 scan/rebuild 不读取大型 `raw/sources/`。
+- [ ] 文档说明 pre-write conflict gate 是下一阶段，不属于本期。
+
+### F10: Review and audit integration
 
 **描述**: Claim 相关操作必须可审计、可进入 review。
 
@@ -510,4 +530,5 @@ sequenceDiagram
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-05-08 | v0.2 | 补充 README/plans/migration notes 要求，明确 claim index 派生边界和写入前冲突 gate 非目标。 |
 | 2026-05-08 | v0.1 | 初稿，定义事实级可信度中量级 spec。 |

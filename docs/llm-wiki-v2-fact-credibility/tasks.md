@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 14 / 15
+**总体进度**: 🚧 15 / 15
 
 ---
 
@@ -398,7 +398,7 @@ graph TD
 
 **目标**: 把 claim evidence 做成可理解入口，并更新 schema/prompt/documentation。
 **依赖**: M3
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ 增加 claim evidence UI 组件
 
@@ -462,7 +462,7 @@ graph TD
 
 ---
 
-### Task 4.3 ⏳ 更新 README / plans / migration notes
+### Task 4.3 ✅ 更新 README / plans / migration notes
 
 **描述**: 更新文档说明事实级可信度的边界、操作方式、非目标和与 Spec B 的关系。
 
@@ -480,16 +480,16 @@ graph TD
 - `docs/llm-wiki-v2-fact-credibility/tasks.md`
 
 **验收**:
-- [ ] 文档说明 claim 层不是数据库替代品。
-- [ ] 文档说明本期不做 pre-write conflict gate。
-- [ ] 旧项目 migration/rebuild 行为写清楚。
-- [ ] README 不夸大自动事实裁决能力。
+- [x] 文档说明 claim 层不是数据库替代品。
+- [x] 文档说明本期不做 pre-write conflict gate。
+- [x] 旧项目 migration/rebuild 行为写清楚。
+- [x] README 不夸大自动事实裁决能力。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `plans/llm-wiki-v2-deep-dive.md` 和 `plans/llm-wiki-v2-completion-audit.md` 仍把 fact-level credibility 描述成 future work；已改为“已落地第一阶段，pre-write conflict handling 仍是下一阶段”。
+- 🔧 **最终实现逻辑**: README/README_CN 增加 fact-level claim evidence、claim confidence 边界、claim index recovery、migration-safe fallback 和 pre-write conflict 非目标说明；plans 更新当前能力/下一步边界；requirements 补充 migration/rebuild notes。
+- 🎯 **关键决策**: 文档明确 `.llm-wiki/claims.jsonl` 是 derived/rebuildable index，不是 Markdown 替代数据库；claim confidence 是 evidence/maintenance signal，不是自动事实裁决。
 
 ---
 
@@ -568,9 +568,9 @@ graph TD
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
 | M3 | Evidence Retrieval and Memory Ops | 4 | 4 | ✅ |
-| M4 | UI, Schema, and Docs | 2 | 3 | 🚧 |
+| M4 | UI, Schema, and Docs | 3 | 3 | ✅ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **14** | **15** | **🚧** |
+| **总计** | | **15** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T4.3：README/README_CN、v2 plans 和 migration notes 对齐事实级可信度边界。 |
 | 2026-05-08 | 完成 T4.2：schema contract、templates、ingest prompt 和 Rust scaffold 补齐 claim layer。 |
 | 2026-05-08 | 完成 T4.1：复用 ClaimEvidenceList 并接入 Search/Chat。 |
 | 2026-05-08 | 完成 T3.4：claim index scan/rebuild dry-run 和 apply audit。 |

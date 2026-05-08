@@ -36,8 +36,8 @@
 - **Louvain Community Detection** — automatic knowledge cluster discovery with cohesion scoring
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
-- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, and append-only audit events
-- **Memory Ops Workbench** — local maintenance patrol, schema/quality scans, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, search health checks, digest preview, and coordination summary
+- **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, fact-level claim evidence, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, and append-only audit events
+- **Memory Ops Workbench** — local maintenance patrol, schema/quality scans, claim health, batch metadata governance, rollback, audit timeline explorer, lifecycle policy tuning, search health checks, digest preview, and coordination summary
 - **Persistent Ingest Queue** — serial processing with crash recovery, cancel, retry, and progress visualization
 - **Folder Import** — recursive folder import preserving directory structure, folder context as LLM classification hint
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
@@ -251,6 +251,10 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Event hooks** — `session.start/end`, `memory.write`, `schema.scan`, `quality.scan`, `digest.preview`, and `digest.save` write best-effort audit events and maintenance markers without high-frequency rescans
 - **Unified audit timeline** — `.llm-wiki/audit.jsonl` records lifecycle, crystallization, patrol, ignore, and metadata-apply events with redaction and bad-line tolerance
 - **Source-of-truth boundary** — patrol reads wiki pages, typed graph state, review state, chat history, and audit activity; raw documents remain immutable inputs, not a background rescan target
+- **Fact-level claim evidence** — high-value findings, decisions, recommendations, contradictions, and conclusions can receive app-managed Markdown anchors such as `<!-- claim:claim_xxx -->`; `.llm-wiki/claims.jsonl` stores a derived, rebuildable claim index for search/chat evidence, Memory Ops claim health, and claim audit handoff
+- **Claim confidence boundaries** — claim confidence is a maintenance and evidence signal, not an automatic truth verdict. Contradicted, stale, or superseded claims are surfaced for review instead of silently rewriting or deleting Markdown.
+- **Claim index recovery** — Maintenance can scan/rebuild the derived claim index from wiki pages and anchors, list recovered/orphan/stale records, and audit confirmed rebuilds without reading large `raw/sources/` files
+- **Pre-write conflict gate is not included yet** — current claim records prepare the interface for classifying future writes as new, reinforcement, update, contradiction, or supersession, but ingest/crystallization do not yet run a full write-blocking conflict preview
 - **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM
 - **Cooldown reminders** — query, search, and review activity can mark that a patrol is due, but the app does not auto-run a full scan in the background
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
@@ -268,6 +272,14 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 #### Schema Contract Migration
 
 Existing projects do not need a manual migration before opening. If `schema.md` does not contain a machine-readable contract block, Schema & Quality scan falls back to the built-in v1 contract and reports that fallback in the scan summary. To adopt the explicit contract, create a new project from the current template and copy the `llm-wiki-schema-contract` fenced block into the older project's `schema.md`, then run Schema & Quality scan and preview any generated metadata suggestions before applying them.
+
+Claim evidence is also migration-safe. Older projects can continue without
+`.llm-wiki/claims.jsonl`; search, chat, and Memory Ops fall back to page-level
+signals. New ingest, crystallization, and review-created pages may add claim
+anchors over time. If the derived index is missing or stale, run the explicit
+claim index scan/rebuild from Maintenance; it reconstructs recoverable records
+from Markdown anchors and reports anything orphaned instead of treating the
+index as an authoritative database.
 
 ### 10. Thinking / Reasoning Display
 
