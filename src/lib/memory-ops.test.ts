@@ -3,6 +3,7 @@ import type { FileNode } from "@/types/wiki"
 import {
   completeMemoryOpsPatrolCooldown,
   reduceMemoryOpsMaintenanceEvent,
+  summarizeMemoryOpsMaintenanceStatus,
   scanMemoryOpsProject,
   runMemoryOpsPatrol,
 } from "./memory-ops"
@@ -103,6 +104,50 @@ describe("memory ops project scanner", () => {
     expect(completed).toEqual({
       lastPatrolAt: 5_000,
       eventCountSincePatrol: 0,
+    })
+  })
+
+  it("summarizes clean, dirty, and reminder-due maintenance statuses", () => {
+    expect(summarizeMemoryOpsMaintenanceStatus({
+      lastPatrolAt: 1_000,
+      eventCountSincePatrol: 0,
+    }, {
+      now: 10_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })).toMatchObject({
+      status: "clean",
+      needsPatrol: false,
+      reminderDue: false,
+    })
+
+    expect(summarizeMemoryOpsMaintenanceStatus({
+      lastPatrolAt: 1_000,
+      dirtySince: 2_000,
+      eventCountSincePatrol: 2,
+    }, {
+      now: 10_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })).toMatchObject({
+      status: "dirty",
+      needsPatrol: true,
+      reminderDue: false,
+    })
+
+    expect(summarizeMemoryOpsMaintenanceStatus({
+      lastPatrolAt: 1_000,
+      dirtySince: 2_000,
+      eventCountSincePatrol: 3,
+      lastReminderAt: 0,
+    }, {
+      now: 120_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+    })).toMatchObject({
+      status: "reminder-due",
+      needsPatrol: true,
+      reminderDue: true,
     })
   })
 

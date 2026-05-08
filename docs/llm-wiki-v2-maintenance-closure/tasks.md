@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 8 / 18
+**总体进度**: 🚧 9 / 18
 
 ---
 
@@ -260,9 +260,9 @@ graph TD
 
 **目标**: 把现有 dirty/cooldown 状态变成清晰的用户可见维护提醒，不引入 daemon。
 **依赖**: 无
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ 强化 maintenance status model
+### Task 3.1 ✅ 强化 maintenance status model
 
 **描述**: 明确 clean / dirty / reminder due 三种状态，补 reducer 和 summary 测试。
 
@@ -276,15 +276,15 @@ graph TD
 - `src/lib/memory-ops.test.ts`
 
 **验收**:
-- [ ] threshold 未到时 dirty 但不 reminder。
-- [ ] threshold 到且 cooldown 到时 reminderDue。
-- [ ] patrol 完成后状态复位。
+- [x] threshold 未到时 dirty 但不 reminder。
+- [x] threshold 到且 cooldown 到时 reminderDue。
+- [x] patrol 完成后状态复位。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试先失败在 maintenance status 缺少明确 `status` 字段，只有 `needsPatrol/reminderDue` 两个布尔值。
+- 🔧 **最终实现逻辑**: 新增 `MemoryOpsMaintenanceStatusKind = clean | dirty | reminder-due`，`summarizeMemoryOpsMaintenanceStatus` 统一计算 status、needsPatrol、reminderDue。
+- 🎯 **关键决策**: 状态模型仍只基于轻量持久化计数和 cooldown，不触发 patrol scan；巡检完成继续通过 `completeMemoryOpsPatrolCooldown` 复位。
 
 ---
 
@@ -573,11 +573,11 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
 | M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
-| M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
+| M3 | 轻量 patrol reminder | 1 | 3 | 🚧 |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **8** | **18** | **🚧** |
+| **总计** | | **9** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.1：maintenance status model clean/dirty/reminder-due |
 | 2026-05-08 | 完成 T2.4：Search Health custom scenario UI |
 | 2026-05-08 | 完成 T2.3：Search Health 合并 built-in/custom scenarios |
 | 2026-05-08 | 完成 T2.2：custom Search Health scenario load/save |

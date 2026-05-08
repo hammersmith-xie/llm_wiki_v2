@@ -164,7 +164,10 @@ export interface MemoryOpsMaintenanceEventResult {
   reminderDue: boolean
 }
 
+export type MemoryOpsMaintenanceStatusKind = "clean" | "dirty" | "reminder-due"
+
 export interface MemoryOpsMaintenanceStatus extends PersistedMemoryOpsMaintenanceState {
+  status: MemoryOpsMaintenanceStatusKind
   needsPatrol: boolean
   reminderDue: boolean
 }
@@ -383,10 +386,13 @@ export function summarizeMemoryOpsMaintenanceStatus(
   const current = normalizeMaintenanceState(state)
   const reminderCooldownElapsed =
     current.lastReminderAt === undefined || now - current.lastReminderAt >= reminderCooldownMs
+  const reminderDue = current.eventCountSincePatrol >= eventThreshold && reminderCooldownElapsed
+  const needsPatrol = current.eventCountSincePatrol > 0
   return {
     ...current,
-    needsPatrol: current.eventCountSincePatrol > 0,
-    reminderDue: current.eventCountSincePatrol >= eventThreshold && reminderCooldownElapsed,
+    status: reminderDue ? "reminder-due" : needsPatrol ? "dirty" : "clean",
+    needsPatrol,
+    reminderDue,
   }
 }
 
