@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 2 / 18
+**总体进度**: 🚧 3 / 18
 
 ---
 
@@ -90,7 +90,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 转换为 Memory Ops review-action suggestion
+### Task 1.3 ✅ 转换为 Memory Ops review-action suggestion
 
 **描述**: 将 high-risk historical conflict preview 转为 `MemoryOpsSuggestion`。
 
@@ -104,15 +104,15 @@ graph TD
 - `src/lib/memory-ops-rules.ts`
 
 **验收**:
-- [ ] suggestion kind 为 `review-action`。
-- [ ] 不带 `proposedOperation`，不能 batch apply。
-- [ ] reasons 包含 classification、target path 和 evidence summary。
+- [x] suggestion kind 为 `review-action`。
+- [x] 不带 `proposedOperation`，不能 batch apply。
+- [x] reasons 包含 classification、target path 和 evidence summary。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试先失败在 `preWritePreviewToMemoryOpsSuggestion` 未导出，符合预期。
+- 🔧 **最终实现逻辑**: 新增纯函数 converter，把 high-risk preview 转成 `review-action` suggestion，detail/reasons 只包含 classification、decision、target 和 evidence summary，不复制完整 claim/page text。
+- 🎯 **关键决策**: 不设置 `proposedOperation`，让历史冲突建议只能 open/ignore/review，不能进入 batch apply 改写 Markdown。
 
 ---
 
@@ -571,13 +571,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 历史冲突巡检 | 2 | 4 | 🚧 |
+| M1 | 历史冲突巡检 | 3 | 4 | 🚧 |
 | M2 | 自定义 Search Health scenarios | 0 | 4 | ⏳ |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **2** | **18** | **🚧** |
+| **总计** | | **3** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.3：historical conflict review-action suggestion |
 | 2026-05-08 | 完成 T1.2：historical conflict preview |
 | 2026-05-08 | 完成 T1.1：maintenance page candidate builder |
 | 2026-05-08 | 初稿，18 个任务，按中量级 5 轮审核 |

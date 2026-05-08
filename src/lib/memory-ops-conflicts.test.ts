@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildMemoryOpsConflictCandidate,
   previewMemoryOpsHistoricalConflicts,
+  preWritePreviewToMemoryOpsSuggestion,
 } from "./memory-ops-conflicts"
 import type { MemoryOpsWikiPage } from "./memory-ops"
 import type { PreWriteConflictPreview } from "./prewrite-conflict"
@@ -122,6 +123,48 @@ describe("memory ops conflict candidates", () => {
         message: "resolver down",
       },
     ])
+  })
+
+  it("converts a risky historical preview to a review-only memory ops suggestion", () => {
+    const pageCandidate = buildMemoryOpsConflictCandidate(
+      "/project",
+      page("hybrid-search", "Hybrid Search", "wiki/concepts/hybrid-search.md"),
+    )
+
+    const suggestion = preWritePreviewToMemoryOpsSuggestion({
+      candidate: pageCandidate,
+      classification: "possible-contradiction",
+      decision: "review-only",
+      severity: "blocking",
+      evidence: [{
+        kind: "claim",
+        pagePath: "wiki/concepts/legacy-search.md",
+        pageTitle: "Legacy Search",
+        claimId: "claim_old",
+        claimText: "Full claim text should not be copied into suggestion detail.",
+        status: "contradicted",
+        relation: "contradicts",
+        score: 0.92,
+        reasons: ["claim status is contradicted"],
+      }],
+      reasons: ["Potential contradiction evidence was found before writing."],
+    })
+
+    expect(suggestion).toMatchObject({
+      kind: "review-action",
+      severity: "warning",
+      targetPath: "wiki/concepts/hybrid-search.md",
+      title: "Review historical possible-contradiction",
+    })
+    expect(suggestion.id).toContain("historical-conflict")
+    expect(suggestion.proposedOperation).toBeUndefined()
+    expect(suggestion.reasons).toEqual(expect.arrayContaining([
+      "classification possible-contradiction",
+      "decision review-only",
+      "evidence claim wiki/concepts/legacy-search.md claim_old contradicted contradicts",
+    ]))
+    expect(suggestion.detail).toContain("Hybrid Search")
+    expect(suggestion.detail).not.toContain("Full claim text")
   })
 })
 

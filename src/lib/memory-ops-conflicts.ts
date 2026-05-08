@@ -1,9 +1,11 @@
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import type { MemoryOpsWikiPage } from "@/lib/memory-ops"
+import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { normalizePath } from "@/lib/path-utils"
 import {
   buildPreWriteCandidate,
   type PreWriteCandidate,
+  type PreWriteEvidence,
   type PreWriteConflictPreview,
 } from "@/lib/prewrite-conflict"
 import {
@@ -89,6 +91,38 @@ export async function previewMemoryOpsHistoricalConflicts(
   }
 }
 
+export function preWritePreviewToMemoryOpsSuggestion(
+  preview: PreWriteConflictPreview,
+): MemoryOpsSuggestion {
+  const classification = preview.classification
+  const evidenceSummaries = preview.evidence.map(evidenceSummary).filter(Boolean)
+  return {
+    id: suggestionId(
+      "historical-conflict",
+      preview.candidate.targetPath,
+      classification,
+      preview.candidate.id,
+    ),
+    kind: "review-action",
+    severity: "warning",
+    targetPath: preview.candidate.targetPath,
+    title: `Review historical ${classification}`,
+    detail: [
+      preview.candidate.title ?? preview.candidate.targetPath,
+      `Classification: ${classification}`,
+      `Decision: ${preview.decision}`,
+      evidenceSummaries.length > 0 ? `Evidence: ${evidenceSummaries.join("; ")}` : "",
+    ].filter(Boolean).join("\n"),
+    reasons: [
+      `classification ${classification}`,
+      `decision ${preview.decision}`,
+      ...preview.reasons,
+      ...evidenceSummaries.map((summary) => `evidence ${summary}`),
+      "historical conflict patrol is review-only and does not modify markdown",
+    ],
+  }
+}
+
 function isHistoricalConflictPreview(preview: PreWriteConflictPreview): boolean {
   if (preview.decision !== "review-only") return false
   if (
@@ -130,4 +164,22 @@ function toProjectRelativePath(projectPath: string, path: string): string {
 
 function samePath(left: string, right: string): boolean {
   return normalizePath(left).trim().toLowerCase() === normalizePath(right).trim().toLowerCase()
+}
+
+function evidenceSummary(evidence: PreWriteEvidence): string {
+  return [
+    evidence.kind,
+    evidence.pagePath,
+    evidence.claimId,
+    evidence.status,
+    evidence.relation,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0).join(" ")
+}
+
+function suggestionId(...parts: readonly string[]): string {
+  return parts
+    .join(":")
+    .toLowerCase()
+    .replace(/[^a-z0-9:_/-]+/g, "-")
+    .replace(/-+/g, "-")
 }
