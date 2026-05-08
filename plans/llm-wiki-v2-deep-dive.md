@@ -43,6 +43,25 @@ retrieval signals, and review/audit mechanics around the existing markdown wiki.
 | UI evidence | `src/components/editor/frontmatter-panel.tsx`, `src/components/search/search-view.tsx` | Frontmatter shows lifecycle/confidence/review chips plus resolved typed relationship groups; search results show typed graph-path evidence, including reverse-traversal direction, when available. |
 | Persistence | `src/lib/persist.ts`, `src/lib/lifecycle.ts` | `.llm-wiki/` review/chat persistence plus append-only `audit.jsonl` lifecycle/crystallization events. |
 
+## Engineering Assessment
+
+The current implementation is already past an MVP translation of Rohit's v2
+ideas. It turns the important parts of the pattern into local, testable product
+behavior: page lifecycle metadata, typed relationship extraction, lexical/BM25,
+vector, and graph-aware retrieval, schema contracts, Memory Ops patrol,
+auditable metadata operations, and explicit crystallization.
+
+The main design choice still looks right: Markdown remains the durable source of
+truth, while graph, vector search, schema scans, search evaluation, Memory Ops,
+and audit timelines are derived or operational layers around that source. This
+keeps the system inspectable and Git-friendly while avoiding a premature
+Neo4j/LightRAG-style replacement of the wiki itself.
+
+The next useful step is not to add a remote memory server or more generated
+prose. The highest-value follow-up is to make trust more granular and make
+writes safer before they land. That means two priorities: fact-level credibility
+and pre-write conflict handling.
+
 ## Gap Matrix
 
 | v2 Capability | Current Support | Missing Piece | Risk | Priority |
@@ -78,6 +97,63 @@ boundaries: markdown, frontmatter, graph/search helpers, lint, review queue, and
 `.llm-wiki/` persistence. It avoids the high-ambiguity parts of v2 such as full
 multi-agent memory sync and autonomous background crystallization.
 
+## Recommended Next Work
+
+### 1. Fact-Level Credibility
+
+Current confidence is page-level. That is enough for the v2 local slice, but it
+is still too coarse for long-lived knowledge: one page can contain strong facts,
+weak interpretations, stale claims, and unresolved contradictions at the same
+time.
+
+The next iteration should introduce claim-level credibility for high-value facts:
+
+- Give important claims stable IDs and attach source references, optional source
+  spans or quote anchors, `last_confirmed`, `confidence`, `confidence_reasons`,
+  `reinforcement_count`, `supersedes`, `superseded_by`, `contradicts`, and
+  `scope`.
+- Keep the durable claim representation inspectable from the wiki, either inside
+  Markdown claim sections or in an auditable project artifact that points back to
+  Markdown pages and source files. Any vector or graph claim index should remain
+  derived.
+- Let search/chat surface claim evidence separately from page evidence, so an
+  answer can say which claim was used and why it is trusted or downgraded.
+- Let Memory Ops patrol stale or contradicted claims without demoting an entire
+  page when only one claim is weak.
+- Add deterministic tests for claim parsing, claim confidence scoring, stale
+  claim detection, supersession handling, audit redaction, and search evidence
+  formatting.
+
+This should be introduced narrowly. Start with claims created by ingest,
+crystallization, and explicit user save flows; do not try to retroactively
+extract every claim from every existing page in one pass.
+
+### 2. Pre-Write Conflict Handling
+
+Current conflict handling is mostly post-write: ingest, lint, schema scans, and
+Memory Ops can flag stale, contradictory, or superseded material after content
+exists. The safer next step is to run a lightweight conflict gate before new
+knowledge is written or crystallized.
+
+The pre-write flow should:
+
+- Build a candidate write set from ingest or crystallization output before
+  applying it to the wiki.
+- Retrieve nearby pages and claims through title/alias matching, lexical/BM25,
+  vector search, and typed graph traversal.
+- Classify each candidate as new knowledge, reinforcement, update, possible
+  contradiction, or supersession.
+- Show a preview when the write would affect existing pages, including source
+  evidence, target pages, proposed typed relationships, and metadata changes.
+- Route uncertain contradictions and supersessions to the review queue instead
+  of silently rewriting pages.
+- Write audit events for the preview, accepted write, ignored write, and review
+  handoff.
+
+This should not become a blocking LLM debate loop for every small write. Keep it
+bounded, deterministic where possible, and reserve model calls for summarizing
+candidate conflicts after retrieval has already found the relevant pages.
+
 ## Non-Goals
 
 - No remote backend or database.
@@ -85,7 +161,8 @@ multi-agent memory sync and autonomous background crystallization.
 - No automatic rewrite/delete of stale content.
 - No real-LLM test requirement.
 - No autonomous background crystallization workflow in this pass.
-- No claim/span-level provenance in this pass.
+- No claim/span-level provenance in this pass; it is the next trust-focused
+  priority, not current behavior.
 - No full typed graph rewrite of the visual graph/chat graph pipeline in this
   pass; current graph consumers incorporate explicit page-level typed
   relationship edges but still rely on existing relevance/layout helpers.

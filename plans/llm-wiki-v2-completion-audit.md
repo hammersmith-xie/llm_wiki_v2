@@ -187,11 +187,38 @@ standard rustup shims under `~/.cargo/bin` and adding that directory to zsh
 login/interactive startup files. `zsh -lc 'cargo --version && rustc --version'`
 now resolves both tools.
 
+## Recommended Follow-Up
+
+The v2 implementation is now beyond an MVP translation of Rohit's idea. It has a
+coherent local-first engineering shape: Markdown stays the source of truth, and
+lifecycle metadata, typed graph retrieval, schema scans, Memory Ops, audit
+events, and crystallization operate as derived or governance layers around that
+wiki.
+
+The next two high-value improvements are:
+
+- **Fact-level credibility**: move beyond page-level confidence for high-value
+  claims. Claims should carry source references, optional source spans,
+  confidence reasons, last confirmation date, reinforcement count, supersession
+  links, contradiction links, and scope. Search, chat, and Memory Ops should be
+  able to reason about weak or stale claims without demoting an entire page.
+- **Pre-write conflict handling**: before ingest or crystallization writes new
+  knowledge, retrieve related pages/claims through title/alias, lexical/BM25,
+  vector, and typed graph signals, classify the candidate as new, reinforcement,
+  update, contradiction, or supersession, then preview risky changes or route
+  them to review. The system should audit preview/accept/ignore/review handoff
+  events and avoid silent rewrites.
+
+Both should stay inside the existing product boundary: local-first, auditable,
+bounded, and Markdown-compatible. They should not require a remote memory server,
+Neo4j/LightRAG replacement, multi-user ACL, or autonomous destructive repair.
+
 ## Remaining Non-Goals
 
 - No remote backend, database, auth, or multi-user ACL.
 - No autonomous background crystallization of every chat session.
-- No claim/span-level provenance.
+- No claim/span-level provenance in the current implementation; fact-level
+  credibility is the recommended next trust-focused increment.
 - No full rewrite of the existing visual/chat graph pipeline onto the typed graph
   helper; page-level explicit typed edges are now included, but visual layout,
   insights, and weighting still use the existing graph pipeline.
