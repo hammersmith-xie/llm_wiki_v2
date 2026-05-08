@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 12 / 15
+**总体进度**: 🚧 13 / 15
 
 ---
 
@@ -355,7 +355,7 @@ graph TD
 
 **目标**: 更新项目说明并跑完整验证。
 **依赖**: M4
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 5.1 ✅ README / plans / completion audit 更新
 
@@ -385,7 +385,7 @@ graph TD
 
 ---
 
-### Task 5.2 ⏳ 回归测试与任务收尾
+### Task 5.2 ✅ 回归测试与任务收尾
 
 **描述**: 跑 focused Vitest、`npm run typecheck`、`npm run test:mocks`，必要时补 Rust 测试；更新 tasks 状态。
 
@@ -399,16 +399,16 @@ graph TD
 - 测试命令输出
 
 **验收**:
-- [ ] focused Vitest 通过。
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过。
-- [ ] 如 Tauri 侧未变更，记录 Rust 测试无需重复；如变更则跑 `cargo test`。
+- [x] focused Vitest 通过。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过。
+- [x] 如 Tauri 侧未变更，记录 Rust 测试无需重复；如变更则跑 `cargo test`。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无回归失败；focused 与全量 mock 均一次通过。
+- 🔧 **最终实现逻辑**: 验证命令：focused Vitest 8 files / 45 tests passed；`npm run typecheck` passed；`npm run test:mocks` 122 files / 1304 tests passed。
+- 🎯 **关键决策**: 本期只改 TS/React/lib/docs，未触碰 `src-tauri`，因此不重复跑 `cargo test`；A 期已跑过 Rust 回归。
 
 ---
 
@@ -416,7 +416,7 @@ graph TD
 
 **目标**: 按中量级 5 轮审核，从不同视角补齐缺漏。
 **依赖**: M5
-**状态**: ⏳
+**状态**: 🚧
 
 ### Task 6.1 ⏳ Round 1 功能审核
 
@@ -548,9 +548,9 @@ graph TD
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
 | M4 | Review / Audit 集成 | 2 | 2 | ✅ |
-| M5 | 文档与回归验证 | 1 | 2 | 🚧 |
-| M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **12** | **15** | **🚧** |
+| M5 | 文档与回归验证 | 2 | 2 | ✅ |
+| M6 | 最终审核 | 0 | 2 | 🚧 |
+| **总计** | | **13** | **15** | **🚧** |
 
 ---
 
