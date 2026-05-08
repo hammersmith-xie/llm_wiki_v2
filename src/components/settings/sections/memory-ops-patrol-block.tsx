@@ -158,6 +158,23 @@ export function MemoryOpsPatrolBlock({
             <span>{t("settings.sections.maintenance.memoryOps.stalePages", { n: summary.stalePageCount })}</span>
             <span>{t("settings.sections.maintenance.memoryOps.riskPages", { n: summary.riskPageCount })}</span>
             <span>
+              {t("settings.sections.maintenance.memoryOps.conflictCandidates", {
+                n: summary.historicalConflictCandidateCount,
+              })}
+            </span>
+            <span>
+              {t("settings.sections.maintenance.memoryOps.conflictSuggestions", {
+                n: summary.historicalConflictSuggestionCount,
+              })}
+            </span>
+            {summary.historicalConflictWarningCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.conflictWarnings", {
+                  n: summary.historicalConflictWarningCount,
+                })}
+              </span>
+            )}
+            <span>
               Claims: {summary.claimCount}
               {summary.staleClaimCount + summary.contradictedClaimCount + summary.supersededClaimCount + summary.orphanClaimCount > 0
                 ? ` · ${summary.staleClaimCount} stale · ${summary.contradictedClaimCount} contradicted · ${summary.supersededClaimCount} superseded · ${summary.orphanClaimCount} orphan`

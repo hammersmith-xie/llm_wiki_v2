@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 11 / 18
+**总体进度**: 🚧 12 / 18
 
 ---
 
@@ -347,9 +347,9 @@ graph TD
 
 **目标**: 把三个闭环缺口汇入 Maintenance Workbench，并更新项目说明。
 **依赖**: M1, M2, M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ Memory Ops UI 展示 historical conflict summary
+### Task 4.1 ✅ Memory Ops UI 展示 historical conflict summary
 
 **描述**: Patrol summary 展示历史冲突候选/建议数量，并保证 suggestion group 可读。
 
@@ -365,15 +365,15 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 用户能看到 conflict suggestion 数量。
-- [ ] review-action suggestion 可打开目标页。
-- [ ] long reason/path 不破坏布局。
+- [x] 用户能看到 conflict suggestion 数量。
+- [x] review-action suggestion 可打开目标页。
+- [x] long reason/path 不破坏布局。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试显示 historical conflict stats 已在 patrol report，但 UI summary 没有消费这些计数。
+- 🔧 **最终实现逻辑**: `summarizeMemoryOpsPatrolReport` 暴露 historical conflict candidate/suggestion/warning counts，`MemoryOpsPatrolBlock` 在 summary 行展示冲突候选、冲突审阅建议和冲突警告数量。
+- 🎯 **关键决策**: historical conflict suggestions 保持 `review-action`/review-only 行为，沿用现有 open/ignore 控件；长路径和 reason 继续使用 `break-words`/`break-all` 约束。
 
 ---
 
@@ -574,10 +574,10 @@ graph TD
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
 | M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
-| M4 | UI 与文档整合 | 0 | 2 | ⏳ |
+| M4 | UI 与文档整合 | 1 | 2 | 🚧 |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **11** | **18** | **🚧** |
+| **总计** | | **12** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T4.1：Memory Ops UI 展示 historical conflict summary |
 | 2026-05-08 | 完成 T3.3：保持无后台扫描/无 daemon 边界 |
 | 2026-05-08 | 完成 T3.2：Patrol reminder UI 三态提示 |
 | 2026-05-08 | 完成 T3.1：maintenance status model clean/dirty/reminder-due |

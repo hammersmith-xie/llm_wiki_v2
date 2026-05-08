@@ -32,6 +32,9 @@ export interface MemoryOpsPatrolSummary {
   supersededClaimCount: number
   orphanClaimCount: number
   reinforcedClaimCount: number
+  historicalConflictCandidateCount: number
+  historicalConflictSuggestionCount: number
+  historicalConflictWarningCount: number
   categoryCounts: Partial<Record<MemoryOpsSuggestionCategory, number>>
   schemaQualitySummary: PersistedSchemaQualitySummaryState | null
   emptySuggestions: boolean
@@ -53,6 +56,9 @@ export function summarizeMemoryOpsPatrolReport(
     supersededClaimCount: report.stats.supersededClaimCount,
     orphanClaimCount: report.stats.orphanClaimCount,
     reinforcedClaimCount: report.stats.reinforcedClaimCount,
+    historicalConflictCandidateCount: report.stats.historicalConflictCandidateCount,
+    historicalConflictSuggestionCount: report.stats.historicalConflictSuggestionCount,
+    historicalConflictWarningCount: report.stats.historicalConflictWarningCount,
     categoryCounts: countSuggestionCategories(report.suggestions),
     schemaQualitySummary: report.snapshot?.schemaQualitySummary ?? null,
     emptySuggestions: report.suggestions.length === 0,

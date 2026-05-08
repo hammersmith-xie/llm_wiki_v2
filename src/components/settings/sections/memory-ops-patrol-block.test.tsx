@@ -99,9 +99,62 @@ describe("MemoryOpsPatrolBlock", () => {
     expect(html).toContain("4 schema/quality suggestions")
     expect(html).toContain("No Memory Ops suggestions found.")
   })
+
+  it("renders historical conflict counts in patrol summary", () => {
+    const report = patrolReport({
+      historicalConflictCandidateCount: 3,
+      historicalConflictSuggestionCount: 2,
+      historicalConflictWarningCount: 1,
+    })
+    const html = renderToStaticMarkup(
+      <MemoryOpsPatrolBlock
+        projectReady
+        running={false}
+        error={null}
+        report={report}
+        maintenanceStatus={null}
+        recentAuditEvents={[]}
+        ignoredSuggestionIds={new Set()}
+        appliedSuggestionIds={new Set()}
+        dryRunPlans={{}}
+        suggestionErrors={{}}
+        workingSuggestionId={null}
+        selectedSuggestionIds={new Set()}
+        batchWorking={false}
+        lastBatchResult={null}
+        rollbackPreviews={{}}
+        rollbackResults={{}}
+        rollbackErrors={{}}
+        workingRollbackId={null}
+        onRun={vi.fn()}
+        onToggleSelection={vi.fn()}
+        onSelectCategory={vi.fn()}
+        onClearSelection={vi.fn()}
+        onBatchPreview={vi.fn()}
+        onBatchApply={vi.fn()}
+        onBatchIgnore={vi.fn()}
+        onPreviewRollback={vi.fn()}
+        onApplyRollback={vi.fn()}
+        onPreview={vi.fn()}
+        onApply={vi.fn()}
+        onIgnore={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain("3 conflict candidates")
+    expect(html).toContain("2 conflict review suggestions")
+    expect(html).toContain("1 conflict warnings")
+  })
 })
 
-function patrolReport(): MemoryOpsPatrolReport {
+function patrolReport(
+  statsOverrides: Partial<MemoryOpsPatrolReport["stats"]> = {},
+): MemoryOpsPatrolReport {
+  const historicalConflictCandidateCount = statsOverrides.historicalConflictCandidateCount ?? 0
+  const historicalConflictSuggestionCount = statsOverrides.historicalConflictSuggestionCount ?? 0
+  const historicalConflictWarningCount = statsOverrides.historicalConflictWarningCount ?? 0
+
   return {
     warnings: [],
     suggestions: [],
@@ -124,10 +177,11 @@ function patrolReport(): MemoryOpsPatrolReport {
       supersededClaimCount: 0,
       orphanClaimCount: 0,
       reinforcedClaimCount: 1,
-      historicalConflictCandidateCount: 0,
-      historicalConflictSuggestionCount: 0,
-      historicalConflictWarningCount: 0,
+      historicalConflictCandidateCount,
+      historicalConflictSuggestionCount,
+      historicalConflictWarningCount,
       suggestionCount: 0,
+      ...statsOverrides,
     },
     snapshot: {
       projectPath: "/project",
@@ -203,9 +257,9 @@ function patrolReport(): MemoryOpsPatrolReport {
         supersededClaimCount: 0,
         orphanClaimCount: 0,
         reinforcedClaimCount: 1,
-        historicalConflictCandidateCount: 0,
-        historicalConflictSuggestionCount: 0,
-        historicalConflictWarningCount: 0,
+        historicalConflictCandidateCount,
+        historicalConflictSuggestionCount,
+        historicalConflictWarningCount,
       },
     },
   }
