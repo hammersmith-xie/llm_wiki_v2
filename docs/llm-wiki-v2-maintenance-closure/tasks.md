@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 16 / 18
+**总体进度**: 🚧 17 / 18
 
 ---
 
@@ -493,7 +493,7 @@ graph TD
 
 ---
 
-### Task 6.3 ⏳ Round 3 性能审核
+### Task 6.3 ✅ Round 3 性能审核
 
 **描述**: 检查 patrol resolver cache、bounded scan、Search Health scenario 数量和 UI 高频路径。
 
@@ -506,14 +506,14 @@ graph TD
 - `docs/llm-wiki-v2-maintenance-closure/review-round-3.md`
 
 **验收**:
-- [ ] 报告说明上限和热点。
-- [ ] 必要性能修复已落地。
+- [x] 报告说明上限和热点。
+- [x] 必要性能修复已落地。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 未发现需要修复的性能问题。
+- 🔧 **最终实现逻辑**: 审查 patrol resolver cache、bounded evidence 上限、Search Health 显式运行路径和 UI 展示截断；报告见 `review-round-3.md`。
+- 🎯 **关键决策**: 暂不新增 custom scenario 数量硬上限；它是显式 eval 工具，未来如项目规模增大可加软提示或 policy cap。
 
 ---
 
@@ -576,8 +576,8 @@ graph TD
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 2 | 2 | ✅ |
 | M5 | 回归验证 | 1 | 1 | ✅ |
-| M6 | 最终审核 | 2 | 5 | 🚧 |
-| **总计** | | **16** | **18** | **🚧** |
+| M6 | 最终审核 | 3 | 5 | 🚧 |
+| **总计** | | **17** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T6.3：Round 3 性能审核 |
 | 2026-05-08 | 完成 T6.2：Round 2 类型 & 静态分析审核 |
 | 2026-05-08 | 完成 T6.1：Round 1 功能审核 |
 | 2026-05-08 | 完成 T5.1：Focused regression / typecheck / test:mocks |
@@ -611,6 +612,6 @@ graph TD
 |-------|------|------|------|
 | 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
 | 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
-| 3 | 性能 | ⏳ | - |
+| 3 | 性能 | ✅ | [review-round-3.md](./review-round-3.md) |
 | 4 | 安全 | ⏳ | - |
 | 5 | UX & a11y | ⏳ | - |
