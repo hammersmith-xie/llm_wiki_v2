@@ -53,6 +53,6 @@
 - 本期不做历史全量 claim extraction，不做 span/PDF-coordinate provenance，不做自动删除或正文重写。
 - Pre-write conflict handling 是 Spec B 的范围，本期只提供 claim records 和 evidence interface。
 
-## 后续入口
+## 后续状态
 
-下一阶段应实现 **Pre-Write Conflict Handling**：在 ingest/crystallization 写入前构建候选写入集，检索相关 pages/claims，分类 new/reinforcement/update/contradiction/supersession，并对高风险写入给出 preview/review handoff/audit。
+后续 **Pre-Write Conflict Handling** 已完成，见 [`../llm-wiki-v2-pre-write-conflict/completion-audit.md`](../llm-wiki-v2-pre-write-conflict/completion-audit.md)。当前事实级 claim 层已经被写入前冲突 gate 复用，用于在 ingest、crystallization 和 review-created page 落盘前识别 duplicate、possible-contradiction、supersession 和 uncertain 写入，并将高风险候选转为 review-only。

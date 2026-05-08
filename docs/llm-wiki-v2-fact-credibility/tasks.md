@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 15 / 15
+**总体进度**: ✅ 15 / 15
 
 ---
 
@@ -497,7 +497,7 @@ graph TD
 
 **目标**: 完成回归验证、文档对齐和 5 轮最终审核。
 **依赖**: M4
-**状态**: ⏳
+**状态**: ✅
 
 ### Task 5.1 ✅ 运行 focused tests、typecheck、mock regression 和 Rust tests
 
@@ -579,6 +579,7 @@ graph TD
 | 日期 | 变更 |
 |------|------|
 | 2026-05-08 | 完成 T5.2：五轮最终审核、completion audit 和三项 review 修复。 |
+| 2026-05-08 | 修正文档状态：顶部进度和 M5 状态与底部总览保持一致。 |
 | 2026-05-08 | 完成 T5.1：focused Vitest、typecheck、test:mocks 和 cargo test 全部通过。 |
 | 2026-05-08 | 完成 T4.3：README/README_CN、v2 plans 和 migration notes 对齐事实级可信度边界。 |
 | 2026-05-08 | 完成 T4.2：schema contract、templates、ingest prompt 和 Rust scaffold 补齐 claim layer。 |

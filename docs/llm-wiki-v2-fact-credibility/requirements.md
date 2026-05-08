@@ -29,9 +29,9 @@
 
 ### 1.2 与 Spec B 的关系
 
-本阶段只做事实级可信度基础设施。下一阶段 **Pre-Write Conflict Handling** 会依赖这些 claim records，在 ingest/crystallize 写入前判断候选事实是 new、reinforcement、update、contradiction 还是 supersession。
+本阶段只做事实级可信度基础设施。后续 **Pre-Write Conflict Handling** 已依赖这些 claim records 落地，在 ingest/crystallize 写入前判断候选事实是 new、reinforcement、update、contradiction 还是 supersession。
 
-因此本阶段要提供稳定接口，但不把完整写入前冲突 gate 纳入范围。
+因此本阶段提供稳定接口，但不把完整写入前冲突 gate 纳入 Spec A 范围；当前 Spec B 实现见 [`../llm-wiki-v2-pre-write-conflict/completion-audit.md`](../llm-wiki-v2-pre-write-conflict/completion-audit.md)。
 
 ---
 
@@ -330,7 +330,7 @@
 - [ ] README/README_CN 说明旧项目无需立即迁移。
 - [ ] README/README_CN 说明 claim index 是可重建派生层，不是事实数据库。
 - [ ] 文档说明 scan/rebuild 不读取大型 `raw/sources/`。
-- [ ] 文档说明 pre-write conflict gate 是下一阶段，不属于本期。
+- [ ] 文档说明 pre-write conflict gate 不属于本期，并指向后续 Spec B。
 
 ### F10: Review and audit integration
 
