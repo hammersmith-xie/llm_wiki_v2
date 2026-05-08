@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 3 / 15
+**总体进度**: 🚧 4 / 15
 
 ---
 
@@ -35,7 +35,7 @@ graph TD
 
 **目标**: 建立事实级可信度的类型、存储、anchor 和评分基础，不接入写入路径。
 **依赖**: 无
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 定义 ClaimRecord contract
 
@@ -119,7 +119,7 @@ graph TD
 
 ---
 
-### Task 1.4 ⏳ 实现 claim confidence scoring
+### Task 1.4 ✅ 实现 claim confidence scoring
 
 **描述**: 新建 claim-level scoring，按 source support、age、reinforcement、contradiction、supersession 和 scope 输出 confidence/reasons。
 
@@ -134,16 +134,16 @@ graph TD
 - `src/lib/lifecycle.ts`
 
 **验收**:
-- [ ] fixed today 下结果稳定。
-- [ ] source/reinforcement/supports 能提高 confidence。
-- [ ] age/contradicts/superseded_by 能降低 confidence。
-- [ ] reasons 能解释主要加减分因素。
+- [x] fixed today 下结果稳定。
+- [x] source/reinforcement/supports 能提高 confidence。
+- [x] age/contradicts/superseded_by 能降低 confidence。
+- [x] reasons 能解释主要加减分因素。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试按预期失败在 `./claim-confidence` 模块缺失；实现后 focused test 通过，并补跑 `npm run typecheck`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/claim-confidence.ts` 和 `src/lib/claim-confidence.test.ts`，按 claim lifecycle、source refs、supports、reinforcement、age、contradiction、supersession、scope 计算 confidence/status/reasons，并提供 `applyClaimCredibility` 写回 `ClaimRecord` 字段。
+- 🎯 **关键决策**: 评分沿用 page lifecycle 的保守思路，但 status 优先级按 claim 粒度处理：superseded > contradicted > stale > needs-review > ok；评分只提供解释和 review 信号，不自动裁决事实真假。
 
 ---
 
@@ -565,12 +565,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | Claim Data Foundation | 3 | 4 | 🚧 |
+| M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 0 | 4 | ⏳ |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **3** | **15** | **🚧** |
+| **总计** | | **4** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.4：claim-level confidence scoring 和写回 helper。 |
 | 2026-05-08 | 完成 T1.3：Markdown claim anchors 插入、解析和定位。 |
 | 2026-05-08 | 完成 T1.2：claim JSONL 读写、merge 和 private audit summary。 |
 | 2026-05-08 | 初稿，15 个任务，按中量级 5 轮审核。 |
