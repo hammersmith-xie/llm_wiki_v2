@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 7 / 15
+**总体进度**: 🚧 8 / 15
 
 ---
 
@@ -151,7 +151,7 @@ graph TD
 
 **目标**: 只从受控写入路径生成高价值 claims，并保证失败不影响原功能。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 实现 claim extraction helper
 
@@ -241,7 +241,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ 定义 claim audit actions 和 review handoff
+### Task 2.4 ✅ 定义 claim audit actions 和 review handoff
 
 **描述**: 增加 `claim.write`、`claim.update`、`claim.rebuild`、`claim.review` audit actions；contradicted/superseded claim 可进入 review-only。
 
@@ -258,16 +258,16 @@ graph TD
 - `src/lib/claims.test.ts`
 
 **验收**:
-- [ ] claim audit actions 被 timeline 分类。
-- [ ] private claim audit 不泄漏 text/snippet。
-- [ ] contradicted/superseded claim 能生成 review-only handoff。
-- [ ] bad audit line 不影响 claim index scan。
+- [x] claim audit actions 被 timeline 分类。
+- [x] private claim audit 不泄漏 text/snippet。
+- [x] contradicted/superseded claim 能生成 review-only handoff。
+- [x] bad audit line 不影响 claim index scan。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `claim.*` action 初始仍被 audit timeline 归类为 `other`；新增 category 后 focused test 通过。
+- 🔧 **最终实现逻辑**: `AuditEventCategory` 增加 `claim`，`categoryFromAction` 识别 `claim.*`；新增 `claim-review.ts` 将 contradicted/superseded claim 转成 review-only draft item；audit read 测试覆盖坏行不阻断 claim events。
+- 🎯 **关键决策**: claim review handoff 只提供 Open page / Mark reviewed，不做自动合并、删除或裁决；private claim 文本在 handoff description 中脱敏。
 
 ---
 
@@ -566,11 +566,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
-| M2 | Controlled Extraction and Writes | 3 | 4 | 🚧 |
+| M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
 | M3 | Evidence Retrieval and Memory Ops | 0 | 4 | ⏳ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **7** | **15** | **🚧** |
+| **总计** | | **8** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.4：claim audit category 和 review-only handoff。 |
 | 2026-05-08 | 完成 T2.3：ingest/review-created page 接入 claim anchors 和 best-effort claim artifacts。 |
 | 2026-05-08 | 完成 T2.2：digest/Save to Wiki 写入 claim anchors、claim records 和 claim audit。 |
 | 2026-05-08 | 完成 T2.1：受控写入路径 claim extraction helper。 |

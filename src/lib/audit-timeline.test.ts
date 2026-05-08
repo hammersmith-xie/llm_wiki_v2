@@ -135,6 +135,39 @@ describe("audit timeline", () => {
     })
   })
 
+  it("categorizes claim audit actions", async () => {
+    await appendAuditEvent("/project", {
+      timestamp: "2026-05-08T00:00:00.000Z",
+      action: "claim.write",
+      actor: "system",
+      pagePath: "wiki/concepts/search.md",
+      targetPath: ".llm-wiki/claims.jsonl",
+      after: { claimCount: 1 },
+    })
+
+    const event = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
+    expect(event).toMatchObject({
+      category: "claim",
+      action: "claim.write",
+      pagePath: "wiki/concepts/search.md",
+      targetPath: ".llm-wiki/claims.jsonl",
+    })
+  })
+
+  it("reads claim events while keeping bad audit lines as warnings", async () => {
+    mockReadFile.mockResolvedValueOnce([
+      "{\"timestamp\":\"2026-05-08T00:00:00.000Z\",\"action\":\"claim.review\",\"pagePath\":\"wiki/a.md\"}",
+      "{bad",
+    ].join("\n"))
+
+    const result = await readAuditTimeline("/project")
+
+    expect(result.events.map((event) => event.action)).toEqual(["claim.review"])
+    expect(result.warnings).toEqual([
+      expect.objectContaining({ line: 2, message: expect.stringContaining("Invalid audit JSON") }),
+    ])
+  })
+
   it("reads valid events while reporting bad jsonl lines", async () => {
     mockReadFile.mockResolvedValueOnce([
       "{\"timestamp\":\"2026-05-07T00:00:00.000Z\",\"action\":\"ingest.write\",\"pagePath\":\"wiki/a.md\"}",
