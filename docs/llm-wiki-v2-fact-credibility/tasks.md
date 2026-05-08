@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 11 / 15
+**总体进度**: 🚧 12 / 15
 
 ---
 
@@ -275,7 +275,7 @@ graph TD
 
 **目标**: 让 claim 成为 search/chat evidence 和 Memory Ops patrol 的可解释信号。
 **依赖**: M1, M2
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ 实现 claim evidence lookup
 
@@ -366,7 +366,7 @@ graph TD
 
 ---
 
-### Task 3.4 ⏳ 实现 claim index scan / rebuild dry-run
+### Task 3.4 ✅ 实现 claim index scan / rebuild dry-run
 
 **描述**: 提供显式 claim index scan/rebuild，列出 recovered/orphan/stale records，确认前不写文件。
 
@@ -381,16 +381,16 @@ graph TD
 - `src/lib/memory-ops.ts`
 
 **验收**:
-- [ ] rebuild dry-run 不写 `.llm-wiki/claims.jsonl`。
-- [ ] orphan/recovered/stale counts 稳定。
-- [ ] apply rebuild 写 audit，并保留坏行 warnings。
-- [ ] 不读取 `raw/sources/` 大文件。
+- [x] rebuild dry-run 不写 `.llm-wiki/claims.jsonl`。
+- [x] orphan/recovered/stale counts 稳定。
+- [x] apply rebuild 写 audit，并保留坏行 warnings。
+- [x] 不读取 `raw/sources/` 大文件。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试按预期失败在 `./claim-ops` 模块缺失；实现后 focused test 通过，并补跑 `npm run typecheck`。
+- 🔧 **最终实现逻辑**: 新增 `src/lib/claim-ops.ts` 和 `src/lib/claim-ops.test.ts`，支持 scan dry-run 从 wiki anchors 恢复缺失 claim、统计 orphan/stale/bad-line warnings；apply rebuild 写 `.llm-wiki/claims.jsonl` 并追加 `claim.rebuild` audit。
+- 🎯 **关键决策**: rebuild 明确走显式 dry-run/apply，不做后台自动修复；扫描只读取 `wiki/**/*.md` 和 claim index，不触碰 `raw/sources/`。
 
 ---
 
@@ -567,10 +567,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
-| M3 | Evidence Retrieval and Memory Ops | 3 | 4 | 🚧 |
+| M3 | Evidence Retrieval and Memory Ops | 4 | 4 | ✅ |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **11** | **15** | **🚧** |
+| **总计** | | **12** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.4：claim index scan/rebuild dry-run 和 apply audit。 |
 | 2026-05-08 | 完成 T3.3：Memory Ops claim health summary 和 review-only suggestions。 |
 | 2026-05-08 | 完成 T3.2：Search/Chat references 接入 claim evidence explanation。 |
 | 2026-05-08 | 完成 T3.1：claim evidence lookup 和 orphan warning。 |
