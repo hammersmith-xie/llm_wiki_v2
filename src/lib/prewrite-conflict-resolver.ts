@@ -3,8 +3,11 @@ import { readClaimIndex, type ClaimIndexWarning, type ClaimRecord } from "@/lib/
 import { parseFrontmatter } from "@/lib/frontmatter"
 import { getFileStem, normalizePath } from "@/lib/path-utils"
 import {
+  buildUncertainPreWritePreview,
+  classifyPreWriteConflict,
   type PreWriteCandidate,
   type PreWriteEvidence,
+  type PreWriteConflictPreview,
   summarizePreWriteContent,
 } from "@/lib/prewrite-conflict"
 import type { FileNode } from "@/types/wiki"
@@ -14,10 +17,16 @@ export interface PreWriteEvidenceResolverOptions {
   maxEvidence?: number
   maxPages?: number
   maxPageExcerptLength?: number
+  failClosedOnWarnings?: boolean
 }
 
 export interface PreWriteEvidenceResolverResult {
   evidence: PreWriteEvidence[]
+  warnings: ClaimIndexWarning[]
+}
+
+export interface PreWritePreviewResolverResult {
+  preview: PreWriteConflictPreview
   warnings: ClaimIndexWarning[]
 }
 
@@ -41,6 +50,38 @@ export async function resolvePreWriteClaimEvidence(
     .sort(compareEvidence)
     .slice(0, maxEvidence)
   return { evidence, warnings: index.warnings }
+}
+
+export async function previewPreWriteConflict(
+  projectPath: string,
+  candidate: PreWriteCandidate,
+  options: PreWriteEvidenceResolverOptions = {},
+): Promise<PreWritePreviewResolverResult> {
+  try {
+    const [claimResult, pageResult] = await Promise.all([
+      resolvePreWriteClaimEvidence(projectPath, candidate, options),
+      resolvePreWritePageEvidence(projectPath, candidate, options),
+    ])
+    const warnings = [...claimResult.warnings, ...pageResult.warnings]
+    if (options.failClosedOnWarnings && warnings.length > 0) {
+      return {
+        preview: buildUncertainPreWritePreview(candidate, warnings[0]?.message ?? "resolver warning"),
+        warnings,
+      }
+    }
+    return {
+      preview: classifyPreWriteConflict(candidate, [
+        ...claimResult.evidence,
+        ...pageResult.evidence,
+      ]),
+      warnings,
+    }
+  } catch (err) {
+    return {
+      preview: buildUncertainPreWritePreview(candidate, err),
+      warnings: [],
+    }
+  }
 }
 
 export async function resolvePreWritePageEvidence(

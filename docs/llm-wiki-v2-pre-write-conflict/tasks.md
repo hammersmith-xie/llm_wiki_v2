@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 5 / 15
+**总体进度**: 🚧 6 / 15
 
 ---
 
@@ -122,7 +122,7 @@ graph TD
 
 **目标**: 从现有 Markdown 和 claim 索引中提取 bounded evidence。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 解析 claim index 证据
 
@@ -179,7 +179,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ 组合 resolver 与 classifier
+### Task 2.3 ✅ 组合 resolver 与 classifier
 
 **描述**: 提供 `previewPreWriteConflict(projectPath, candidate)`，统一调用 resolver + classifier + 降级逻辑。
 
@@ -193,15 +193,15 @@ graph TD
 - `src/lib/prewrite-conflict-resolver.test.ts`
 
 **验收**:
-- [ ] 安全 candidate 得到 allow preview。
-- [ ] 高风险 candidate 得到 review-only preview。
-- [ ] resolver 异常得到 uncertain review-only preview。
+- [x] 安全 candidate 得到 allow preview。
+- [x] 高风险 candidate 得到 review-only preview。
+- [x] resolver 异常得到 uncertain review-only preview。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初始异常测试把 claim index 缺失当失败，但现有 `readClaimIndex` 语义是缺索引返回空；已改为真实异常形态。
+- 🔧 **最终实现逻辑**: `previewPreWriteConflict` 并行组合 claim/page resolver，再调用 `classifyPreWriteConflict`；异常统一降级为 `buildUncertainPreWritePreview`。
+- 🎯 **关键决策**: 缺少 `.llm-wiki/claims.jsonl` 不触发 fail-closed，否则新项目首次写入会被不必要阻断。
 
 ---
 
@@ -209,7 +209,7 @@ graph TD
 
 **目标**: 在主要落盘点前执行 conflict gate，风险写入进入 review。
 **依赖**: M2
-**状态**: ⏳
+**状态**: 🚧
 
 ### Task 3.1 ⏳ Ingest FILE block 写入前 gate
 
@@ -545,12 +545,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
-| M2 | 本地证据解析 | 2 | 3 | 🚧 |
-| M3 | 写入路径集成 | 0 | 3 | ⏳ |
+| M2 | 本地证据解析 | 3 | 3 | ✅ |
+| M3 | 写入路径集成 | 0 | 3 | 🚧 |
 | M4 | Review / Audit 集成 | 0 | 2 | ⏳ |
 | M5 | 文档与回归验证 | 0 | 2 | ⏳ |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **5** | **15** | **🚧** |
+| **总计** | | **6** | **15** | **🚧** |
 
 ---
 

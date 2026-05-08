@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { normalizeClaimRecord } from "./claims"
 import { buildPreWriteCandidate } from "./prewrite-conflict"
 import {
+  previewPreWriteConflict,
   resolvePreWriteClaimEvidence,
   resolvePreWritePageEvidence,
 } from "./prewrite-conflict-resolver"
@@ -209,5 +210,91 @@ describe("pre-write page evidence resolver", () => {
 
     expect(result.evidence).toHaveLength(2)
     expect(result.evidence[0]?.pageExcerpt?.length).toBeLessThanOrEqual(120)
+  })
+})
+
+describe("pre-write conflict preview resolver", () => {
+  it("combines page and claim evidence into an allow preview", async () => {
+    const claim = normalizeClaimRecord({
+      text: "Hybrid search improves recall by combining BM25 and graph context.",
+      page_path: "wiki/concepts/search.md",
+      status: "ok",
+    }, { today: "2026-05-08" }).claim
+    mockListDirectory.mockResolvedValue([{
+      name: "search.md",
+      path: "/project/wiki/concepts/search.md",
+      is_dir: false,
+    }])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/claims.jsonl") return `${JSON.stringify(claim)}\n`
+      if (path === "/project/wiki/concepts/search.md") return "# Hybrid Search\n"
+      throw new Error(`unexpected readFile ${path}`)
+    })
+
+    const candidate = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      title: "Hybrid Search",
+      content: "# Hybrid Search",
+      claimSummaries: [{
+        text: "Hybrid search improves recall by combining BM25 and graph context.",
+        status: "ok",
+      }],
+    })
+
+    const result = await previewPreWriteConflict("/project", candidate)
+
+    expect(result.preview).toMatchObject({
+      classification: "reinforcement",
+      decision: "allow",
+    })
+    expect(result.warnings).toEqual([])
+  })
+
+  it("returns a review-only preview for risky evidence", async () => {
+    const claim = normalizeClaimRecord({
+      text: "Hybrid search improves recall.",
+      page_path: "wiki/concepts/search.md",
+      status: "contradicted",
+    }, { today: "2026-05-08" }).claim
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockResolvedValue(`${JSON.stringify(claim)}\n`)
+
+    const candidate = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      content: "# Hybrid Search",
+      claimSummaries: [{
+        text: "Hybrid search improves recall.",
+        status: "ok",
+      }],
+    })
+
+    const result = await previewPreWriteConflict("/project", candidate)
+
+    expect(result.preview).toMatchObject({
+      classification: "possible-contradiction",
+      decision: "review-only",
+    })
+  })
+
+  it("returns uncertain review-only preview when a resolver throws", async () => {
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockResolvedValue(undefined as unknown as string)
+
+    const candidate = buildPreWriteCandidate({
+      kind: "ingest-page",
+      targetPath: "wiki/concepts/search.md",
+      content: "# Hybrid Search",
+    })
+
+    const result = await previewPreWriteConflict("/project", candidate, {
+      failClosedOnWarnings: true,
+    })
+
+    expect(result.preview).toMatchObject({
+      classification: "uncertain",
+      decision: "review-only",
+    })
   })
 })
