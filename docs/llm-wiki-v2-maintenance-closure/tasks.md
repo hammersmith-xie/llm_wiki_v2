@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 1 / 18
+**总体进度**: 🚧 2 / 18
 
 ---
 
@@ -64,7 +64,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 实现 historical conflict preview
+### Task 1.2 ✅ 实现 historical conflict preview
 
 **描述**: 对 snapshot pages 调用 pre-write resolver/classifier，过滤安全分类和 same-target-only evidence。
 
@@ -78,15 +78,15 @@ graph TD
 - `src/lib/prewrite-conflict-resolver.ts`
 
 **验收**:
-- [ ] duplicate / possible-contradiction / supersession / uncertain 被保留。
-- [ ] new / reinforcement / update 不生成历史冲突 preview。
-- [ ] resolver 异常不阻断整个 patrol。
+- [x] duplicate / possible-contradiction / supersession / uncertain 被保留。
+- [x] new / reinforcement / update 不生成历史冲突 preview。
+- [x] resolver 异常不阻断整个 patrol。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试先失败在 `previewMemoryOpsHistoricalConflicts` 未导出，符合预期。
+- 🔧 **最终实现逻辑**: `previewMemoryOpsHistoricalConflicts` 逐页构建 maintenance candidate，默认复用 `previewPreWriteConflict` 和单次 resolver cache；只保留 review-only 的 duplicate/possible-contradiction/supersession/uncertain，逐页异常转 warning。
+- 🎯 **关键决策**: same-target-only evidence 不算历史冲突，避免已有页面被自身证据误报为需要人工处理。
 
 ---
 
@@ -571,13 +571,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 历史冲突巡检 | 1 | 4 | 🚧 |
+| M1 | 历史冲突巡检 | 2 | 4 | 🚧 |
 | M2 | 自定义 Search Health scenarios | 0 | 4 | ⏳ |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **1** | **18** | **🚧** |
+| **总计** | | **2** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.2：historical conflict preview |
 | 2026-05-08 | 完成 T1.1：maintenance page candidate builder |
 | 2026-05-08 | 初稿，18 个任务，按中量级 5 轮审核 |
 
