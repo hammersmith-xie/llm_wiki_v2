@@ -258,5 +258,13 @@ describe("executeIngestWrites", () => {
       title: "Pre-write conflict: wiki/concepts/risky.md",
       affectedPages: ["wiki/concepts/risky.md"],
     })
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"conflict.review\""),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"conflict.accept\""),
+    )
   })
 })

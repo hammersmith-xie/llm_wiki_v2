@@ -26,6 +26,7 @@ import { writeExtractedClaimArtifacts } from "@/lib/claim-write"
 import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 import { buildPreWriteCandidate } from "@/lib/prewrite-conflict"
+import { appendPreWriteConflictAuditEvent } from "@/lib/prewrite-conflict-audit"
 import { preWriteConflictToReviewItem } from "@/lib/prewrite-conflict-review"
 import { previewPreWriteConflict } from "@/lib/prewrite-conflict-resolver"
 
@@ -915,8 +916,18 @@ async function writeFileBlocks(
           useReviewStore.getState().addItems([
             preWriteConflictToReviewItem(conflict.preview),
           ])
+          appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "review").catch((err) => {
+            console.warn(
+              `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+            )
+          })
           continue
         }
+        appendPreWriteConflictAuditEvent(projectPath, conflict.preview, "accept").catch((err) => {
+          console.warn(
+            `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+          )
+        })
         await writeFile(fullPath, toWrite)
         const claimWrite = await writeExtractedClaimArtifacts({
           projectPath,

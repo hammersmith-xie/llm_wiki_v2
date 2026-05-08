@@ -85,7 +85,10 @@ describe("writeCrystallizedQueryPage", () => {
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"crystallize.query\""),
     )
-    const auditCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    const auditCall = mockAppendFile.mock.calls.find(([path, contents]) =>
+      path === "/project/.llm-wiki/audit.jsonl" &&
+      String(contents).includes("\"action\":\"crystallize.query\"")
+    )
     const auditEvent = JSON.parse(String(auditCall?.[1]))
     expect(auditEvent).toMatchObject({
       schemaVersion: 1,
@@ -128,7 +131,10 @@ describe("writeCrystallizedQueryPage", () => {
       },
     })
 
-    const auditCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    const auditCall = mockAppendFile.mock.calls.find(([path, contents]) =>
+      path === "/project/.llm-wiki/audit.jsonl" &&
+      String(contents).includes("\"action\":\"crystallize.query\"")
+    )
     expect(auditCall?.[1]).toContain('"candidate"')
     expect(auditCall?.[1]).toContain('"score":0.84')
     expect(auditCall?.[1]).toContain('"contains conclusion signal"')
@@ -236,6 +242,10 @@ describe("writeCrystallizedQueryPage", () => {
       expect.any(String),
     )
     expect(result.claimWrite).toBeUndefined()
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"conflict.review\""),
+    )
   })
 
   it("writes a confirmed candidate through the existing crystallized query path", async () => {
@@ -269,7 +279,10 @@ describe("writeCrystallizedQueryPage", () => {
       "/project/wiki/queries/retrieval-notes.md",
       expect.stringContaining('origin: "chat-candidate"'),
     )
-    const auditCall = mockAppendFile.mock.calls.find(([path]) => path === "/project/.llm-wiki/audit.jsonl")
+    const auditCall = mockAppendFile.mock.calls.find(([path, contents]) =>
+      path === "/project/.llm-wiki/audit.jsonl" &&
+      String(contents).includes("\"action\":\"crystallize.query\"")
+    )
     expect(auditCall?.[1]).toContain('"candidate"')
     expect(auditCall?.[1]).toContain('"sourceId":"m-1"')
   })

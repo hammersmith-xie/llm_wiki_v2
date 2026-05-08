@@ -17,6 +17,7 @@ import {
   buildPreWriteCandidate,
   type PreWriteConflictPreview,
 } from "@/lib/prewrite-conflict"
+import { appendPreWriteConflictAuditEvent } from "@/lib/prewrite-conflict-audit"
 import { previewPreWriteConflict } from "@/lib/prewrite-conflict-resolver"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
 
@@ -138,6 +139,11 @@ export async function writeCrystallizedQueryPage(
     }),
   )
   if (conflictResult.preview.decision === "review-only") {
+    await appendPreWriteConflictAuditEvent(pp, conflictResult.preview, "review").catch((err) => {
+      console.warn(
+        `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+      )
+    })
     return {
       content: enriched.content,
       relativePath,
@@ -146,6 +152,11 @@ export async function writeCrystallizedQueryPage(
       conflict: conflictResult.preview,
     }
   }
+  await appendPreWriteConflictAuditEvent(pp, conflictResult.preview, "accept").catch((err) => {
+    console.warn(
+      `[conflict] audit write failed for ${relativePath}: ${err instanceof Error ? err.message : err}`,
+    )
+  })
   await writeFile(filePath, enriched.content)
   const claimWrite = await writeExtractedClaimArtifacts({
     projectPath: pp,

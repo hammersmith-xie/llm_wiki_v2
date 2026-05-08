@@ -154,6 +154,24 @@ describe("audit timeline", () => {
     })
   })
 
+  it("categorizes conflict audit actions", async () => {
+    await appendAuditEvent("/project", {
+      timestamp: "2026-05-08T00:00:00.000Z",
+      action: "conflict.review",
+      actor: "system",
+      pagePath: "wiki/concepts/search.md",
+      targetPath: "wiki/concepts/search.md",
+      after: { classification: "possible-contradiction" },
+    })
+
+    const event = JSON.parse(String(mockAppendFile.mock.calls[0][1]))
+    expect(event).toMatchObject({
+      category: "conflict",
+      action: "conflict.review",
+      pagePath: "wiki/concepts/search.md",
+    })
+  })
+
   it("reads claim events while keeping bad audit lines as warnings", async () => {
     mockReadFile.mockResolvedValueOnce([
       "{\"timestamp\":\"2026-05-08T00:00:00.000Z\",\"action\":\"claim.review\",\"pagePath\":\"wiki/a.md\"}",

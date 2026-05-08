@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 10 / 15
+**总体进度**: 🚧 11 / 15
 
 ---
 
@@ -295,7 +295,7 @@ graph TD
 
 **目标**: 让冲突 preview 的处置有可操作 review 和可追踪 audit。
 **依赖**: M3
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ Review item 转换与去重
 
@@ -324,7 +324,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ Conflict audit 事件与 timeline 分类
+### Task 4.2 ✅ Conflict audit 事件与 timeline 分类
 
 **描述**: 写入 `conflict.preview`、`conflict.accept`、`conflict.review` audit，并让 timeline 按 conflict category 展示。
 
@@ -339,15 +339,15 @@ graph TD
 - `src/lib/audit-timeline.test.ts`
 
 **验收**:
-- [ ] `conflict.*` 事件归类为 conflict。
-- [ ] audit detail 不包含完整候选正文。
-- [ ] safe 和 review-only 路径均有 audit 测试。
+- [x] `conflict.*` 事件归类为 conflict。
+- [x] audit detail 不包含完整候选正文。
+- [x] safe 和 review-only 路径均有 audit 测试。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `conflict.accept` 新增后，crystallize 旧测试按第一条 audit 取值不再稳定；已改为按 `crystallize.query` 精确筛选。
+- 🔧 **最终实现逻辑**: 新增 `appendPreWriteConflictAuditEvent`，写入 `conflict.accept` / `conflict.review`；timeline 新增 `conflict` category；ingest/crystallize safe 和 review-only 路径均调用。
+- 🎯 **关键决策**: audit 只记录 candidate id、分类、证据摘要和 reason，不记录完整候选正文，避免把待审内容或敏感片段复制进 audit。
 
 ---
 
@@ -355,7 +355,7 @@ graph TD
 
 **目标**: 更新项目说明并跑完整验证。
 **依赖**: M4
-**状态**: ⏳
+**状态**: 🚧
 
 ### Task 5.1 ⏳ README / plans / completion audit 更新
 
@@ -547,10 +547,10 @@ graph TD
 | M1 | Candidate 与分类内核 | 3 | 3 | ✅ |
 | M2 | 本地证据解析 | 3 | 3 | ✅ |
 | M3 | 写入路径集成 | 3 | 3 | ✅ |
-| M4 | Review / Audit 集成 | 1 | 2 | 🚧 |
-| M5 | 文档与回归验证 | 0 | 2 | ⏳ |
+| M4 | Review / Audit 集成 | 2 | 2 | ✅ |
+| M5 | 文档与回归验证 | 0 | 2 | 🚧 |
 | M6 | 最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **10** | **15** | **🚧** |
+| **总计** | | **11** | **15** | **🚧** |
 
 ---
 
