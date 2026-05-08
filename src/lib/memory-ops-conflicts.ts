@@ -25,6 +25,7 @@ export interface MemoryOpsHistoricalConflictResult {
   previews: PreWriteConflictPreview[]
   warnings: MemoryOpsHistoricalConflictWarning[]
   warningCount: number
+  suggestions: MemoryOpsSuggestion[]
 }
 
 export interface MemoryOpsHistoricalConflictOptions {
@@ -88,6 +89,7 @@ export async function previewMemoryOpsHistoricalConflicts(
     previews,
     warnings,
     warningCount: warnings.length,
+    suggestions: previews.map(preWritePreviewToMemoryOpsSuggestion),
   }
 }
 

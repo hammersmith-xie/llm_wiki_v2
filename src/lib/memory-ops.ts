@@ -14,6 +14,7 @@ import {
   evaluateRelationCleanupSuggestions,
   type MemoryOpsSuggestion,
 } from "@/lib/memory-ops-rules"
+import { previewMemoryOpsHistoricalConflicts } from "@/lib/memory-ops-conflicts"
 import { getFileStem, normalizePath } from "@/lib/path-utils"
 import {
   extractTypedGraphFromPages,
@@ -110,6 +111,9 @@ export interface MemoryOpsSnapshotStats {
   supersededClaimCount: number
   orphanClaimCount: number
   reinforcedClaimCount: number
+  historicalConflictCandidateCount: number
+  historicalConflictSuggestionCount: number
+  historicalConflictWarningCount: number
 }
 
 export interface MemoryOpsClaimHealthSummary {
@@ -242,6 +246,9 @@ export async function scanMemoryOpsProject(
       supersededClaimCount: claimHealth.supersededCount,
       orphanClaimCount: claimHealth.orphanCount,
       reinforcedClaimCount: claimHealth.reinforcedCount,
+      historicalConflictCandidateCount: 0,
+      historicalConflictSuggestionCount: 0,
+      historicalConflictWarningCount: 0,
     },
   }
 }
@@ -265,6 +272,10 @@ export async function runMemoryOpsPatrol(
       today: options.today,
       policy: options.policy,
     })
+    const historicalConflicts = await previewMemoryOpsHistoricalConflicts(
+      snapshot.projectPath,
+      snapshot.pages,
+    )
     const suggestions = [
       ...evaluateLifecycleSuggestions(snapshot, {
         today: options.today,
@@ -274,15 +285,20 @@ export async function runMemoryOpsPatrol(
         today: options.today,
       }),
       ...evaluateRelationCleanupSuggestions(snapshot),
+      ...historicalConflicts.suggestions,
     ]
+    const stats: MemoryOpsPatrolStats = {
+      ...snapshot.stats,
+      historicalConflictCandidateCount: historicalConflicts.candidateCount,
+      historicalConflictSuggestionCount: historicalConflicts.suggestions.length,
+      historicalConflictWarningCount: historicalConflicts.warningCount,
+      suggestionCount: suggestions.length,
+    }
     const report: MemoryOpsPatrolReport = {
       snapshot,
       suggestions,
       warnings: snapshot.audit.warnings,
-      stats: {
-        ...snapshot.stats,
-        suggestionCount: suggestions.length,
-      },
+      stats,
     }
 
     await appendAuditEvent(snapshot.projectPath, {

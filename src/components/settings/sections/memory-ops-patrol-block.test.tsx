@@ -75,6 +75,9 @@ function patrolReport(): MemoryOpsPatrolReport {
       supersededClaimCount: 0,
       orphanClaimCount: 0,
       reinforcedClaimCount: 1,
+      historicalConflictCandidateCount: 0,
+      historicalConflictSuggestionCount: 0,
+      historicalConflictWarningCount: 0,
       suggestionCount: 0,
     },
     snapshot: {
@@ -151,6 +154,9 @@ function patrolReport(): MemoryOpsPatrolReport {
         supersededClaimCount: 0,
         orphanClaimCount: 0,
         reinforcedClaimCount: 1,
+        historicalConflictCandidateCount: 0,
+        historicalConflictSuggestionCount: 0,
+        historicalConflictWarningCount: 0,
       },
     },
   }

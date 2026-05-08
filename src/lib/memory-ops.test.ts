@@ -9,6 +9,7 @@ import {
 import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
 import { normalizeClaimRecord } from "./claims"
 import { useActivityStore } from "@/stores/activity-store"
+import { previewMemoryOpsHistoricalConflicts } from "./memory-ops-conflicts"
 
 vi.mock("@/commands/fs", () => ({
   appendFile: vi.fn(async () => {}),
@@ -18,6 +19,20 @@ vi.mock("@/commands/fs", () => ({
   writeFile: vi.fn(async () => {}),
 }))
 
+vi.mock("./memory-ops-conflicts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./memory-ops-conflicts")>()
+  return {
+    ...actual,
+    previewMemoryOpsHistoricalConflicts: vi.fn(async () => ({
+      candidateCount: 0,
+      previews: [],
+      warnings: [],
+      warningCount: 0,
+      suggestions: [],
+    })),
+  }
+})
+
 import { appendFile, createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
 
 const mockAppendFile = vi.mocked(appendFile)
@@ -25,6 +40,7 @@ const mockCreateDirectory = vi.mocked(createDirectory)
 const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
+const mockPreviewMemoryOpsHistoricalConflicts = vi.mocked(previewMemoryOpsHistoricalConflicts)
 
 beforeEach(() => {
   mockAppendFile.mockReset()
@@ -32,6 +48,14 @@ beforeEach(() => {
   mockListDirectory.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
+  mockPreviewMemoryOpsHistoricalConflicts.mockReset()
+  mockPreviewMemoryOpsHistoricalConflicts.mockResolvedValue({
+    candidateCount: 0,
+    previews: [],
+    warnings: [],
+    warningCount: 0,
+    suggestions: [],
+  })
   useActivityStore.setState({ items: [] })
 })
 
@@ -488,6 +512,51 @@ describe("memory ops project scanner", () => {
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"memory_ops.patrol\""),
     )
+  })
+
+  it("includes historical conflict suggestions and audit stats in patrol results", async () => {
+    mockListDirectory.mockResolvedValue([
+      {
+        name: "risk.md",
+        path: "/project/wiki/concepts/risk.md",
+        is_dir: false,
+      },
+    ])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/risk.md") {
+        return "---\ntitle: Risk\n---\n\n# Risk"
+      }
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      throw new Error(`missing ${path}`)
+    })
+    mockPreviewMemoryOpsHistoricalConflicts.mockResolvedValueOnce({
+      candidateCount: 1,
+      previews: [],
+      warnings: [],
+      warningCount: 0,
+      suggestions: [{
+        id: "historical-conflict:risk",
+        kind: "review-action",
+        severity: "warning",
+        targetPath: "wiki/concepts/risk.md",
+        title: "Review historical possible-contradiction",
+        detail: "Risk",
+        reasons: ["classification possible-contradiction"],
+      }],
+    })
+
+    const report = await runMemoryOpsPatrol("/project")
+
+    expect(report.suggestions.map((suggestion) => suggestion.id)).toContain("historical-conflict:risk")
+    expect(report.stats.historicalConflictCandidateCount).toBe(1)
+    expect(report.stats.historicalConflictSuggestionCount).toBe(1)
+    const audit = JSON.parse(String(
+      mockAppendFile.mock.calls[mockAppendFile.mock.calls.length - 1]?.[1],
+    ))
+    expect(audit.after.stats).toMatchObject({
+      historicalConflictCandidateCount: 1,
+      historicalConflictSuggestionCount: 1,
+    })
   })
 
   it("marks the patrol activity as error when audit writing fails", async () => {

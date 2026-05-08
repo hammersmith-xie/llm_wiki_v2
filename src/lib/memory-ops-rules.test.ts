@@ -658,6 +658,9 @@ function snapshot(
       supersededClaimCount: claims.filter((claim) => claim.status === "superseded").length,
       orphanClaimCount: 0,
       reinforcedClaimCount: claims.filter((claim) => Number(claim.reinforcement_count) > 0).length,
+      historicalConflictCandidateCount: 0,
+      historicalConflictSuggestionCount: 0,
+      historicalConflictWarningCount: 0,
     },
   }
 }

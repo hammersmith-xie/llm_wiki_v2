@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 3 / 18
+**总体进度**: 🚧 4 / 18
 
 ---
 
@@ -35,7 +35,7 @@ graph TD
 
 **目标**: 让 Memory Ops 复用 pre-write conflict resolver，发现历史遗留 duplicate / contradiction / supersession 风险。
 **依赖**: Spec A/B 已完成
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 建立 maintenance candidate builder
 
@@ -116,7 +116,7 @@ graph TD
 
 ---
 
-### Task 1.4 ⏳ 接入 Memory Ops patrol stats / audit
+### Task 1.4 ✅ 接入 Memory Ops patrol stats / audit
 
 **描述**: `runMemoryOpsPatrol` 合并历史冲突 suggestions，并在 stats/audit 中记录数量。
 
@@ -130,15 +130,15 @@ graph TD
 - `src/lib/memory-ops.test.ts`
 
 **验收**:
-- [ ] report stats 包含 conflict candidate / suggestion count。
-- [ ] audit `memory_ops.patrol` after.stats 包含新增计数。
-- [ ] 现有 lifecycle / claim / relation suggestions 行为不回归。
+- [x] report stats 包含 conflict candidate / suggestion count。
+- [x] audit `memory_ops.patrol` after.stats 包含新增计数。
+- [x] 现有 lifecycle / claim / relation suggestions 行为不回归。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 接入后 typecheck 暴露旧测试 fixture 缺少新增 stats 字段，以及 `.at(-1)` 不符合当前 TS lib；已同步 fixture 并改为索引取最后一次 mock call。
+- 🔧 **最终实现逻辑**: `runMemoryOpsPatrol` 调用 `previewMemoryOpsHistoricalConflicts`，合并 review-action suggestions，并把 historical conflict candidate/suggestion/warning count 写入 report stats 和 `memory_ops.patrol` audit。
+- 🎯 **关键决策**: 历史冲突检查在显式 patrol 中运行，不进入 project open 或普通 search/query 高频路径。
 
 ---
 
@@ -571,13 +571,13 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 历史冲突巡检 | 3 | 4 | 🚧 |
+| M1 | 历史冲突巡检 | 4 | 4 | ✅ |
 | M2 | 自定义 Search Health scenarios | 0 | 4 | ⏳ |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **3** | **18** | **🚧** |
+| **总计** | | **4** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T1.4：Memory Ops patrol 接入 historical conflict stats / audit |
 | 2026-05-08 | 完成 T1.3：historical conflict review-action suggestion |
 | 2026-05-08 | 完成 T1.2：historical conflict preview |
 | 2026-05-08 | 完成 T1.1：maintenance page candidate builder |
