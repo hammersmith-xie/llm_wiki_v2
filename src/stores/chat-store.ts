@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import type { ChatMessage } from "@/lib/llm-client"
+import type { ClaimEvidence } from "@/lib/search-types"
 
 export interface Conversation {
   id: string
@@ -11,6 +12,7 @@ export interface Conversation {
 export interface MessageReference {
   title: string
   path: string
+  claimEvidence?: ClaimEvidence[]
 }
 
 export interface DisplayMessage {

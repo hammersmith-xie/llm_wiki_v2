@@ -2,7 +2,7 @@
 
 **关联需求**: [requirements.md](./requirements.md)
 **估算量级**: 中 (审核轮数: 5)
-**总体进度**: 🚧 9 / 15
+**总体进度**: 🚧 10 / 15
 
 ---
 
@@ -305,7 +305,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ 接入 search/chat evidence explanation
+### Task 3.2 ✅ 接入 search/chat evidence explanation
 
 **描述**: 扩展 search result 和 chat references，让用户看到 claim evidence。
 
@@ -323,16 +323,16 @@ graph TD
 - `src/lib/search-rrf.test.ts`
 
 **验收**:
-- [ ] `SearchResult` 可携带 `claimEvidence`。
-- [ ] Search UI 展示 claim confidence/status/source/page target。
-- [ ] Chat references panel 展示 claim evidence，默认不过度展开。
-- [ ] 现有 search RRF 排序不因 claim evidence 退化。
+- [x] `SearchResult` 可携带 `claimEvidence`。
+- [x] Search UI 展示 claim confidence/status/source/page target。
+- [x] Chat references panel 展示 claim evidence，默认不过度展开。
+- [x] 现有 search RRF 排序不因 claim evidence 退化。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 初次 typecheck 发现 chat-panel helper 的 `readonly Awaited<...>` 写法不合法；已改为显式 `readonly SearchResult[]`。
+- 🔧 **最终实现逻辑**: `searchWiki` 在 RRF 排序后读取 claim index 并附加 `claimEvidence`；Search result card 展示前两条 claim status/confidence/text；Chat references 将 persisted `MessageReference` 扩展为可携带 claim evidence，并以紧凑 badge 展示。
+- 🎯 **关键决策**: claim evidence 附加发生在 `results.sort` 和 slice 之后，不参与 RRF 分数；Chat prompt 仍只发送页面上下文，不把 claim evidence 额外塞进 prompt，避免上下文膨胀。
 
 ---
 
@@ -567,10 +567,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | Claim Data Foundation | 4 | 4 | ✅ |
 | M2 | Controlled Extraction and Writes | 4 | 4 | ✅ |
-| M3 | Evidence Retrieval and Memory Ops | 1 | 4 | 🚧 |
+| M3 | Evidence Retrieval and Memory Ops | 2 | 4 | 🚧 |
 | M4 | UI, Schema, and Docs | 0 | 3 | ⏳ |
 | M5 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **9** | **15** | **🚧** |
+| **总计** | | **10** | **15** | **🚧** |
 
 ---
 
@@ -578,6 +578,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.2：Search/Chat references 接入 claim evidence explanation。 |
 | 2026-05-08 | 完成 T3.1：claim evidence lookup 和 orphan warning。 |
 | 2026-05-08 | 完成 T2.4：claim audit category 和 review-only handoff。 |
 | 2026-05-08 | 完成 T2.3：ingest/review-created page 接入 claim anchors 和 best-effort claim artifacts。 |

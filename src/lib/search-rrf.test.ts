@@ -47,6 +47,7 @@ vi.mock("@/lib/typed-graph", () => ({
 
 import { searchWiki } from "./search"
 import { useWikiStore } from "@/stores/wiki-store"
+import { normalizeClaimRecord } from "./claims"
 
 interface Ctx {
   tmp: { path: string; cleanup: () => Promise<void> }
@@ -204,6 +205,39 @@ describe("searchWiki — RRF fusion of token + vector lists", () => {
     expect(out[0].retrieval?.bm25?.rawScore).toBeGreaterThan(0)
     // searchByEmbedding must NOT have been called at all.
     expect(mockSearchByEmbedding).not.toHaveBeenCalled()
+  })
+
+  it("attaches claim evidence without changing search ranking", async () => {
+    const claim = normalizeClaimRecord({
+      text: "Hybrid search keeps BM25 and vector evidence separately auditable.",
+      page_path: "wiki/concepts/hybrid.md",
+      status: "ok",
+      confidence: "0.9",
+      source_refs: [{ path: "raw/search.md" }],
+    }, { today: "2026-05-08" }).claim
+    ctx = await setupProject({
+      "wiki/concepts/hybrid.md":
+        "---\ntitle: Hybrid Search\n---\n\n# Hybrid Search\n\nHybrid BM25 vector evidence.",
+      "wiki/concepts/vector.md":
+        "---\ntitle: Vector Search\n---\n\n# Vector Search\n\nvector evidence.",
+      ".llm-wiki/claims.jsonl": `${JSON.stringify(claim)}\n`,
+    })
+    useWikiStore.getState().setEmbeddingConfig({
+      enabled: false,
+      endpoint: "",
+      apiKey: "",
+      model: "",
+    })
+
+    const out = await searchWiki(ctx.tmp.path, "hybrid BM25 evidence")
+
+    expect(out[0].title).toBe("Hybrid Search")
+    expect(out[0].score).toBe(out[0].retrieval?.rrfScore)
+    expect(out[0].claimEvidence?.[0]).toMatchObject({
+      text: "Hybrid search keeps BM25 and vector evidence separately auditable.",
+      status: "ok",
+      matchedTerms: ["hybrid", "bm25", "evidence"],
+    })
   })
 
   it("token list empty (no keyword match anywhere) → vector ranks alone determine order", async () => {

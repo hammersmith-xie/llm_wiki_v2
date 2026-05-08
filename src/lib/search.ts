@@ -2,6 +2,8 @@ import { readFile, listDirectory } from "@/commands/fs"
 import { normalizePath, getFileStem } from "@/lib/path-utils"
 import type { GraphPathDirection } from "@/lib/typed-graph"
 import { rankBm25Documents } from "@/lib/search-bm25"
+import { lookupClaimEvidence } from "@/lib/claim-evidence"
+import { readClaimIndex } from "@/lib/claims"
 import { flattenMdFiles, searchFiles } from "@/lib/search-file-reader"
 import {
   buildSnippet,
@@ -336,9 +338,49 @@ export async function searchWiki(
     `[Search] query="${query}" | RRF fused: ${tokenHits} token + ${bm25Rank.size} BM25 + ${vectorCount} vector + ${graphCount} graph → ${results.length} unique`,
   )
 
-  return results.slice(0, MAX_RESULTS)
+  const topResults = results.slice(0, MAX_RESULTS)
+  await attachClaimEvidence(pp, query, topResults, results.map((result) => result.path))
+  return topResults
 }
 
 function rrfContribution(rank: number): number {
   return 1 / (RRF_K + rank)
+}
+
+async function attachClaimEvidence(
+  projectPath: string,
+  query: string,
+  topResults: SearchResult[],
+  existingPagePaths: readonly string[],
+): Promise<void> {
+  try {
+    const index = await readClaimIndex(projectPath)
+    if (index.claims.length === 0) return
+    const lookup = lookupClaimEvidence({
+      query,
+      pageResults: topResults.map((result, index) => ({ path: result.path, rank: index + 1 })),
+      claims: index.claims,
+      existingPagePaths,
+    })
+    if (lookup.warnings.length > 0) {
+      console.warn(`[Search:claims] ${lookup.warnings.length} claim warning(s)`)
+    }
+    const byPage = new Map<string, typeof lookup.evidence>()
+    for (const evidence of lookup.evidence) {
+      const key = comparableWikiPath(evidence.pagePath)
+      byPage.set(key, [...(byPage.get(key) ?? []), evidence])
+    }
+    for (const result of topResults) {
+      const evidence = byPage.get(comparableWikiPath(result.path))
+      if (evidence && evidence.length > 0) result.claimEvidence = evidence
+    }
+  } catch (err) {
+    console.warn(`[Search:claims] skipped: ${err instanceof Error ? err.message : err}`)
+  }
+}
+
+function comparableWikiPath(path: string): string {
+  const normalized = normalizePath(path)
+  const idx = normalized.indexOf("/wiki/")
+  return idx === -1 ? normalized : normalized.slice(idx + 1)
 }

@@ -12,6 +12,7 @@ export interface SearchResult {
   graphPath?: string[]
   graphPathTypes?: string[]
   graphPathDirections?: GraphPathDirection[]
+  claimEvidence?: ClaimEvidence[]
   images: ImageRef[]
 }
 

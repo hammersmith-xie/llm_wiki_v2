@@ -32,6 +32,7 @@ import { detectLanguage } from "@/lib/detect-language"
 import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
 import { CrystallizationDigestPreview } from "@/components/crystallization-digest-preview"
+import type { ClaimEvidence } from "@/lib/search-types"
 
 // Module-level cache of source file names
 let cachedSourceFiles: string[] = []
@@ -360,6 +361,7 @@ function CrystallizationCandidateHint({
 interface CitedPage {
   title: string
   path: string
+  claimEvidence?: ClaimEvidence[]
 }
 
 const REF_TYPE_CONFIG: Record<string, { icon: typeof FileText; color: string }> = {
@@ -618,6 +620,14 @@ function CitedReferencesPanel({ content, savedReferences }: { content: string; s
                 <Icon className={`h-3 w-3 shrink-0 ${config.color}`} />
                 <span className="truncate text-foreground/80">{page.title}</span>
               </button>
+              {page.claimEvidence && page.claimEvidence.length > 0 && (
+                <span
+                  className="shrink-0 rounded border border-border/60 bg-background px-1 py-0.5 text-[10px] text-muted-foreground"
+                  title={page.claimEvidence[0].text}
+                >
+                  claim {page.claimEvidence[0].status} {page.claimEvidence[0].confidence}
+                </span>
+              )}
             </div>
           )
         })}

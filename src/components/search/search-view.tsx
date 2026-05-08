@@ -538,6 +538,23 @@ function SearchResultCard({
       <p className="text-xs text-muted-foreground line-clamp-2">
         <HighlightedText text={result.snippet} query={query} />
       </p>
+      {result.claimEvidence && result.claimEvidence.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1">
+          <div className="text-[11px] font-medium text-muted-foreground">
+            Claim evidence ({result.claimEvidence.length})
+          </div>
+          {result.claimEvidence.slice(0, 2).map((claim) => (
+            <div key={claim.claimId} className="min-w-0 text-[11px] text-muted-foreground">
+              <span className="mr-1 rounded border border-border/60 px-1">
+                {claim.status} · {claim.confidence}
+              </span>
+              <span className="break-words">
+                <HighlightedText text={claim.text} query={query} />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {result.graphPath && result.graphPath.length > 1 && (
         <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
           <GitBranch className="h-3 w-3 shrink-0" />

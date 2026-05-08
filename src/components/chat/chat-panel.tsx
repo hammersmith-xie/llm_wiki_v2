@@ -3,12 +3,12 @@ import { BookOpen, Plus, Trash2, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChatMessage, StreamingMessage, useSourceFiles } from "./chat-message"
 import { ChatInput } from "./chat-input"
-import { useChatStore, chatMessagesToLLM } from "@/stores/chat-store"
+import { useChatStore, chatMessagesToLLM, type MessageReference } from "@/stores/chat-store"
 import { useWikiStore } from "@/stores/wiki-store"
 import { streamChat, type ChatMessage as LLMMessage } from "@/lib/llm-client"
 import { executeIngestWrites } from "@/lib/ingest"
 import { listDirectory, readFile, deleteFile } from "@/commands/fs"
-import { searchWiki } from "@/lib/search"
+import { searchWiki, type SearchResult } from "@/lib/search"
 import { appendQueryAuditEvent } from "@/lib/audit-events"
 import { buildRetrievalGraph, getRelatedNodes } from "@/lib/graph-relevance"
 import { normalizePath, getFileName, getRelativePath } from "@/lib/path-utils"
@@ -21,7 +21,7 @@ import {
 } from "@/lib/chat-session-events"
 
 // Store the page mapping from the last query so SourceFilesBar can show which pages were cited
-export let lastQueryPages: { title: string; path: string }[] = []
+export let lastQueryPages: MessageReference[] = []
 
 function formatDate(timestamp: number): string {
   const d = new Date(timestamp)
@@ -185,7 +185,7 @@ export function ChatPanel() {
 
       // Build system prompt with wiki context using graph-enhanced retrieval
       const systemMessages: LLMMessage[] = []
-      let queryRefs: { title: string; path: string }[] = []
+      let queryRefs: MessageReference[] = []
       let langReminder: string | undefined
       const auditProjectPath = project ? normalizePath(project.path) : null
       // Pure greetings ("hi", "你好", "嗨") don't warrant running the whole
@@ -366,7 +366,11 @@ export function ChatPanel() {
         // (after history so it's the last system instruction the LLM sees).
         langReminder = buildLanguageReminder(text)
 
-        lastQueryPages = relevantPages.map((p) => ({ title: p.title, path: p.path }))
+        lastQueryPages = relevantPages.map((p) => ({
+          title: p.title,
+          path: p.path,
+          claimEvidence: claimEvidenceForPage(p.path, topSearchResults),
+        }))
         queryRefs = [...lastQueryPages]
       }
 
@@ -589,4 +593,18 @@ export function ChatPanel() {
       </div>
     </div>
   )
+}
+
+function claimEvidenceForPage(
+  relativePath: string,
+  results: readonly SearchResult[],
+): MessageReference["claimEvidence"] {
+  const target = comparableWikiPath(relativePath)
+  return results.find((result) => comparableWikiPath(result.path) === target)?.claimEvidence
+}
+
+function comparableWikiPath(path: string): string {
+  const normalized = normalizePath(path)
+  const idx = normalized.indexOf("/wiki/")
+  return idx === -1 ? normalized : normalized.slice(idx + 1)
 }
