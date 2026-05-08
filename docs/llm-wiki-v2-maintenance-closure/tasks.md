@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 15 / 18
+**总体进度**: 🚧 16 / 18
 
 ---
 
@@ -469,7 +469,7 @@ graph TD
 
 ---
 
-### Task 6.2 ⏳ Round 2 类型 & 静态分析审核
+### Task 6.2 ✅ Round 2 类型 & 静态分析审核
 
 **描述**: 检查类型边界、`any`、schema normalize、UI props 和导出范围。
 
@@ -482,14 +482,14 @@ graph TD
 - `docs/llm-wiki-v2-maintenance-closure/review-round-2.md`
 
 **验收**:
-- [ ] `npm run typecheck` 通过。
-- [ ] 报告记录结果。
+- [x] `npm run typecheck` 通过。
+- [x] 报告记录结果。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 未发现新增类型问题；新增代码无 `any`/`as any`。
+- 🔧 **最终实现逻辑**: 运行静态扫描和 typecheck，报告见 `review-round-2.md`。
+- 🎯 **关键决策**: normalize 继续以 `unknown` 输入 + 类型守卫收窄，不把外部 JSON 配置强转为可信类型。
 
 ---
 
@@ -576,8 +576,8 @@ graph TD
 | M3 | 轻量 patrol reminder | 3 | 3 | ✅ |
 | M4 | UI 与文档整合 | 2 | 2 | ✅ |
 | M5 | 回归验证 | 1 | 1 | ✅ |
-| M6 | 最终审核 | 1 | 5 | 🚧 |
-| **总计** | | **15** | **18** | **🚧** |
+| M6 | 最终审核 | 2 | 5 | 🚧 |
+| **总计** | | **16** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T6.2：Round 2 类型 & 静态分析审核 |
 | 2026-05-08 | 完成 T6.1：Round 1 功能审核 |
 | 2026-05-08 | 完成 T5.1：Focused regression / typecheck / test:mocks |
 | 2026-05-08 | 完成 T4.2：README / plans / completion audit 更新 |
@@ -609,7 +610,7 @@ graph TD
 | Round | 视角 | 状态 | 报告 |
 |-------|------|------|------|
 | 1 | 功能 | ✅ | [review-round-1.md](./review-round-1.md) |
-| 2 | 类型 & 静态分析 | ⏳ | - |
+| 2 | 类型 & 静态分析 | ✅ | [review-round-2.md](./review-round-2.md) |
 | 3 | 性能 | ⏳ | - |
 | 4 | 安全 | ⏳ | - |
 | 5 | UX & a11y | ⏳ | - |
