@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 9 / 18
+**总体进度**: 🚧 10 / 18
 
 ---
 
@@ -288,7 +288,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ Patrol reminder UI
+### Task 3.2 ✅ Patrol reminder UI
 
 **描述**: Memory Ops patrol block 显示更清楚的 reminder due 提示和一键运行入口。
 
@@ -304,15 +304,15 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] reminder due 不只靠颜色表达。
-- [ ] clean/dirty/due 三种文案明确。
-- [ ] Run patrol 后状态刷新。
+- [x] reminder due 不只靠颜色表达。
+- [x] clean/dirty/due 三种文案明确。
+- [x] Run patrol 后状态刷新。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试显示现有 UI 对 reminder-due 仍复用普通 `patrolDue` 文案，没有明确标题。
+- 🔧 **最终实现逻辑**: `MemoryOpsPatrolBlock` 新增 `MaintenanceStatusNotice`，按 clean/dirty/reminder-due 三态展示不同标题、图标和说明；en/zh i18n 同步补齐。
+- 🎯 **关键决策**: reminder-due 使用文字标题 + amber 边框/图标，避免只用颜色表达状态；运行入口继续复用显式 `Run Memory Ops patrol` 按钮。
 
 ---
 
@@ -573,11 +573,11 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
 | M2 | 自定义 Search Health scenarios | 4 | 4 | ✅ |
-| M3 | 轻量 patrol reminder | 1 | 3 | 🚧 |
+| M3 | 轻量 patrol reminder | 2 | 3 | 🚧 |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **9** | **18** | **🚧** |
+| **总计** | | **10** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T3.2：Patrol reminder UI 三态提示 |
 | 2026-05-08 | 完成 T3.1：maintenance status model clean/dirty/reminder-due |
 | 2026-05-08 | 完成 T2.4：Search Health custom scenario UI |
 | 2026-05-08 | 完成 T2.3：Search Health 合并 built-in/custom scenarios |

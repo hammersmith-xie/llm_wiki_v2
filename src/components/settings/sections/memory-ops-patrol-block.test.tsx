@@ -6,6 +6,55 @@ import type { MemoryOpsPatrolReport } from "@/lib/memory-ops"
 import { extractTypedGraphFromPages } from "@/lib/typed-graph"
 
 describe("MemoryOpsPatrolBlock", () => {
+  it("renders an explicit patrol reminder when maintenance status is reminder due", () => {
+    const html = renderToStaticMarkup(
+      <MemoryOpsPatrolBlock
+        projectReady
+        running={false}
+        error={null}
+        report={null}
+        maintenanceStatus={{
+          status: "reminder-due",
+          needsPatrol: true,
+          reminderDue: true,
+          dirtySince: 1_000,
+          eventCountSincePatrol: 7,
+          lastReminderAt: 2_000,
+        }}
+        recentAuditEvents={[]}
+        ignoredSuggestionIds={new Set()}
+        appliedSuggestionIds={new Set()}
+        dryRunPlans={{}}
+        suggestionErrors={{}}
+        workingSuggestionId={null}
+        selectedSuggestionIds={new Set()}
+        batchWorking={false}
+        lastBatchResult={null}
+        rollbackPreviews={{}}
+        rollbackResults={{}}
+        rollbackErrors={{}}
+        workingRollbackId={null}
+        onRun={vi.fn()}
+        onToggleSelection={vi.fn()}
+        onSelectCategory={vi.fn()}
+        onClearSelection={vi.fn()}
+        onBatchPreview={vi.fn()}
+        onBatchApply={vi.fn()}
+        onBatchIgnore={vi.fn()}
+        onPreviewRollback={vi.fn()}
+        onApplyRollback={vi.fn()}
+        onPreview={vi.fn()}
+        onApply={vi.fn()}
+        onIgnore={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain("Patrol reminder due")
+    expect(html).toContain("7 wiki activity events")
+    expect(html).toContain("Run Memory Ops patrol")
+  })
+
   it("renders latest schema quality summary without mixing it into patrol suggestions", () => {
     const html = renderToStaticMarkup(
       <MemoryOpsPatrolBlock

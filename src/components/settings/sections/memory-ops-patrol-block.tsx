@@ -136,19 +136,7 @@ export function MemoryOpsPatrolBlock({
       </Button>
 
       {maintenanceStatus && (
-        <div className="rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs text-muted-foreground">
-          {maintenanceStatus.needsPatrol ? (
-            t("settings.sections.maintenance.memoryOps.patrolDue", {
-              n: maintenanceStatus.eventCountSincePatrol,
-            })
-          ) : maintenanceStatus.lastPatrolAt ? (
-            t("settings.sections.maintenance.memoryOps.patrolClean", {
-              time: new Date(maintenanceStatus.lastPatrolAt).toLocaleString(),
-            })
-          ) : (
-            t("settings.sections.maintenance.memoryOps.patrolNever")
-          )}
-        </div>
+        <MaintenanceStatusNotice maintenanceStatus={maintenanceStatus} />
       )}
 
       {error && (
@@ -273,6 +261,70 @@ export function MemoryOpsPatrolBlock({
             ))}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function MaintenanceStatusNotice({
+  maintenanceStatus,
+}: {
+  maintenanceStatus: MemoryOpsMaintenanceStatus
+}) {
+  const { t } = useTranslation()
+
+  if (maintenanceStatus.status === "reminder-due") {
+    return (
+      <div className="flex items-start gap-1.5 rounded border border-amber-500/40 bg-amber-500/5 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <div className="space-y-0.5">
+          <div className="font-medium">
+            {t("settings.sections.maintenance.memoryOps.patrolReminderTitle")}
+          </div>
+          <div>
+            {t("settings.sections.maintenance.memoryOps.patrolDue", {
+              n: maintenanceStatus.eventCountSincePatrol,
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (maintenanceStatus.status === "dirty") {
+    return (
+      <div className="flex items-start gap-1.5 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs text-muted-foreground">
+        <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <div className="space-y-0.5">
+          <div className="font-medium text-foreground">
+            {t("settings.sections.maintenance.memoryOps.patrolDirtyTitle")}
+          </div>
+          <div>
+            {t("settings.sections.maintenance.memoryOps.patrolDirty", {
+              n: maintenanceStatus.eventCountSincePatrol,
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-1.5 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs text-muted-foreground">
+      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+      <div className="space-y-0.5">
+        <div className="font-medium text-foreground">
+          {maintenanceStatus.lastPatrolAt
+            ? t("settings.sections.maintenance.memoryOps.patrolCleanTitle")
+            : t("settings.sections.maintenance.memoryOps.patrolNeverTitle")}
+        </div>
+        <div>
+          {maintenanceStatus.lastPatrolAt
+            ? t("settings.sections.maintenance.memoryOps.patrolClean", {
+                time: new Date(maintenanceStatus.lastPatrolAt).toLocaleString(),
+              })
+            : t("settings.sections.maintenance.memoryOps.patrolNever")}
+        </div>
       </div>
     </div>
   )
