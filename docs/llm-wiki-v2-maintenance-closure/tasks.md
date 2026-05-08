@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 5 / 18
+**总体进度**: 🚧 6 / 18
 
 ---
 
@@ -174,7 +174,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 实现 custom scenario load/save
+### Task 2.2 ✅ 实现 custom scenario load/save
 
 **描述**: 从 `.llm-wiki/search-health-scenarios.json` 读写 pretty JSON。
 
@@ -188,15 +188,15 @@ graph TD
 - `src/lib/search-health-scenarios.test.ts`
 
 **验收**:
-- [ ] 文件不存在时返回空列表。
-- [ ] JSON parse error 返回 warning。
-- [ ] save 前创建 `.llm-wiki`。
+- [x] 文件不存在时返回空列表。
+- [x] JSON parse error 返回 warning。
+- [x] save 前创建 `.llm-wiki`。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: RED 测试先失败在 load/save/path helper 未导出，符合预期。
+- 🔧 **最终实现逻辑**: 新增 `searchHealthScenarioConfigPath`、`loadSearchHealthScenarioConfig`、`saveSearchHealthScenarioConfig`，默认读写 `.llm-wiki/search-health-scenarios.json`，文件缺失返回空结果，坏 JSON 返回 warning。
+- 🎯 **关键决策**: save helper 只返回 `{ path, error? }`，audit 由更高层 run/save UI 调用链负责，避免存储层耦合审计。
 
 ---
 
@@ -572,12 +572,12 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 历史冲突巡检 | 4 | 4 | ✅ |
-| M2 | 自定义 Search Health scenarios | 1 | 4 | 🚧 |
+| M2 | 自定义 Search Health scenarios | 2 | 4 | 🚧 |
 | M3 | 轻量 patrol reminder | 0 | 3 | ⏳ |
 | M4 | UI 与文档整合 | 0 | 2 | ⏳ |
 | M5 | 回归验证 | 0 | 1 | ⏳ |
 | M6 | 最终审核 | 0 | 5 | ⏳ |
-| **总计** | | **5** | **18** | **🚧** |
+| **总计** | | **6** | **18** | **🚧** |
 
 ---
 
@@ -585,6 +585,7 @@ graph TD
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-08 | 完成 T2.2：custom Search Health scenario load/save |
 | 2026-05-08 | 完成 T2.1：custom Search Health scenario schema / normalize |
 | 2026-05-08 | 完成 T1.4：Memory Ops patrol 接入 historical conflict stats / audit |
 | 2026-05-08 | 完成 T1.3：historical conflict review-action suggestion |

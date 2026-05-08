@@ -1,3 +1,4 @@
+import { createDirectory, readFile, writeFile } from "@/commands/fs"
 import { normalizePath } from "@/lib/path-utils"
 import type { SearchEvalScenario, SearchEvalTopKExpectation } from "@/lib/search-eval"
 import type { SearchHealthSkippedScenario } from "@/lib/search-health"
@@ -10,6 +11,60 @@ export interface SearchHealthScenarioNormalizeResult {
   scenarios: SearchEvalScenario[]
   skipped: SearchHealthSkippedScenario[]
   warnings: string[]
+}
+
+export interface SearchHealthScenarioLoadResult extends SearchHealthScenarioNormalizeResult {
+  path: string
+}
+
+export interface SearchHealthScenarioSaveResult {
+  path: string
+  error?: string
+}
+
+export function searchHealthScenarioConfigPath(projectPath: string): string {
+  return `${projectRoot(projectPath)}/.llm-wiki/search-health-scenarios.json`
+}
+
+export async function loadSearchHealthScenarioConfig(
+  projectPath: string,
+): Promise<SearchHealthScenarioLoadResult> {
+  const path = searchHealthScenarioConfigPath(projectPath)
+  let raw: string
+  try {
+    raw = await readFile(path)
+  } catch {
+    return { path, scenarios: [], skipped: [], warnings: [] }
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return { path, ...normalizeSearchHealthScenarioConfig(parsed) }
+  } catch (err) {
+    return {
+      path,
+      scenarios: [],
+      skipped: [],
+      warnings: [
+        `Could not parse custom search health scenarios: ${err instanceof Error ? err.message : String(err)}`,
+      ],
+    }
+  }
+}
+
+export async function saveSearchHealthScenarioConfig(
+  projectPath: string,
+  scenarios: readonly SearchEvalScenario[],
+): Promise<SearchHealthScenarioSaveResult> {
+  const root = projectRoot(projectPath)
+  const path = searchHealthScenarioConfigPath(root)
+  try {
+    await createDirectory(`${root}/.llm-wiki`)
+    await writeFile(path, `${JSON.stringify({ scenarios }, null, 2)}\n`)
+    return { path }
+  } catch (err) {
+    return { path, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 export function normalizeSearchHealthScenarioConfig(
@@ -134,4 +189,8 @@ function normalizeScenarioPath(value: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function projectRoot(projectPath: string): string {
+  return normalizePath(projectPath).replace(/\/$/, "")
 }
