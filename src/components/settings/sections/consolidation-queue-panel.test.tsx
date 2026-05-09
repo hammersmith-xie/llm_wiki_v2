@@ -20,6 +20,7 @@ describe("ConsolidationQueuePanel", () => {
     )
 
     expect(html).toContain("Consolidation queue")
+    expect(html).toContain("Mark applied only records that you handled the candidate elsewhere")
     expect(html).toContain("1 queued / 1 total")
     expect(html).toContain("Graph Search Decision")
     expect(html).toContain("chat · 0.82")

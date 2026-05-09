@@ -20,7 +20,8 @@ describe("MemoryOpsPolicyPanel", () => {
     )
 
     expect(html).toContain("Automation")
-    expect(html).toContain("Run patrol automatically when the activity threshold is reached")
+    expect(html).toContain("Automatic patrol is the default convenience mode")
+    expect(html).toContain("Run patrol automatically when due; turn off for manual confirmation only")
     expect(html).toContain("Activity threshold")
     expect(html).toContain("Time-based patrol interval")
     expect(html).toContain("checked")

@@ -140,6 +140,40 @@ describe("claim provenance repair", () => {
     )
     expect(mockAppendFile.mock.calls[0][1]).not.toContain("Graph traversal helps")
   })
+
+  it("does not read absolute source refs outside the project", async () => {
+    const external = claim({
+      text: "External file should not be inspected.",
+      source_refs: [{ path: "/tmp/external-source.md" }],
+    })
+    const internal = claim({
+      text: "Internal file can still be inspected.",
+      source_refs: [{ path: "/project/raw/sources/internal.md" }],
+    })
+
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/claims.jsonl") {
+        return `${JSON.stringify(external)}\n${JSON.stringify(internal)}\n`
+      }
+      if (path === "/project/raw/sources/internal.md") {
+        return "Internal file can still be inspected with local project evidence."
+      }
+      throw new Error(`unexpected read ${path}`)
+    })
+
+    const plan = await planClaimProvenanceRepair("/project")
+
+    expect(mockReadFile).not.toHaveBeenCalledWith("/tmp/external-source.md")
+    expect(plan.items.map((item) => item.status)).toEqual([
+      "source-unreadable",
+      "repairable",
+    ])
+    expect(plan.items[0].reasons).toContain("source unreadable: /tmp/external-source.md")
+    expect(plan.items[1].after[0]).toMatchObject({
+      path: "/project/raw/sources/internal.md",
+      snippet_hash: expect.stringMatching(/^snippet_/),
+    })
+  })
 })
 
 function claim(

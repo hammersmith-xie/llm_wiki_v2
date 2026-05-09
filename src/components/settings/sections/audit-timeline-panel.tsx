@@ -352,6 +352,9 @@ export function AuditTimelinePanel({
           </Button>
         </div>
       </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {t("settings.sections.maintenance.auditTimeline.exportNote")}
+      </p>
 
       {exportError && (
         <div className="flex items-start gap-1.5 rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400">

@@ -261,6 +261,7 @@
         "consolidation": {
           "title": "Consolidation queue",
           "description": "Review high-value digest candidates captured from chat, research, or review flows. Status changes only update the local queue; they do not write wiki pages.",
+          "statusNote": "Mark applied only records that you handled the candidate elsewhere; it does not create or update a wiki page.",
           "counts": "{{queued}} queued / {{total}} total",
           "refresh": "Refresh",
           "warnings": "Queue warnings",
@@ -430,6 +431,7 @@
           "matchingEvents": "{{shown}} of {{total}} events",
           "exportJson": "Export JSON",
           "exportCsv": "Export CSV",
+          "exportNote": "JSON exports include full selected audit event details. Keep exported files local unless you review them first.",
           "exportFailed": "Export failed: {{error}}",
           "exportedTo": "Exported to {{path}}",
           "visualTitle": "Activity view",
@@ -503,7 +505,7 @@
         },
         "policy": {
           "title": "Lifecycle policy",
-          "description": "Tune the deterministic thresholds Memory Ops uses for stale evidence, low confidence, promotion, and archival suggestions. Saving reruns patrol with the new policy.",
+          "description": "Tune the deterministic thresholds Memory Ops uses for stale evidence, low confidence, promotion, archival suggestions, and automatic patrol. Automatic patrol is the default convenience mode; high-accuracy projects can turn it off and keep patrol manual.",
           "save": "Save policy",
           "saving": "Saving…",
           "restoreDefault": "Restore default",
@@ -523,7 +525,7 @@
           "minSources": "Promotion min sources",
           "minReinforcement": "Promotion min reinforcement",
           "automation": "Automation",
-          "autoPatrolEnabled": "Run patrol automatically when the activity threshold is reached",
+          "autoPatrolEnabled": "Run patrol automatically when due; turn off for manual confirmation only",
           "eventThreshold": "Activity threshold",
           "reminderCooldownMinutes": "Reminder cooldown (minutes)",
           "minPatrolIntervalMinutes": "Minimum patrol interval (minutes)",

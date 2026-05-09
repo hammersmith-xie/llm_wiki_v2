@@ -28,6 +28,7 @@ describe("AuditTimelinePanel", () => {
 
     expect(html).toContain("Export JSON")
     expect(html).toContain("Export CSV")
+    expect(html).toContain("JSON exports include full selected audit event details")
     expect(html).toContain("/project/.llm-wiki/exports/audit.json")
     expect(html).toContain("Activity view")
     expect(html).toContain("1 events across 1 active days")

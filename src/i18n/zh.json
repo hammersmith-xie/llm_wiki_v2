@@ -261,6 +261,7 @@
         "consolidation": {
           "title": "结晶队列",
           "description": "审阅从聊天、研究或 review 流程中捕获的高价值 digest 候选。状态变更只更新本地队列，不会写入 Wiki 页面。",
+          "statusNote": "标记已应用只表示你已经在其他地方处理过该候选，不会创建或更新 Wiki 页面。",
           "counts": "{{queued}} 个待处理 / 共 {{total}} 个",
           "refresh": "刷新",
           "warnings": "队列警告",
@@ -430,6 +431,7 @@
           "matchingEvents": "显示 {{shown}} / {{total}} 条事件",
           "exportJson": "导出 JSON",
           "exportCsv": "导出 CSV",
+          "exportNote": "JSON 会导出当前选中审计事件的完整详情。除非先人工检查，否则请保持在本地使用。",
           "exportFailed": "导出失败：{{error}}",
           "exportedTo": "已导出到 {{path}}",
           "visualTitle": "活动视图",
@@ -503,7 +505,7 @@
         },
         "policy": {
           "title": "生命周期策略",
-          "description": "调整 Memory Ops 用于 stale 证据、低置信度、promotion 和归档建议的确定性阈值。保存后会用新策略重新巡检。",
+          "description": "调整 Memory Ops 用于 stale 证据、低置信度、promotion、归档建议和自动巡检的确定性阈值。自动巡检是默认省心模式；高准确性项目可以关闭它，保留人工确认后巡检。",
           "save": "保存策略",
           "saving": "保存中…",
           "restoreDefault": "恢复默认",
@@ -523,7 +525,7 @@
           "minSources": "Promotion 最少来源数",
           "minReinforcement": "Promotion 最少强化次数",
           "automation": "自动化",
-          "autoPatrolEnabled": "活动数量达到阈值时自动运行巡检",
+          "autoPatrolEnabled": "到期时自动运行巡检；关闭后只提醒，由人工确认",
           "eventThreshold": "活动数量阈值",
           "reminderCooldownMinutes": "提醒冷却（分钟）",
           "minPatrolIntervalMinutes": "最短巡检间隔（分钟）",

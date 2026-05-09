@@ -11,7 +11,7 @@ import {
   mergeClaimSourceRefs,
   summarizeClaimProvenance,
 } from "@/lib/claim-provenance"
-import { normalizePath } from "@/lib/path-utils"
+import { isAbsolutePath, normalizePath } from "@/lib/path-utils"
 
 export type ClaimProvenanceRepairStatus =
   | "repairable"
@@ -206,8 +206,15 @@ function sourcePathCandidates(projectPath: string, refPath: string): string[] {
   const pp = normalizePath(projectPath).replace(/\/$/, "")
   const normalized = normalizePath(refPath).trim()
   if (!normalized) return []
-  if (normalized.startsWith("/")) return [normalized]
-  return [`${pp}/${normalized}`]
+  const candidate = isAbsolutePath(normalized) ? normalized : `${pp}/${normalized}`
+  return isPathInsideProject(candidate, pp) ? [candidate] : []
+}
+
+function isPathInsideProject(candidate: string, projectPath: string): boolean {
+  const normalizedCandidate = normalizePath(candidate)
+  const normalizedProject = normalizePath(projectPath).replace(/\/$/, "")
+  return normalizedCandidate === normalizedProject ||
+    normalizedCandidate.startsWith(`${normalizedProject}/`)
 }
 
 function itemForClaim(

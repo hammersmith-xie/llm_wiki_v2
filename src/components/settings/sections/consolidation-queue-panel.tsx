@@ -57,6 +57,9 @@ export function ConsolidationQueuePanel({
       <p className="text-xs leading-relaxed text-muted-foreground">
         {t("settings.sections.maintenance.consolidation.description")}
       </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {t("settings.sections.maintenance.consolidation.statusNote")}
+      </p>
 
       {!projectReady && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
