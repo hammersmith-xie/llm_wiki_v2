@@ -438,13 +438,15 @@ export function ChatPanel() {
           onDone: () => {
             closeReasoning()
             finalizeStream(accumulated, queryRefs)
+            const completedMessages = useChatStore
+              .getState()
+              .messages.filter((m) => m.conversationId === convId)
             void recordChatSessionEnd({
               projectPath: auditProjectPath,
               conversationId: convId,
-              messageCount: useChatStore
-                .getState()
-                .messages.filter((m) => m.conversationId === convId).length,
+              messageCount: completedMessages.length,
               referencedPageCount: queryRefs.length,
+              messages: completedMessages,
             })
             if (auditProjectPath && !greetingOnly) {
               appendQueryAuditEvent(auditProjectPath, {
@@ -459,12 +461,14 @@ export function ChatPanel() {
           },
           onError: (err) => {
             finalizeStream(`Error: ${err.message}`, undefined)
+            const completedMessages = useChatStore
+              .getState()
+              .messages.filter((m) => m.conversationId === convId)
             void recordChatSessionEnd({
               projectPath: auditProjectPath,
               conversationId: convId,
-              messageCount: useChatStore
-                .getState()
-                .messages.filter((m) => m.conversationId === convId).length,
+              messageCount: completedMessages.length,
+              messages: completedMessages,
               status: "error",
               reason: err.message,
             })

@@ -29,6 +29,11 @@ export interface ClaimSourceRef {
   title?: string
   anchor?: string
   snippet_hash?: string
+  page?: number
+  line_start?: number
+  line_end?: number
+  char_start?: number
+  char_end?: number
 }
 
 export interface ClaimRecord {
@@ -405,6 +410,11 @@ function normalizeSourceRefs(value: unknown, warnings: string[]): ClaimSourceRef
       ...definedString("title", raw.title),
       ...definedString("anchor", raw.anchor),
       ...definedString("snippet_hash", raw.snippet_hash ?? raw.snippetHash),
+      ...definedPositiveInteger("page", raw.page),
+      ...definedPositiveInteger("line_start", raw.line_start ?? raw.lineStart),
+      ...definedPositiveInteger("line_end", raw.line_end ?? raw.lineEnd),
+      ...definedNonNegativeInteger("char_start", raw.char_start ?? raw.charStart),
+      ...definedNonNegativeInteger("char_end", raw.char_end ?? raw.charEnd),
     }
     const key = [
       ref.path.toLowerCase(),
@@ -421,6 +431,26 @@ function normalizeSourceRefs(value: unknown, warnings: string[]): ClaimSourceRef
 function definedString<K extends string>(key: K, value: unknown): Partial<Record<K, string>> {
   const normalized = optionalString(value)
   return normalized ? { [key]: normalized } as Record<K, string> : {}
+}
+
+function definedPositiveInteger<K extends string>(
+  key: K,
+  value: unknown,
+): Partial<Record<K, number>> {
+  const normalized = integerValue(value)
+  return normalized !== undefined && normalized > 0
+    ? { [key]: normalized } as Record<K, number>
+    : {}
+}
+
+function definedNonNegativeInteger<K extends string>(
+  key: K,
+  value: unknown,
+): Partial<Record<K, number>> {
+  const normalized = integerValue(value)
+  return normalized !== undefined && normalized >= 0
+    ? { [key]: normalized } as Record<K, number>
+    : {}
 }
 
 function arrayValue(value: unknown): string[] {
@@ -468,6 +498,11 @@ function numberValue(value: unknown): number {
     if (Number.isFinite(parsed)) return parsed
   }
   return 0
+}
+
+function integerValue(value: unknown): number | undefined {
+  const parsed = numberValue(value)
+  return Number.isInteger(parsed) ? parsed : undefined
 }
 
 function parseScore(value: unknown): number {

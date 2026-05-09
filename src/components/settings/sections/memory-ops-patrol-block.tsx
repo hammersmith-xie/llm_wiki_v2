@@ -4,8 +4,10 @@ import {
   CheckCircle2,
   History,
   Loader2,
+  SearchCheck,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,6 +19,8 @@ import type {
   MemoryOpsRollbackResult,
 } from "@/lib/memory-ops-rollback"
 import type { MemoryOpsMaintenanceStatus, MemoryOpsPatrolReport } from "@/lib/memory-ops"
+import type { ClaimIndexRebuildResult } from "@/lib/claim-ops"
+import type { ClaimProvenanceRepairPlan } from "@/lib/claim-provenance-repair"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
   auditEventTargetLabel,
@@ -32,6 +36,12 @@ interface MemoryOpsPatrolBlockProps {
   running: boolean
   error: string | null
   report: MemoryOpsPatrolReport | null
+  claimRepairWorking: boolean
+  claimRepairError: string | null
+  claimRepairPlan: ClaimProvenanceRepairPlan | null
+  claimBackfillWorking: boolean
+  claimBackfillError: string | null
+  claimBackfillResult: ClaimIndexRebuildResult | null
   maintenanceStatus: MemoryOpsMaintenanceStatus | null
   recentAuditEvents: readonly AuditEvent[]
   ignoredSuggestionIds: ReadonlySet<string>
@@ -47,6 +57,10 @@ interface MemoryOpsPatrolBlockProps {
   rollbackErrors: Record<string, string>
   workingRollbackId: string | null
   onRun: () => void
+  onPreviewClaimRepair: () => void
+  onApplyClaimRepair: () => void
+  onPreviewClaimBackfill: () => void
+  onApplyClaimBackfill: () => void
   onToggleSelection: (suggestion: MemoryOpsSuggestion) => void
   onSelectCategory: (suggestions: MemoryOpsSuggestion[]) => void
   onClearSelection: () => void
@@ -66,6 +80,12 @@ export function MemoryOpsPatrolBlock({
   running,
   error,
   report,
+  claimRepairWorking,
+  claimRepairError,
+  claimRepairPlan,
+  claimBackfillWorking,
+  claimBackfillError,
+  claimBackfillResult,
   maintenanceStatus,
   recentAuditEvents,
   ignoredSuggestionIds,
@@ -81,6 +101,10 @@ export function MemoryOpsPatrolBlock({
   rollbackErrors,
   workingRollbackId,
   onRun,
+  onPreviewClaimRepair,
+  onApplyClaimRepair,
+  onPreviewClaimBackfill,
+  onApplyClaimBackfill,
   onToggleSelection,
   onSelectCategory,
   onClearSelection,
@@ -139,6 +163,24 @@ export function MemoryOpsPatrolBlock({
         <MaintenanceStatusNotice maintenanceStatus={maintenanceStatus} />
       )}
 
+      <ClaimProvenanceRepairBlock
+        projectReady={projectReady}
+        working={claimRepairWorking}
+        error={claimRepairError}
+        plan={claimRepairPlan}
+        onPreview={onPreviewClaimRepair}
+        onApply={onApplyClaimRepair}
+      />
+
+      <ClaimBackfillBlock
+        projectReady={projectReady}
+        working={claimBackfillWorking}
+        error={claimBackfillError}
+        result={claimBackfillResult}
+        onPreview={onPreviewClaimBackfill}
+        onApply={onApplyClaimBackfill}
+      />
+
       {error && (
         <div className="flex items-start gap-1.5 rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400">
           <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -174,12 +216,28 @@ export function MemoryOpsPatrolBlock({
                 })}
               </span>
             )}
+            {summary.selfHealingCandidateCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.selfHealingCandidates", {
+                  n: summary.selfHealingCandidateCount,
+                })}
+              </span>
+            )}
+            {summary.selfHealingWarningCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.selfHealingWarnings", {
+                  n: summary.selfHealingWarningCount,
+                })}
+              </span>
+            )}
             <span>
               Claims: {summary.claimCount}
               {summary.staleClaimCount + summary.contradictedClaimCount + summary.supersededClaimCount + summary.orphanClaimCount > 0
                 ? ` · ${summary.staleClaimCount} stale · ${summary.contradictedClaimCount} contradicted · ${summary.supersededClaimCount} superseded · ${summary.orphanClaimCount} orphan`
                 : ""}
               {summary.reinforcedClaimCount > 0 ? ` · ${summary.reinforcedClaimCount} reinforced` : ""}
+              {summary.claimsMissingSourceRefCount > 0 ? ` · ${summary.claimsMissingSourceRefCount} no source refs` : ""}
+              {summary.claimsMissingSnippetHashCount > 0 ? ` · ${summary.claimsMissingSnippetHashCount} no snippet hash` : ""}
             </span>
             {handledSuggestionCount > 0 && (
               <span>
@@ -279,6 +337,197 @@ export function MemoryOpsPatrolBlock({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function ClaimBackfillBlock({
+  projectReady,
+  working,
+  error,
+  result,
+  onPreview,
+  onApply,
+}: {
+  projectReady: boolean
+  working: boolean
+  error: string | null
+  result: ClaimIndexRebuildResult | null
+  onPreview: () => void
+  onApply: () => void
+}) {
+  const { t } = useTranslation()
+  const newClaimCount =
+    (result?.stats.recoveredCount ?? 0) + (result?.stats.backfilledCount ?? 0)
+  const canApply = projectReady && !working && newClaimCount > 0
+
+  return (
+    <div className="space-y-2 rounded border border-border/60 bg-background/80 px-2 py-2 text-xs">
+      <div className="flex items-center gap-1.5 font-medium">
+        <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+        {t("settings.sections.maintenance.memoryOps.claimBackfillTitle")}
+      </div>
+      <div className="text-muted-foreground">
+        {t("settings.sections.maintenance.memoryOps.claimBackfillDescription")}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={onPreview} disabled={working || !projectReady}>
+          {working ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <SearchCheck className="h-3.5 w-3.5" />
+          )}
+          {t("settings.sections.maintenance.memoryOps.previewClaimBackfill")}
+        </Button>
+        <Button size="sm" onClick={onApply} disabled={!canApply}>
+          {working ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ShieldCheck className="h-3.5 w-3.5" />
+          )}
+          {t("settings.sections.maintenance.memoryOps.applyClaimBackfill")}
+        </Button>
+      </div>
+      {error && (
+        <div className="flex items-start gap-1.5 text-rose-700 dark:text-rose-400">
+          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>{error}</div>
+        </div>
+      )}
+      {result && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimBackfillRecovered", {
+              n: result.stats.recoveredCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimBackfillBackfilled", {
+              n: result.stats.backfilledCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimBackfillOrphans", {
+              n: result.stats.orphanCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimBackfillStale", {
+              n: result.stats.staleCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimBackfillWarnings", {
+              n: result.stats.warningCount,
+            })}
+          </span>
+          {!result.dryRun && (
+            <span className="text-emerald-700 dark:text-emerald-400">
+              {t("settings.sections.maintenance.memoryOps.claimBackfillApplied")}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ClaimProvenanceRepairBlock({
+  projectReady,
+  working,
+  error,
+  plan,
+  onPreview,
+  onApply,
+}: {
+  projectReady: boolean
+  working: boolean
+  error: string | null
+  plan: ClaimProvenanceRepairPlan | null
+  onPreview: () => void
+  onApply: () => void
+}) {
+  const { t } = useTranslation()
+  const repairableCount = plan?.stats.repairableCount ?? 0
+  const canApply = projectReady && !working && repairableCount > 0
+
+  return (
+    <div className="space-y-2 rounded border border-border/60 bg-background/80 px-2 py-2 text-xs">
+      <div className="flex items-center gap-1.5 font-medium">
+        <SearchCheck className="h-3.5 w-3.5 text-muted-foreground" />
+        {t("settings.sections.maintenance.memoryOps.claimRepairTitle")}
+      </div>
+      <div className="text-muted-foreground">
+        {t("settings.sections.maintenance.memoryOps.claimRepairDescription")}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={onPreview} disabled={working || !projectReady}>
+          {working ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <SearchCheck className="h-3.5 w-3.5" />
+          )}
+          {t("settings.sections.maintenance.memoryOps.previewClaimRepair")}
+        </Button>
+        <Button size="sm" onClick={onApply} disabled={!canApply}>
+          {working ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ShieldCheck className="h-3.5 w-3.5" />
+          )}
+          {t("settings.sections.maintenance.memoryOps.applyClaimRepair")}
+        </Button>
+      </div>
+      {error && (
+        <div className="flex items-start gap-1.5 text-rose-700 dark:text-rose-400">
+          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>{error}</div>
+        </div>
+      )}
+      {plan && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairClaims", {
+              n: plan.stats.claimCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairRepairable", {
+              n: plan.stats.repairableCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairRefs", {
+              n: plan.stats.repairedSourceRefCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairComplete", {
+              n: plan.stats.alreadyCompleteCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairNoSources", {
+              n: plan.stats.noSourceRefsCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairUnreadable", {
+              n: plan.stats.sourceUnreadableCount,
+            })}
+          </span>
+          <span>
+            {t("settings.sections.maintenance.memoryOps.claimRepairNoMatch", {
+              n: plan.stats.noMatchCount,
+            })}
+          </span>
+          {!plan.dryRun && (
+            <span className="text-emerald-700 dark:text-emerald-400">
+              {t("settings.sections.maintenance.memoryOps.claimRepairApplied")}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -48,7 +48,13 @@ export function ClaimEvidenceList({
             <div className="mt-0.5 break-words leading-snug">{claim.text}</div>
             {claim.sourceRefs.length > 0 && (
               <div className="mt-0.5 truncate text-muted-foreground/80">
-                {t("claims.source")}: {claim.sourceRefs[0].path}
+                {t("claims.source")}: {formatSourceRef(claim.sourceRefs[0], {
+                  anchorLabel: t("claims.anchor"),
+                  hashLabel: t("claims.hash"),
+                  pageLabel: t("claims.page"),
+                  lineLabel: t("claims.line"),
+                  charsLabel: t("claims.chars"),
+                })}
               </div>
             )}
           </div>
@@ -61,4 +67,30 @@ export function ClaimEvidenceList({
       )}
     </div>
   )
+}
+
+function formatSourceRef(
+  ref: ClaimEvidence["sourceRefs"][number],
+  labels: {
+    anchorLabel: string
+    hashLabel: string
+    pageLabel: string
+    lineLabel: string
+    charsLabel: string
+  },
+): string {
+  const parts = [ref.path]
+  if (typeof ref.page === "number") parts.push(`${labels.pageLabel} ${ref.page}`)
+  if (typeof ref.line_start === "number") {
+    const line = typeof ref.line_end === "number" && ref.line_end !== ref.line_start
+      ? `${ref.line_start}-${ref.line_end}`
+      : `${ref.line_start}`
+    parts.push(`${labels.lineLabel} ${line}`)
+  }
+  if (typeof ref.char_start === "number" && typeof ref.char_end === "number") {
+    parts.push(`${labels.charsLabel} ${ref.char_start}-${ref.char_end}`)
+  }
+  if (ref.anchor) parts.push(`${labels.anchorLabel} ${ref.anchor}`)
+  if (ref.snippet_hash) parts.push(`${labels.hashLabel} ${ref.snippet_hash}`)
+  return parts.join(" · ")
 }

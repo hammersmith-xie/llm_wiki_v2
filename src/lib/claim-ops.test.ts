@@ -60,6 +60,7 @@ describe("claim index scan and rebuild", () => {
     expect(result.dryRun).toBe(true)
     expect(result.stats).toMatchObject({
       recoveredCount: 1,
+      backfilledCount: 1,
       orphanCount: 0,
       staleCount: 0,
     })
@@ -67,8 +68,56 @@ describe("claim index scan and rebuild", () => {
       page_path: "wiki/concepts/search.md",
       claim_id: "claim_anchor1",
     })
+    expect(result.backfilled[0]).toMatchObject({
+      page_path: "wiki/concepts/search.md",
+      page_title: "Search",
+      source_refs: [],
+    })
     expect(mockWriteFile).not.toHaveBeenCalled()
     expect(mockAppendFile).not.toHaveBeenCalled()
+  })
+
+  it("backfills high-value legacy markdown claims with page sources", async () => {
+    mockListDirectory.mockResolvedValue([{
+      name: "retrieval.md",
+      path: "/project/wiki/concepts/retrieval.md",
+      is_dir: false,
+    }])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/retrieval.md") {
+        return [
+          "---",
+          "title: Retrieval",
+          "lifecycle: semantic",
+          "sources: [raw/sources/search.md]",
+          "---",
+          "",
+          "# Retrieval",
+          "",
+          "- Finding: hybrid search keeps BM25, vector, and graph evidence separately auditable.",
+          "- Recommendation: keep graph expansion query-time so page writes stay cheap.",
+        ].join("\n")
+      }
+      if (path === "/project/.llm-wiki/claims.jsonl") return ""
+      throw new Error(`unexpected readFile ${path}`)
+    })
+
+    const result = await scanClaimIndexRebuild("/project")
+
+    expect(result.stats).toMatchObject({
+      recoveredCount: 0,
+      backfilledCount: 2,
+    })
+    expect(result.backfilled.map((claim) => claim.text)).toEqual([
+      "Finding: hybrid search keeps BM25, vector, and graph evidence separately auditable.",
+      "Recommendation: keep graph expansion query-time so page writes stay cheap.",
+    ])
+    expect(result.backfilled[0]).toMatchObject({
+      page_path: "wiki/concepts/retrieval.md",
+      page_title: "Retrieval",
+      lifecycle: "semantic",
+      source_refs: [{ path: "raw/sources/search.md" }],
+    })
   })
 
   it("reports orphan and stale records while preserving bad-line warnings", async () => {
@@ -99,6 +148,7 @@ describe("claim index scan and rebuild", () => {
 
     expect(result.stats).toMatchObject({
       recoveredCount: 0,
+      backfilledCount: 0,
       orphanCount: 1,
       staleCount: 1,
       warningCount: 1,
@@ -131,9 +181,14 @@ describe("claim index scan and rebuild", () => {
       "/project/.llm-wiki/claims.jsonl",
       expect.stringContaining("\"claim_id\":\"claim_anchor1\""),
     )
+    expect(String(mockWriteFile.mock.calls[0]?.[1])).toContain("\"Finding: graph search helps alias recall.\"")
     expect(mockAppendFile).toHaveBeenCalledWith(
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"claim.rebuild\""),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"backfilledCount\":1"),
     )
   })
 })

@@ -25,8 +25,14 @@ export interface TypedGraphNode {
   type: string
   path: string
   sources: string[]
+  sourceCount: number
+  aliases: string[]
+  tags: string[]
+  lifecycle: string
+  lastConfirmed?: string
   confidence: number
   reviewStatus?: string
+  reviewFlags: string[]
   seedText: string
 }
 
@@ -37,6 +43,10 @@ export interface TypedGraphEdge {
   weight: number
   confidence: number
   explicit: boolean
+  sourceField?: string
+  sourcePath?: string
+  rawTarget?: string
+  provenance: "frontmatter" | "wikilink"
 }
 
 export interface TypedGraphTraversalEdge extends TypedGraphEdge {
@@ -110,8 +120,19 @@ export function extractTypedGraphFromPages(
       title: scalar(parsed.frontmatter?.title) || headingTitle(page.content) || page.id,
       type: (scalar(parsed.frontmatter?.type) || "other").toLowerCase(),
       sources: arrayValue(parsed.frontmatter?.sources),
+      aliases: uniqueStrings([
+        ...arrayValue(parsed.frontmatter?.aliases),
+        ...arrayValue(parsed.frontmatter?.alias),
+      ]),
+      tags: arrayValue(parsed.frontmatter?.tags),
+      lifecycle: scalar(parsed.frontmatter?.lifecycle) || "working",
+      lastConfirmed:
+        scalar(parsed.frontmatter?.last_confirmed) ??
+        scalar(parsed.frontmatter?.updated) ??
+        scalar(parsed.frontmatter?.created),
       confidence: parseScore(scalar(parsed.frontmatter?.confidence)),
       reviewStatus: scalar(parsed.frontmatter?.review_status),
+      reviewFlags: reviewFlagsFromFrontmatter(parsed.frontmatter),
       seedText: buildSeedText(parsed.frontmatter),
     }
   })
@@ -140,8 +161,14 @@ export function extractTypedGraphFromPages(
       type: page.type,
       path: page.path,
       sources: page.sources,
+      sourceCount: page.sources.length,
+      aliases: page.aliases,
+      tags: page.tags,
+      lifecycle: page.lifecycle,
+      lastConfirmed: page.lastConfirmed,
       confidence: page.confidence,
       reviewStatus: page.reviewStatus,
+      reviewFlags: page.reviewFlags,
       seedText: page.seedText,
     })
   }
@@ -153,10 +180,16 @@ export function extractTypedGraphFromPages(
     targetRaw: string,
     type: TypedEdgeType,
     explicit: boolean,
+    provenance: {
+      sourceField?: string
+      sourcePath?: string
+      rawTarget?: string
+      provenance: TypedGraphEdge["provenance"]
+    },
   ) => {
     const target = resolveTarget(source, targetRaw, type, idAliases)
     if (!target || target === source) return
-    const key = `${source}::${target}::${type}::${explicit ? "1" : "0"}`
+    const key = `${source}::${target}::${type}::${explicit ? "1" : "0"}::${provenance.sourceField ?? ""}`
     if (seen.has(key)) return
     seen.add(key)
     const sourceNode = nodes.get(source)
@@ -168,6 +201,10 @@ export function extractTypedGraphFromPages(
       type,
       explicit,
       confidence,
+      sourceField: provenance.sourceField,
+      sourcePath: provenance.sourcePath,
+      rawTarget: provenance.rawTarget ?? targetRaw,
+      provenance: provenance.provenance,
       weight: EDGE_WEIGHTS[type] * (explicit ? 1.15 : 1) * (0.75 + confidence * 0.5),
     })
   }
@@ -177,14 +214,31 @@ export function extractTypedGraphFromPages(
       for (const target of arrayValue(page.parsed.frontmatter?.[field])) {
         if (reverse) {
           const reversedSource = resolveTarget(page.id, target, type, idAliases)
-          if (reversedSource) pushEdge(reversedSource, page.id, type, true)
+          if (reversedSource) {
+            pushEdge(reversedSource, page.id, type, true, {
+              sourceField: field,
+              sourcePath: page.path,
+              rawTarget: target,
+              provenance: "frontmatter",
+            })
+          }
         } else {
-          pushEdge(page.id, target, type, true)
+          pushEdge(page.id, target, type, true, {
+            sourceField: field,
+            sourcePath: page.path,
+            rawTarget: target,
+            provenance: "frontmatter",
+          })
         }
       }
     }
     for (const target of extractWikilinks(page.content)) {
-      pushEdge(page.id, target, "mentions", false)
+      pushEdge(page.id, target, "mentions", false, {
+        sourceField: "body:wikilink",
+        sourcePath: page.path,
+        rawTarget: target,
+        provenance: "wikilink",
+      })
     }
   }
 
@@ -451,6 +505,19 @@ function buildSeedText(frontmatter: Record<string, FrontmatterValue> | null | un
     ...arrayValue(frontmatter.summary),
     ...arrayValue(frontmatter.description),
   ].join(" ")
+}
+
+function reviewFlagsFromFrontmatter(
+  frontmatter: Record<string, FrontmatterValue> | null | undefined,
+): string[] {
+  if (!frontmatter) return []
+  const flags: string[] = []
+  const status = scalar(frontmatter.review_status)
+  if (status && status !== "ok") flags.push(status)
+  if (scalar(frontmatter.status) === "stale") flags.push("stale")
+  if (arrayValue(frontmatter.contradicts).length > 0) flags.push("contradicts")
+  if (arrayValue(frontmatter.superseded_by).length > 0) flags.push("superseded")
+  return uniqueStrings(flags)
 }
 
 function parseScore(value: string | undefined): number {

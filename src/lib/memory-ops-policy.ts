@@ -22,6 +22,14 @@ export interface MemoryOpsArchivePolicy {
   requireNoRecentUse: boolean
 }
 
+export interface MemoryOpsAutomationPolicy {
+  autoPatrolEnabled: boolean
+  eventThreshold: number
+  reminderCooldownMinutes: number
+  minPatrolIntervalMinutes: number
+  timeIntervalHours: number
+}
+
 export interface MemoryOpsPolicy {
   version: 1
   name: string
@@ -30,6 +38,7 @@ export interface MemoryOpsPolicy {
   lowConfidenceThreshold: number
   promotion: MemoryOpsPromotionPolicy
   archive: MemoryOpsArchivePolicy
+  automation: MemoryOpsAutomationPolicy
 }
 
 export interface MemoryOpsPolicyLoadResult {
@@ -57,6 +66,13 @@ export const DEFAULT_MEMORY_OPS_POLICY: MemoryOpsPolicy = {
     requireNoSourceSupport: true,
     requireNoReinforcement: true,
     requireNoRecentUse: true,
+  },
+  automation: {
+    autoPatrolEnabled: true,
+    eventThreshold: 5,
+    reminderCooldownMinutes: 30,
+    minPatrolIntervalMinutes: 30,
+    timeIntervalHours: 24,
   },
 }
 
@@ -87,6 +103,13 @@ export function normalizeMemoryOpsPolicy(input: unknown): MemoryOpsPolicyLoadRes
       requireNoSourceSupport: booleanValue(recordAt(record.archive, "requireNoSourceSupport"), DEFAULT_MEMORY_OPS_POLICY.archive.requireNoSourceSupport),
       requireNoReinforcement: booleanValue(recordAt(record.archive, "requireNoReinforcement"), DEFAULT_MEMORY_OPS_POLICY.archive.requireNoReinforcement),
       requireNoRecentUse: booleanValue(recordAt(record.archive, "requireNoRecentUse"), DEFAULT_MEMORY_OPS_POLICY.archive.requireNoRecentUse),
+    },
+    automation: {
+      autoPatrolEnabled: booleanValue(recordAt(record.automation, "autoPatrolEnabled"), DEFAULT_MEMORY_OPS_POLICY.automation.autoPatrolEnabled),
+      eventThreshold: positiveInteger(recordAt(record.automation, "eventThreshold"), DEFAULT_MEMORY_OPS_POLICY.automation.eventThreshold, "automation.eventThreshold", warnings),
+      reminderCooldownMinutes: positiveNumber(recordAt(record.automation, "reminderCooldownMinutes"), DEFAULT_MEMORY_OPS_POLICY.automation.reminderCooldownMinutes, "automation.reminderCooldownMinutes", warnings),
+      minPatrolIntervalMinutes: nonNegativeNumber(recordAt(record.automation, "minPatrolIntervalMinutes"), DEFAULT_MEMORY_OPS_POLICY.automation.minPatrolIntervalMinutes, "automation.minPatrolIntervalMinutes", warnings),
+      timeIntervalHours: nonNegativeNumber(recordAt(record.automation, "timeIntervalHours"), DEFAULT_MEMORY_OPS_POLICY.automation.timeIntervalHours, "automation.timeIntervalHours", warnings),
     },
   }
 
@@ -165,6 +188,30 @@ function nonNegativeInteger(
   const parsed = Number(value)
   if (Number.isInteger(parsed) && parsed >= 0) return parsed
   if (value !== undefined) warnings.push(`${field} must be a non-negative integer; using ${fallback}.`)
+  return fallback
+}
+
+function positiveInteger(
+  value: unknown,
+  fallback: number,
+  field: string,
+  warnings: string[],
+): number {
+  const parsed = Number(value)
+  if (Number.isInteger(parsed) && parsed > 0) return parsed
+  if (value !== undefined) warnings.push(`${field} must be a positive integer; using ${fallback}.`)
+  return fallback
+}
+
+function nonNegativeNumber(
+  value: unknown,
+  fallback: number,
+  field: string,
+  warnings: string[],
+): number {
+  const parsed = Number(value)
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed
+  if (value !== undefined) warnings.push(`${field} must be a non-negative number; using ${fallback}.`)
   return fallback
 }
 

@@ -25,6 +25,10 @@ type NumericPolicyKey =
   | "lowConfidenceThreshold"
   | "promotion.minSources"
   | "promotion.minReinforcement"
+  | "automation.eventThreshold"
+  | "automation.reminderCooldownMinutes"
+  | "automation.minPatrolIntervalMinutes"
+  | "automation.timeIntervalHours"
 
 interface MemoryOpsPolicyPanelProps {
   projectReady: boolean
@@ -215,6 +219,50 @@ export function MemoryOpsPolicyPanel({
 
       <div className="space-y-2 rounded border border-border/60 bg-background/80 p-3">
         <div className="text-xs font-medium">
+          {t("settings.sections.maintenance.policy.automation")}
+        </div>
+        <CheckboxRow
+          label={t("settings.sections.maintenance.policy.autoPatrolEnabled")}
+          checked={draft.automation.autoPatrolEnabled}
+          onChange={(checked) =>
+            setDraft((prev) => ({
+              ...prev,
+              automation: { ...prev.automation, autoPatrolEnabled: checked },
+            }))
+          }
+        />
+        <NumberField
+          label={t("settings.sections.maintenance.policy.eventThreshold")}
+          value={draft.automation.eventThreshold}
+          min={1}
+          step={1}
+          onChange={(value) => setNumber("automation.eventThreshold", value)}
+        />
+        <NumberField
+          label={t("settings.sections.maintenance.policy.reminderCooldownMinutes")}
+          value={draft.automation.reminderCooldownMinutes}
+          min={1}
+          step={1}
+          onChange={(value) => setNumber("automation.reminderCooldownMinutes", value)}
+        />
+        <NumberField
+          label={t("settings.sections.maintenance.policy.minPatrolIntervalMinutes")}
+          value={draft.automation.minPatrolIntervalMinutes}
+          min={0}
+          step={1}
+          onChange={(value) => setNumber("automation.minPatrolIntervalMinutes", value)}
+        />
+        <NumberField
+          label={t("settings.sections.maintenance.policy.timeIntervalHours")}
+          value={draft.automation.timeIntervalHours}
+          min={0}
+          step={1}
+          onChange={(value) => setNumber("automation.timeIntervalHours", value)}
+        />
+      </div>
+
+      <div className="space-y-2 rounded border border-border/60 bg-background/80 p-3">
+        <div className="text-xs font-medium">
           {t("settings.sections.maintenance.policy.archiveRules")}
         </div>
         <CheckboxRow
@@ -333,6 +381,13 @@ function setNumericPolicyValue(
       promotion: { ...policy.promotion, [promotionKey]: value },
     }
   }
+  if (key.startsWith("automation.")) {
+    const automationKey = key.split(".")[1] as keyof MemoryOpsPolicy["automation"]
+    return {
+      ...policy,
+      automation: { ...policy.automation, [automationKey]: value },
+    }
+  }
   return { ...policy, [key]: value }
 }
 
@@ -351,6 +406,11 @@ function memoryOpsPolicyEquals(a: MemoryOpsPolicy, b: MemoryOpsPolicy): boolean 
     a.promotion.minReinforcement === b.promotion.minReinforcement &&
     a.archive.requireNoSourceSupport === b.archive.requireNoSourceSupport &&
     a.archive.requireNoReinforcement === b.archive.requireNoReinforcement &&
-    a.archive.requireNoRecentUse === b.archive.requireNoRecentUse
+    a.archive.requireNoRecentUse === b.archive.requireNoRecentUse &&
+    a.automation.autoPatrolEnabled === b.automation.autoPatrolEnabled &&
+    a.automation.eventThreshold === b.automation.eventThreshold &&
+    a.automation.reminderCooldownMinutes === b.automation.reminderCooldownMinutes &&
+    a.automation.minPatrolIntervalMinutes === b.automation.minPatrolIntervalMinutes &&
+    a.automation.timeIntervalHours === b.automation.timeIntervalHours
   )
 }

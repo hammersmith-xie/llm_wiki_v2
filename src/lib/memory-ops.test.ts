@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { FileNode } from "@/types/wiki"
 import {
+  autoMemoryOpsPatrolInFlightCount,
   completeMemoryOpsPatrolCooldown,
+  recordMemoryOpsMaintenanceEvent,
   reduceMemoryOpsMaintenanceEvent,
   summarizeMemoryOpsMaintenanceStatus,
   scanMemoryOpsProject,
@@ -20,6 +22,13 @@ vi.mock("@/commands/fs", () => ({
   writeFile: vi.fn(async () => {}),
 }))
 
+vi.mock("@/lib/project-store", () => ({
+  loadMemoryOpsMaintenanceState: vi.fn(async () => null),
+  saveMemoryOpsMaintenanceState: vi.fn(async () => {}),
+  loadMemoryOpsPolicyState: vi.fn(async () => null),
+  loadSchemaQualitySummaryState: vi.fn(async () => null),
+}))
+
 vi.mock("./memory-ops-conflicts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./memory-ops-conflicts")>()
   return {
@@ -35,6 +44,11 @@ vi.mock("./memory-ops-conflicts", async (importOriginal) => {
 })
 
 import { appendFile, createDirectory, listDirectory, readFile, writeFile } from "@/commands/fs"
+import {
+  loadMemoryOpsMaintenanceState,
+  loadMemoryOpsPolicyState,
+  saveMemoryOpsMaintenanceState,
+} from "@/lib/project-store"
 
 const mockAppendFile = vi.mocked(appendFile)
 const mockCreateDirectory = vi.mocked(createDirectory)
@@ -42,6 +56,9 @@ const mockListDirectory = vi.mocked(listDirectory)
 const mockReadFile = vi.mocked(readFile)
 const mockWriteFile = vi.mocked(writeFile)
 const mockPreviewMemoryOpsHistoricalConflicts = vi.mocked(previewMemoryOpsHistoricalConflicts)
+const mockLoadMaintenanceState = vi.mocked(loadMemoryOpsMaintenanceState)
+const mockSaveMaintenanceState = vi.mocked(saveMemoryOpsMaintenanceState)
+const mockLoadPolicyState = vi.mocked(loadMemoryOpsPolicyState)
 
 beforeEach(() => {
   mockAppendFile.mockReset()
@@ -49,6 +66,12 @@ beforeEach(() => {
   mockListDirectory.mockReset()
   mockReadFile.mockReset()
   mockWriteFile.mockReset()
+  mockLoadMaintenanceState.mockReset()
+  mockLoadMaintenanceState.mockResolvedValue(null)
+  mockSaveMaintenanceState.mockReset()
+  mockSaveMaintenanceState.mockResolvedValue(undefined)
+  mockLoadPolicyState.mockReset()
+  mockLoadPolicyState.mockResolvedValue(null)
   mockPreviewMemoryOpsHistoricalConflicts.mockReset()
   mockPreviewMemoryOpsHistoricalConflicts.mockResolvedValue({
     candidateCount: 0,
@@ -86,12 +109,47 @@ describe("memory ops project scanner", () => {
     expect(first.reminderDue).toBe(false)
     expect(second.reminderDue).toBe(false)
     expect(third.reminderDue).toBe(true)
+    expect(third.dueReasons).toEqual(["event-threshold"])
     expect(fourth.reminderDue).toBe(false)
+    expect(fourth.dueReasons).toEqual([])
     expect(fourth.state).toMatchObject({
       dirtySince: 1_000,
       eventCountSincePatrol: 4,
       lastReminderAt: 3_000,
     })
+  })
+
+  it("can mark maintenance due from elapsed time even below event threshold", () => {
+    const result = reduceMemoryOpsMaintenanceEvent({
+      lastPatrolAt: 1_000,
+      eventCountSincePatrol: 0,
+      lastReminderAt: 0,
+    }, {
+      now: 90_000,
+      eventThreshold: 10,
+      reminderCooldownMs: 1,
+      minPatrolIntervalMs: 1,
+      timeIntervalMs: 60_000,
+    })
+
+    expect(result.reminderDue).toBe(true)
+    expect(result.dueReasons).toEqual(["time-interval"])
+  })
+
+  it("blocks reminders inside the minimum patrol interval", () => {
+    const result = reduceMemoryOpsMaintenanceEvent({
+      lastPatrolAt: 1_000,
+      eventCountSincePatrol: 2,
+      lastReminderAt: 0,
+    }, {
+      now: 20_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 1,
+      minPatrolIntervalMs: 60_000,
+    })
+
+    expect(result.reminderDue).toBe(false)
+    expect(result.dueReasons).toEqual([])
   })
 
   it("resets maintenance cooldown state after a patrol completes", () => {
@@ -144,11 +202,174 @@ describe("memory ops project scanner", () => {
       now: 120_000,
       eventThreshold: 3,
       reminderCooldownMs: 60_000,
+      minPatrolIntervalMs: 1,
     })).toMatchObject({
       status: "reminder-due",
       needsPatrol: true,
       reminderDue: true,
+      dueReasons: ["event-threshold"],
     })
+  })
+
+  it("records dirty maintenance state below the auto-patrol threshold", async () => {
+    await recordMemoryOpsMaintenanceEvent("/project", "search.run", {
+      now: 1_000,
+      eventThreshold: 3,
+      autoPatrol: true,
+      minPatrolIntervalMs: 1,
+    })
+
+    expect(mockSaveMaintenanceState).toHaveBeenCalledWith(
+      "/project",
+      expect.objectContaining({
+        dirtySince: 1_000,
+        eventCountSincePatrol: 1,
+      }),
+    )
+    expect(useActivityStore.getState().items).toEqual([])
+    expect(autoMemoryOpsPatrolInFlightCount()).toBe(0)
+  })
+
+  it("schedules one non-blocking auto patrol when the threshold is reached", async () => {
+    mockLoadMaintenanceState.mockResolvedValueOnce({
+      dirtySince: 1_000,
+      eventCountSincePatrol: 2,
+      lastReminderAt: 0,
+    })
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockRejectedValue(new Error("missing"))
+
+    await recordMemoryOpsMaintenanceEvent("/project", "query.answer", {
+      now: 120_000,
+      eventThreshold: 3,
+      reminderCooldownMs: 60_000,
+      minPatrolIntervalMs: 1,
+      autoPatrol: true,
+    })
+
+    expect(useActivityStore.getState().items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Memory Ops patrol recommended",
+          status: "done",
+        }),
+      ]),
+    )
+    expect(autoMemoryOpsPatrolInFlightCount()).toBe(1)
+    await vi.waitFor(() => {
+      expect(autoMemoryOpsPatrolInFlightCount()).toBe(0)
+    })
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"memory_ops.patrol\""),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"trigger\":{\"mode\":\"auto\",\"action\":\"query.answer\"}"),
+    )
+  })
+
+  it("honors project policy when auto patrol is disabled", async () => {
+    mockLoadPolicyState.mockResolvedValueOnce({
+      ...DEFAULT_MEMORY_OPS_POLICY,
+      automation: {
+        ...DEFAULT_MEMORY_OPS_POLICY.automation,
+        autoPatrolEnabled: false,
+      },
+    })
+
+    await recordMemoryOpsMaintenanceEvent("/project", "query.answer", {
+      now: 120_000,
+      eventThreshold: 1,
+      minPatrolIntervalMs: 1,
+    })
+
+    expect(useActivityStore.getState().items).toEqual([
+      expect.objectContaining({
+        title: "Memory Ops patrol recommended",
+        status: "done",
+      }),
+    ])
+    expect(autoMemoryOpsPatrolInFlightCount()).toBe(0)
+    expect(mockAppendFile).not.toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"action\":\"memory_ops.patrol\""),
+    )
+  })
+
+  it("honors per-event auto patrol opt-out even when policy enables it", async () => {
+    await recordMemoryOpsMaintenanceEvent("/project", "query.answer", {
+      now: 120_000,
+      eventThreshold: 1,
+      minPatrolIntervalMs: 1,
+      autoPatrol: false,
+    })
+
+    expect(autoMemoryOpsPatrolInFlightCount()).toBe(0)
+    expect(mockLoadPolicyState).toHaveBeenCalled()
+  })
+
+  it("dedupes concurrent auto patrol schedules for the same project", async () => {
+    mockListDirectory.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      return []
+    })
+    mockReadFile.mockRejectedValue(new Error("missing"))
+
+    await Promise.all([
+      recordMemoryOpsMaintenanceEvent("/project", "search.run", {
+        now: 120_000,
+        eventThreshold: 1,
+        autoPatrol: true,
+      }),
+      recordMemoryOpsMaintenanceEvent("/project", "query.answer", {
+        now: 120_001,
+        eventThreshold: 1,
+        autoPatrol: true,
+      }),
+    ])
+
+    expect(autoMemoryOpsPatrolInFlightCount()).toBe(1)
+    await vi.waitFor(() => {
+      expect(autoMemoryOpsPatrolInFlightCount()).toBe(0)
+    })
+    const patrolAuditCalls = mockAppendFile.mock.calls.filter(([, contents]) =>
+      String(contents).includes("\"action\":\"memory_ops.patrol\"")
+    )
+    expect(patrolAuditCalls).toHaveLength(1)
+  })
+
+  it("captures auto patrol failures without throwing into the maintenance event caller", async () => {
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockRejectedValue(new Error("missing"))
+    mockAppendFile.mockRejectedValueOnce(new Error("disk full"))
+
+    await expect(recordMemoryOpsMaintenanceEvent("/project", "memory.write", {
+      now: 120_000,
+      eventThreshold: 1,
+      autoPatrol: true,
+    })).resolves.toBeUndefined()
+
+    await vi.waitFor(() => {
+      expect(autoMemoryOpsPatrolInFlightCount()).toBe(0)
+    })
+    expect(useActivityStore.getState().items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Memory Ops auto patrol failed",
+          status: "error",
+          detail: expect.stringContaining("disk full"),
+        }),
+      ]),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"changes\":{\"status\":\"error\"}"),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"trigger\":{\"mode\":\"auto\",\"action\":\"memory.write\"}"),
+    )
   })
 
   it("returns a stable empty snapshot when wiki and state files are missing", async () => {
@@ -178,6 +399,8 @@ describe("memory ops project scanner", () => {
       pagesWithSourceSupportCount: 0,
       stalePageCount: 0,
       riskPageCount: 0,
+      selfHealingCandidateCount: 0,
+      selfHealingWarningCount: 0,
     })
     expect(mockListDirectory.mock.calls.map((call) => call[0])).toEqual(["/project/wiki"])
   })
@@ -362,6 +585,8 @@ describe("memory ops project scanner", () => {
       supersededCount: 1,
       orphanCount: 1,
       reinforcedCount: 1,
+      missingSourceRefCount: 2,
+      missingSnippetHashCount: 0,
     })
     expect(snapshot.stats).toMatchObject({
       claimCount: 2,
@@ -369,6 +594,9 @@ describe("memory ops project scanner", () => {
       supersededClaimCount: 1,
       orphanClaimCount: 1,
       reinforcedClaimCount: 1,
+      claimsMissingSourceRefCount: 2,
+      claimsMissingSnippetHashCount: 0,
+      selfHealingCandidateCount: 4,
     })
   })
 
@@ -557,6 +785,14 @@ describe("memory ops project scanner", () => {
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"action\":\"memory_ops.patrol\""),
     )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"changes\":{\"status\":\"applied\"}"),
+    )
+    expect(mockAppendFile).toHaveBeenCalledWith(
+      "/project/.llm-wiki/audit.jsonl",
+      expect.stringContaining("\"trigger\":{\"mode\":\"manual\"}"),
+    )
   })
 
   it("includes historical conflict suggestions and audit stats in patrol results", async () => {
@@ -601,6 +837,10 @@ describe("memory ops project scanner", () => {
     expect(audit.after.stats).toMatchObject({
       historicalConflictCandidateCount: 1,
       historicalConflictSuggestionCount: 1,
+      selfHealingCandidateCount: report.stats.selfHealingCandidateCount,
+    })
+    expect(audit.after.selfHealing).toMatchObject({
+      candidateCount: report.stats.selfHealingCandidateCount,
     })
   })
 

@@ -2,7 +2,14 @@ import {
   recordWikiAutomationEvent,
   type WikiAutomationEventResult,
 } from "@/lib/wiki-automation-events"
+import { recordCrystallizationDigestPreview } from "@/lib/crystallization-digest"
 import { normalizePath } from "@/lib/path-utils"
+import {
+  buildSessionCrystallizationPlans,
+  type SessionCrystallizationPlan,
+} from "@/lib/session-crystallization"
+import { addDigestPlanToConsolidationQueue } from "@/lib/consolidation-queue"
+import type { DisplayMessage } from "@/stores/chat-store"
 
 export interface ChatSessionEventInput {
   projectPath: string | null | undefined
@@ -11,6 +18,8 @@ export interface ChatSessionEventInput {
   referencedPageCount?: number
   status?: string
   reason?: string
+  messages?: readonly DisplayMessage[]
+  existingDigestKeys?: Iterable<string>
 }
 
 export async function recordChatSessionStart(
@@ -45,6 +54,15 @@ export async function recordChatSessionEnd(
   const projectPath = normalizeProjectPath(input.projectPath)
   if (!projectPath) return
 
+  const crystallizationPlans = input.status === "error"
+    ? []
+    : buildSessionCrystallizationPlans({
+        conversationId: input.conversationId,
+        messages: input.messages ?? [],
+        existingDigestKeys: input.existingDigestKeys,
+        maxPlans: 1,
+      })
+
   const result = await recordWikiAutomationEvent({
     type: "session.end",
     projectPath,
@@ -55,6 +73,8 @@ export async function recordChatSessionEnd(
       conversationId: input.conversationId,
       messageCount: input.messageCount,
       referencedPageCount: input.referencedPageCount ?? 0,
+      crystallizationCandidateCount: crystallizationPlans.length,
+      crystallizationCandidates: crystallizationPlans.map(sessionCrystallizationSummary),
     },
     maintenance: false,
   }).catch((err) => ({
@@ -64,6 +84,8 @@ export async function recordChatSessionEnd(
   }) satisfies WikiAutomationEventResult)
 
   warnAutomationError("session.end", input.conversationId, result)
+
+  await recordSessionCrystallizationPreviews(projectPath, input.conversationId, crystallizationPlans)
 }
 
 function normalizeProjectPath(projectPath: string | null | undefined): string | null {
@@ -84,4 +106,34 @@ function warnAutomationError(
       result.maintenanceError,
     ].filter(Boolean).join("; ")}`,
   )
+}
+
+async function recordSessionCrystallizationPreviews(
+  projectPath: string,
+  conversationId: string,
+  plans: readonly SessionCrystallizationPlan[],
+): Promise<void> {
+  for (const plan of plans) {
+    const result = await recordCrystallizationDigestPreview(projectPath, plan.digest)
+    warnAutomationError("digest.preview", conversationId, result)
+    await addDigestPlanToConsolidationQueue({
+      projectPath,
+      plan: plan.digest,
+    }).catch((err) => {
+      console.warn(
+        `[automation] consolidation.queue.add failed for ${conversationId}: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    })
+  }
+}
+
+function sessionCrystallizationSummary(plan: SessionCrystallizationPlan): Record<string, unknown> {
+  return {
+    sourceId: plan.candidate.sourceId,
+    title: plan.candidate.title,
+    score: plan.candidate.score,
+    reasons: plan.candidate.reasons,
+    targetPaths: plan.digest.pageCandidates.map((candidate) => candidate.targetPath),
+    counts: plan.digest.summary,
+  }
 }

@@ -69,6 +69,26 @@ import {
   type ProjectSchemaQualityScanResult,
 } from "@/lib/schema-quality-project"
 import {
+  applyClaimProvenanceRepair,
+  planClaimProvenanceRepair,
+  type ClaimProvenanceRepairPlan,
+} from "@/lib/claim-provenance-repair"
+import {
+  applyClaimIndexRebuild,
+  scanClaimIndexRebuild,
+  type ClaimIndexRebuildResult,
+} from "@/lib/claim-ops"
+import {
+  exportAuditEvents,
+  type AuditExportFormat,
+} from "@/lib/audit-export"
+import {
+  readConsolidationQueue,
+  updateConsolidationQueueStatus,
+  type ConsolidationQueueItem,
+  type ConsolidationQueueStatus,
+} from "@/lib/consolidation-queue"
+import {
   getMemoryOpsMaintenanceStatus,
   runMemoryOpsPatrol,
   type MemoryOpsMaintenanceStatus,
@@ -82,6 +102,7 @@ import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
 import { SchemaQualityPanel } from "./schema-quality-panel"
 import { SearchHealthPanel } from "./search-health-panel"
 import { CoordinationSummaryPanel } from "./coordination-summary-panel"
+import { ConsolidationQueuePanel } from "./consolidation-queue-panel"
 import {
   enqueueMerge,
   cancelTask,
@@ -105,6 +126,7 @@ type MaintenanceWorkbenchTab =
   | "patrol"
   | "schema"
   | "coordination"
+  | "consolidation"
   | "timeline"
   | "policy"
   | "search"
@@ -137,10 +159,26 @@ export function MaintenanceSection() {
   const [patrolRunning, setPatrolRunning] = useState(false)
   const [patrolError, setPatrolError] = useState<string | null>(null)
   const [patrolReport, setPatrolReport] = useState<MemoryOpsPatrolReport | null>(null)
+  const [claimRepairWorking, setClaimRepairWorking] = useState(false)
+  const [claimRepairError, setClaimRepairError] = useState<string | null>(null)
+  const [claimRepairPlan, setClaimRepairPlan] = useState<ClaimProvenanceRepairPlan | null>(null)
+  const [claimBackfillWorking, setClaimBackfillWorking] = useState(false)
+  const [claimBackfillError, setClaimBackfillError] = useState<string | null>(null)
+  const [claimBackfillResult, setClaimBackfillResult] =
+    useState<ClaimIndexRebuildResult | null>(null)
   const [maintenanceStatus, setMaintenanceStatus] = useState<MemoryOpsMaintenanceStatus | null>(null)
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([])
   const [auditWarnings, setAuditWarnings] = useState<AuditTimelineWarning[]>([])
   const [auditOpenError, setAuditOpenError] = useState<string | null>(null)
+  const [auditExportFormat, setAuditExportFormat] = useState<AuditExportFormat | null>(null)
+  const [auditExportError, setAuditExportError] = useState<string | null>(null)
+  const [auditExportPath, setAuditExportPath] = useState<string | null>(null)
+  const [consolidationQueueItems, setConsolidationQueueItems] =
+    useState<ConsolidationQueueItem[]>([])
+  const [consolidationQueueWarnings, setConsolidationQueueWarnings] = useState<string[]>([])
+  const [consolidationQueueLoading, setConsolidationQueueLoading] = useState(false)
+  const [consolidationQueueError, setConsolidationQueueError] = useState<string | null>(null)
+  const [workingConsolidationItemId, setWorkingConsolidationItemId] = useState<string | null>(null)
   const [timelinePathFilterRequest, setTimelinePathFilterRequest] = useState<string | null>(null)
   const [recentAuditEvents, setRecentAuditEvents] = useState<AuditEvent[]>([])
   const [policy, setPolicy] = useState<MemoryOpsPolicy>(DEFAULT_MEMORY_OPS_POLICY)
@@ -225,6 +263,30 @@ export function MaintenanceSection() {
   useEffect(() => {
     void refreshRecentAudit()
   }, [refreshRecentAudit, dataVersion])
+
+  const refreshConsolidationQueue = useCallback(async () => {
+    if (!project) {
+      setConsolidationQueueItems([])
+      setConsolidationQueueWarnings([])
+      setConsolidationQueueError(null)
+      return
+    }
+    setConsolidationQueueLoading(true)
+    setConsolidationQueueError(null)
+    try {
+      const result = await readConsolidationQueue(project.path)
+      setConsolidationQueueItems(result.items)
+      setConsolidationQueueWarnings(result.warnings)
+    } catch (err) {
+      setConsolidationQueueError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setConsolidationQueueLoading(false)
+    }
+  }, [project])
+
+  useEffect(() => {
+    void refreshConsolidationQueue()
+  }, [refreshConsolidationQueue, dataVersion])
 
   const refreshMaintenanceStatus = useCallback(async () => {
     if (!project) {
@@ -326,6 +388,68 @@ export function MaintenanceSection() {
       setPatrolRunning(false)
     }
   }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+
+  const handlePreviewClaimRepair = useCallback(async () => {
+    if (!project) return
+    setClaimRepairWorking(true)
+    setClaimRepairError(null)
+    try {
+      const plan = await planClaimProvenanceRepair(project.path)
+      setClaimRepairPlan(plan)
+      await refreshRecentAudit()
+    } catch (err) {
+      setClaimRepairError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setClaimRepairWorking(false)
+    }
+  }, [project, refreshRecentAudit])
+
+  const handleApplyClaimRepair = useCallback(async () => {
+    if (!project) return
+    setClaimRepairWorking(true)
+    setClaimRepairError(null)
+    try {
+      const plan = await applyClaimProvenanceRepair(project.path)
+      setClaimRepairPlan(plan)
+      bumpDataVersion()
+      await refreshRecentAudit()
+    } catch (err) {
+      setClaimRepairError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setClaimRepairWorking(false)
+    }
+  }, [project, bumpDataVersion, refreshRecentAudit])
+
+  const handlePreviewClaimBackfill = useCallback(async () => {
+    if (!project) return
+    setClaimBackfillWorking(true)
+    setClaimBackfillError(null)
+    try {
+      const result = await scanClaimIndexRebuild(project.path)
+      setClaimBackfillResult(result)
+      await refreshRecentAudit()
+    } catch (err) {
+      setClaimBackfillError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setClaimBackfillWorking(false)
+    }
+  }, [project, refreshRecentAudit])
+
+  const handleApplyClaimBackfill = useCallback(async () => {
+    if (!project) return
+    setClaimBackfillWorking(true)
+    setClaimBackfillError(null)
+    try {
+      const result = await applyClaimIndexRebuild(project.path)
+      setClaimBackfillResult(result)
+      bumpDataVersion()
+      await refreshRecentAudit()
+    } catch (err) {
+      setClaimBackfillError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setClaimBackfillWorking(false)
+    }
+  }, [project, bumpDataVersion, refreshRecentAudit])
 
   const handleSavePolicy = useCallback(
     async (nextPolicy: MemoryOpsPolicy) => {
@@ -736,6 +860,53 @@ export function MaintenanceSection() {
     setWorkbenchTab("timeline")
   }, [])
 
+  const handleExportAuditEvents = useCallback(async (
+    events: readonly AuditEvent[],
+    format: AuditExportFormat,
+  ) => {
+    if (!project) return
+    setAuditExportFormat(format)
+    setAuditExportError(null)
+    setAuditExportPath(null)
+    try {
+      const result = await exportAuditEvents({
+        projectPath: project.path,
+        events,
+        format,
+      })
+      setAuditExportPath(result.path)
+      await refreshRecentAudit()
+    } catch (err) {
+      setAuditExportError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setAuditExportFormat(null)
+    }
+  }, [project, refreshRecentAudit])
+
+  const handleConsolidationStatusChange = useCallback(async (
+    item: ConsolidationQueueItem,
+    status: ConsolidationQueueStatus,
+  ) => {
+    if (!project) return
+    setWorkingConsolidationItemId(item.id)
+    setConsolidationQueueError(null)
+    try {
+      const updated = await updateConsolidationQueueStatus({
+        projectPath: project.path,
+        id: item.id,
+        status,
+        appliedTargetPaths: status === "applied" ? item.targetPaths : undefined,
+      })
+      if (!updated) throw new Error("Consolidation queue item was not found.")
+      await refreshConsolidationQueue()
+      await refreshRecentAudit()
+    } catch (err) {
+      setConsolidationQueueError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setWorkingConsolidationItemId(null)
+    }
+  }, [project, refreshConsolidationQueue, refreshRecentAudit])
+
   const handleRunSearchHealth = useCallback(async () => {
     if (!project) return
     setSearchHealthRunning(true)
@@ -1007,7 +1178,7 @@ export function MaintenanceSection() {
           aria-label={t("settings.sections.maintenance.workbenchTabs.label")}
           className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-2"
         >
-          {(["patrol", "schema", "coordination", "timeline", "policy", "search"] as const).map((tab) => (
+          {(["patrol", "schema", "coordination", "consolidation", "timeline", "policy", "search"] as const).map((tab) => (
             <Button
               key={tab}
               role="tab"
@@ -1034,6 +1205,12 @@ export function MaintenanceSection() {
               running={patrolRunning}
               error={patrolError}
               report={patrolReport}
+              claimRepairWorking={claimRepairWorking}
+              claimRepairError={claimRepairError}
+              claimRepairPlan={claimRepairPlan}
+              claimBackfillWorking={claimBackfillWorking}
+              claimBackfillError={claimBackfillError}
+              claimBackfillResult={claimBackfillResult}
               maintenanceStatus={maintenanceStatus}
               recentAuditEvents={recentAuditEvents}
               ignoredSuggestionIds={ignoredSuggestionIds}
@@ -1057,6 +1234,10 @@ export function MaintenanceSection() {
               onPreviewRollback={(item) => void handlePreviewRollback(item)}
               onApplyRollback={(item) => void handleApplyRollback(item)}
               onRun={() => void handlePatrol()}
+              onPreviewClaimRepair={() => void handlePreviewClaimRepair()}
+              onApplyClaimRepair={() => void handleApplyClaimRepair()}
+              onPreviewClaimBackfill={() => void handlePreviewClaimBackfill()}
+              onApplyClaimBackfill={() => void handleApplyClaimBackfill()}
               onPreview={(suggestion) => void handlePreviewSuggestion(suggestion)}
               onApply={(suggestion) => void handleApplySuggestion(suggestion)}
               onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
@@ -1111,8 +1292,33 @@ export function MaintenanceSection() {
               warnings={auditWarnings}
               openError={auditOpenError}
               pathFilterRequest={timelinePathFilterRequest}
+              exportingFormat={auditExportFormat}
+              exportError={auditExportError}
+              exportPath={auditExportPath}
               onRefresh={() => void refreshRecentAudit()}
               onOpenPath={(path) => void handleOpenAuditPath(path)}
+              onExport={(events, format) => void handleExportAuditEvents(events, format)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "consolidation" && (
+          <div
+            id="maintenance-consolidation-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-consolidation-tab"
+          >
+            <ConsolidationQueuePanel
+              projectReady={projectReady}
+              loading={consolidationQueueLoading}
+              workingItemId={workingConsolidationItemId}
+              error={consolidationQueueError}
+              items={consolidationQueueItems}
+              warnings={consolidationQueueWarnings}
+              onRefresh={() => void refreshConsolidationQueue()}
+              onStatusChange={(item, status) =>
+                void handleConsolidationStatusChange(item, status)
+              }
             />
           </div>
         )}

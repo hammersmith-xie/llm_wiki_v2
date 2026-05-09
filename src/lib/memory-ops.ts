@@ -14,6 +14,7 @@ import {
   evaluateRelationCleanupSuggestions,
   type MemoryOpsSuggestion,
 } from "@/lib/memory-ops-rules"
+import { summarizeClaimProvenance } from "@/lib/claim-provenance"
 import { previewMemoryOpsHistoricalConflicts } from "@/lib/memory-ops-conflicts"
 import { getFileStem, normalizePath } from "@/lib/path-utils"
 import {
@@ -33,6 +34,10 @@ import {
   memoryOpsHalfLifeForLifecycle,
   type MemoryOpsPolicy,
 } from "@/lib/memory-ops-policy"
+import {
+  buildSelfHealingSummary,
+  type SelfHealingSummary,
+} from "@/lib/self-healing-summary"
 import { useActivityStore } from "@/stores/activity-store"
 import type { Conversation, DisplayMessage } from "@/stores/chat-store"
 import type { ReviewItem } from "@/stores/review-store"
@@ -111,9 +116,13 @@ export interface MemoryOpsSnapshotStats {
   supersededClaimCount: number
   orphanClaimCount: number
   reinforcedClaimCount: number
+  claimsMissingSourceRefCount: number
+  claimsMissingSnippetHashCount: number
   historicalConflictCandidateCount: number
   historicalConflictSuggestionCount: number
   historicalConflictWarningCount: number
+  selfHealingCandidateCount: number
+  selfHealingWarningCount: number
 }
 
 export interface MemoryOpsClaimHealthSummary {
@@ -123,6 +132,8 @@ export interface MemoryOpsClaimHealthSummary {
   supersededCount: number
   orphanCount: number
   reinforcedCount: number
+  missingSourceRefCount: number
+  missingSnippetHashCount: number
 }
 
 export interface MemoryOpsProjectSnapshot {
@@ -139,6 +150,7 @@ export interface MemoryOpsProjectSnapshot {
   chatMessages: DisplayMessage[]
   claims: ClaimRecord[]
   claimHealth: MemoryOpsClaimHealthSummary
+  selfHealingSummary: SelfHealingSummary
   stats: MemoryOpsSnapshotStats
 }
 
@@ -153,27 +165,45 @@ export interface MemoryOpsPatrolReport {
   stats: MemoryOpsPatrolStats
 }
 
+export interface MemoryOpsPatrolOptions {
+  dataVersion?: number
+  today?: string
+  policy?: MemoryOpsPolicy
+  trigger?: {
+    mode: "manual" | "auto"
+    action?: string
+  }
+}
+
 export interface MemoryOpsMaintenanceEventOptions {
   now?: number
   eventThreshold?: number
   reminderCooldownMs?: number
+  minPatrolIntervalMs?: number
+  timeIntervalMs?: number
+  policy?: MemoryOpsPolicy
+  autoPatrol?: boolean
 }
 
 export interface MemoryOpsMaintenanceEventResult {
   state: PersistedMemoryOpsMaintenanceState
   reminderDue: boolean
+  dueReasons: MemoryOpsMaintenanceDueReason[]
 }
 
 export type MemoryOpsMaintenanceStatusKind = "clean" | "dirty" | "reminder-due"
+export type MemoryOpsMaintenanceDueReason = "event-threshold" | "time-interval"
 
 export interface MemoryOpsMaintenanceStatus extends PersistedMemoryOpsMaintenanceState {
   status: MemoryOpsMaintenanceStatusKind
   needsPatrol: boolean
   reminderDue: boolean
+  dueReasons: MemoryOpsMaintenanceDueReason[]
 }
 
 const MEMORY_OPS_EVENT_THRESHOLD = 5
 const MEMORY_OPS_REMINDER_COOLDOWN_MS = 30 * 60 * 1000
+const autoPatrolInFlight = new Set<string>()
 
 export async function scanMemoryOpsProject(
   projectPath: string,
@@ -220,8 +250,7 @@ export async function scanMemoryOpsProject(
   })
   const evidenceStats = summarizeEvidenceStats(pages)
   const claimHealth = summarizeClaimHealth(claimRead.claims, pages, pp)
-
-  return {
+  const baseSnapshot: Omit<MemoryOpsProjectSnapshot, "selfHealingSummary" | "stats"> = {
     projectPath: pp,
     dataVersion,
     policy: policyLoad.policy,
@@ -235,30 +264,50 @@ export async function scanMemoryOpsProject(
     chatMessages,
     claims: claimRead.claims,
     claimHealth,
+  }
+  const baseStats: MemoryOpsSnapshotStats = {
+    pageCount: pages.length,
+    reviewItemCount: reviewItems.length,
+    conversationCount: conversations.length,
+    chatMessageCount: chatMessages.length,
+    auditEventCount: audit.events.length,
+    auditWarningCount: audit.warnings.length + claimRead.warnings.length,
+    ...evidenceStats,
+    claimCount: claimHealth.claimCount,
+    staleClaimCount: claimHealth.staleCount,
+    contradictedClaimCount: claimHealth.contradictedCount,
+    supersededClaimCount: claimHealth.supersededCount,
+    orphanClaimCount: claimHealth.orphanCount,
+    reinforcedClaimCount: claimHealth.reinforcedCount,
+    claimsMissingSourceRefCount: claimHealth.missingSourceRefCount,
+    claimsMissingSnippetHashCount: claimHealth.missingSnippetHashCount,
+    historicalConflictCandidateCount: 0,
+    historicalConflictSuggestionCount: 0,
+    historicalConflictWarningCount: 0,
+    selfHealingCandidateCount: 0,
+    selfHealingWarningCount: 0,
+  }
+  const interimSnapshot: MemoryOpsProjectSnapshot = {
+    ...baseSnapshot,
+    selfHealingSummary: emptySelfHealingSummary(),
+    stats: baseStats,
+  }
+  const selfHealingSummary = await buildSelfHealingSummary(interimSnapshot)
+
+  return {
+    ...baseSnapshot,
+    selfHealingSummary,
     stats: {
-      pageCount: pages.length,
-      reviewItemCount: reviewItems.length,
-      conversationCount: conversations.length,
-      chatMessageCount: chatMessages.length,
-      auditEventCount: audit.events.length,
-      auditWarningCount: audit.warnings.length + claimRead.warnings.length,
-      ...evidenceStats,
-      claimCount: claimHealth.claimCount,
-      staleClaimCount: claimHealth.staleCount,
-      contradictedClaimCount: claimHealth.contradictedCount,
-      supersededClaimCount: claimHealth.supersededCount,
-      orphanClaimCount: claimHealth.orphanCount,
-      reinforcedClaimCount: claimHealth.reinforcedCount,
-      historicalConflictCandidateCount: 0,
-      historicalConflictSuggestionCount: 0,
-      historicalConflictWarningCount: 0,
+      ...baseStats,
+      selfHealingCandidateCount: selfHealingSummary.candidateCount,
+      selfHealingWarningCount: selfHealingSummary.warnings.length,
     },
   }
 }
 
 export async function runMemoryOpsPatrol(
   projectPath: string,
-  options: { dataVersion?: number; today?: string; policy?: MemoryOpsPolicy } = {},
+  options: MemoryOpsPatrolOptions = {},
 ): Promise<MemoryOpsPatrolReport> {
   const activity = useActivityStore.getState()
   const activityId = activity.addItem({
@@ -307,15 +356,20 @@ export async function runMemoryOpsPatrol(
     await appendAuditEvent(snapshot.projectPath, {
       action: "memory_ops.patrol",
       targetPath: ".llm-wiki/audit.jsonl",
+      changes: { status: "applied" },
       after: {
         stats: report.stats,
+        selfHealing: report.snapshot.selfHealingSummary,
         policy: {
           name: snapshot.policy.name,
           version: snapshot.policy.version,
           warnings: snapshot.policyWarnings,
         },
+        trigger: patrolTriggerSummary(options.trigger),
       },
       reasons: [
+        `${options.trigger?.mode ?? "manual"} patrol`,
+        ...(options.trigger?.action ? [`triggered by ${options.trigger.action}`] : []),
         `${report.stats.pageCount} pages scanned`,
         `${report.stats.suggestionCount} suggestions generated`,
         `policy ${snapshot.policy.name} v${snapshot.policy.version}`,
@@ -346,14 +400,24 @@ export function reduceMemoryOpsMaintenanceEvent(
   options: MemoryOpsMaintenanceEventOptions = {},
 ): MemoryOpsMaintenanceEventResult {
   const now = options.now ?? Date.now()
-  const eventThreshold = options.eventThreshold ?? MEMORY_OPS_EVENT_THRESHOLD
-  const reminderCooldownMs = options.reminderCooldownMs ?? MEMORY_OPS_REMINDER_COOLDOWN_MS
+  const schedule = maintenanceScheduleFromOptions(options)
   const current = normalizeMaintenanceState(state)
   const eventCountSincePatrol = current.eventCountSincePatrol + 1
   const dirtySince = current.dirtySince ?? now
   const reminderCooldownElapsed =
-    current.lastReminderAt === undefined || now - current.lastReminderAt >= reminderCooldownMs
-  const reminderDue = eventCountSincePatrol >= eventThreshold && reminderCooldownElapsed
+    current.lastReminderAt === undefined || now - current.lastReminderAt >= schedule.reminderCooldownMs
+  const patrolIntervalElapsed =
+    current.lastPatrolAt === undefined || now - current.lastPatrolAt >= schedule.minPatrolIntervalMs
+  const eventDue = eventCountSincePatrol >= schedule.eventThreshold
+  const timeDue =
+    schedule.timeIntervalMs > 0 &&
+    current.lastPatrolAt !== undefined &&
+    now - current.lastPatrolAt >= schedule.timeIntervalMs
+  const dueReasons = [
+    ...(eventDue ? ["event-threshold" as const] : []),
+    ...(timeDue ? ["time-interval" as const] : []),
+  ]
+  const reminderDue = dueReasons.length > 0 && reminderCooldownElapsed && patrolIntervalElapsed
 
   return {
     state: {
@@ -363,6 +427,7 @@ export function reduceMemoryOpsMaintenanceEvent(
       lastReminderAt: reminderDue ? now : current.lastReminderAt,
     },
     reminderDue,
+    dueReasons: reminderDue ? dueReasons : [],
   }
 }
 
@@ -381,26 +446,42 @@ export function summarizeMemoryOpsMaintenanceStatus(
   options: MemoryOpsMaintenanceEventOptions = {},
 ): MemoryOpsMaintenanceStatus {
   const now = options.now ?? Date.now()
-  const reminderCooldownMs = options.reminderCooldownMs ?? MEMORY_OPS_REMINDER_COOLDOWN_MS
-  const eventThreshold = options.eventThreshold ?? MEMORY_OPS_EVENT_THRESHOLD
+  const schedule = maintenanceScheduleFromOptions(options)
   const current = normalizeMaintenanceState(state)
   const reminderCooldownElapsed =
-    current.lastReminderAt === undefined || now - current.lastReminderAt >= reminderCooldownMs
-  const reminderDue = current.eventCountSincePatrol >= eventThreshold && reminderCooldownElapsed
+    current.lastReminderAt === undefined || now - current.lastReminderAt >= schedule.reminderCooldownMs
+  const patrolIntervalElapsed =
+    current.lastPatrolAt === undefined || now - current.lastPatrolAt >= schedule.minPatrolIntervalMs
+  const eventDue = current.eventCountSincePatrol >= schedule.eventThreshold
+  const timeDue =
+    schedule.timeIntervalMs > 0 &&
+    current.lastPatrolAt !== undefined &&
+    now - current.lastPatrolAt >= schedule.timeIntervalMs
+  const dueReasons = [
+    ...(eventDue ? ["event-threshold" as const] : []),
+    ...(timeDue ? ["time-interval" as const] : []),
+  ]
+  const reminderDue = dueReasons.length > 0 && reminderCooldownElapsed && patrolIntervalElapsed
   const needsPatrol = current.eventCountSincePatrol > 0
   return {
     ...current,
     status: reminderDue ? "reminder-due" : needsPatrol ? "dirty" : "clean",
     needsPatrol,
     reminderDue,
+    dueReasons: reminderDue ? dueReasons : [],
   }
 }
 
 export async function getMemoryOpsMaintenanceStatus(
   projectPath: string,
 ): Promise<MemoryOpsMaintenanceStatus> {
-  const state = await loadMemoryOpsMaintenanceState(projectPath).catch(() => null)
-  return summarizeMemoryOpsMaintenanceStatus(state)
+  const [state, policy] = await Promise.all([
+    loadMemoryOpsMaintenanceState(projectPath).catch(() => null),
+    loadMemoryOpsPolicy(projectPath)
+      .then((result) => result.policy)
+      .catch(() => DEFAULT_MEMORY_OPS_POLICY),
+  ])
+  return summarizeMemoryOpsMaintenanceStatus(state, { policy })
 }
 
 export async function recordMemoryOpsMaintenanceEvent(
@@ -408,8 +489,15 @@ export async function recordMemoryOpsMaintenanceEvent(
   action: string,
   options: MemoryOpsMaintenanceEventOptions = {},
 ): Promise<void> {
-  const state = await loadMemoryOpsMaintenanceState(projectPath).catch(() => null)
-  const next = reduceMemoryOpsMaintenanceEvent(state, options)
+  const [state, policy] = await Promise.all([
+    loadMemoryOpsMaintenanceState(projectPath).catch(() => null),
+    options.policy
+      ? Promise.resolve(options.policy)
+      : loadMemoryOpsPolicy(projectPath)
+          .then((result) => result.policy)
+          .catch(() => DEFAULT_MEMORY_OPS_POLICY),
+  ])
+  const next = reduceMemoryOpsMaintenanceEvent(state, { ...options, policy })
   await saveMaintenanceStateSafely(projectPath, next.state)
   if (!next.reminderDue) return
 
@@ -417,9 +505,87 @@ export async function recordMemoryOpsMaintenanceEvent(
     type: "maintenance",
     title: "Memory Ops patrol recommended",
     status: "done",
-    detail: `${next.state.eventCountSincePatrol} wiki activity events since the last patrol. Latest event: ${action}.`,
+    detail: `${next.state.eventCountSincePatrol} wiki activity events since the last patrol. Due: ${next.dueReasons.join(", ")}. Latest event: ${action}.`,
     filesWritten: [],
   })
+
+  if (options.autoPatrol !== false) {
+    if (policy.automation.autoPatrolEnabled) {
+      scheduleAutoMemoryOpsPatrol(projectPath, action)
+    }
+  }
+}
+
+export function scheduleAutoMemoryOpsPatrol(
+  projectPath: string,
+  reasonAction: string,
+): boolean {
+  const pp = normalizePath(projectPath).replace(/\/$/, "")
+  if (autoPatrolInFlight.has(pp)) return false
+  autoPatrolInFlight.add(pp)
+  void runAutoMemoryOpsPatrol(pp, reasonAction)
+  return true
+}
+
+export function autoMemoryOpsPatrolInFlightCount(): number {
+  return autoPatrolInFlight.size
+}
+
+async function runAutoMemoryOpsPatrol(
+  projectPath: string,
+  reasonAction: string,
+): Promise<void> {
+  try {
+    await runMemoryOpsPatrol(projectPath, {
+      trigger: {
+        mode: "auto",
+        action: reasonAction,
+      },
+    })
+  } catch (err) {
+    await appendAutoPatrolFailureAudit(projectPath, reasonAction, err)
+    useActivityStore.getState().addItem({
+      type: "maintenance",
+      title: "Memory Ops auto patrol failed",
+      status: "error",
+      detail: `Triggered by ${reasonAction}: ${err instanceof Error ? err.message : String(err)}`,
+      filesWritten: [],
+    })
+  } finally {
+    autoPatrolInFlight.delete(projectPath)
+  }
+}
+
+async function appendAutoPatrolFailureAudit(
+  projectPath: string,
+  reasonAction: string,
+  err: unknown,
+): Promise<void> {
+  await appendAuditEvent(projectPath, {
+    action: "memory_ops.patrol",
+    targetPath: ".llm-wiki/audit.jsonl",
+    changes: { status: "error" },
+    after: {
+      trigger: {
+        mode: "auto",
+        action: reasonAction,
+      },
+      error: err instanceof Error ? err.message : String(err),
+    },
+    reasons: [
+      "auto patrol failed",
+      `triggered by ${reasonAction}`,
+    ],
+  }).catch(() => {})
+}
+
+function patrolTriggerSummary(
+  trigger: MemoryOpsPatrolOptions["trigger"] | undefined,
+): Record<string, unknown> {
+  return {
+    mode: trigger?.mode ?? "manual",
+    ...(trigger?.action ? { action: trigger.action } : {}),
+  }
 }
 
 function normalizeMaintenanceState(
@@ -430,6 +596,56 @@ function normalizeMaintenanceState(
     dirtySince: state?.dirtySince,
     eventCountSincePatrol: state?.eventCountSincePatrol ?? 0,
     lastReminderAt: state?.lastReminderAt,
+  }
+}
+
+function maintenanceScheduleFromOptions(options: MemoryOpsMaintenanceEventOptions): {
+  eventThreshold: number
+  reminderCooldownMs: number
+  minPatrolIntervalMs: number
+  timeIntervalMs: number
+} {
+  const policy = options.policy ?? DEFAULT_MEMORY_OPS_POLICY
+  return {
+    eventThreshold: options.eventThreshold ?? policy.automation.eventThreshold ?? MEMORY_OPS_EVENT_THRESHOLD,
+    reminderCooldownMs:
+      options.reminderCooldownMs ??
+      minutesToMs(policy.automation.reminderCooldownMinutes) ??
+      MEMORY_OPS_REMINDER_COOLDOWN_MS,
+    minPatrolIntervalMs:
+      options.minPatrolIntervalMs ??
+      minutesToMs(policy.automation.minPatrolIntervalMinutes) ??
+      0,
+    timeIntervalMs:
+      options.timeIntervalMs ??
+      hoursToMs(policy.automation.timeIntervalHours) ??
+      0,
+  }
+}
+
+function minutesToMs(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value * 60 * 1000
+    : undefined
+}
+
+function hoursToMs(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value * 60 * 60 * 1000
+    : undefined
+}
+
+function emptySelfHealingSummary(): SelfHealingSummary {
+  return {
+    candidateCount: 0,
+    claimProvenanceCandidateCount: 0,
+    claimIndexCandidateCount: 0,
+    consolidationQueueCandidateCount: 0,
+    relationCleanupCandidateCount: 0,
+    schemaWarningCandidateCount: 0,
+    policyWarningCandidateCount: 0,
+    warnings: [],
+    actions: [],
   }
 }
 
@@ -597,13 +813,18 @@ function summarizeClaimHealth(
   let supersededCount = 0
   let orphanCount = 0
   let reinforcedCount = 0
+  let missingSourceRefCount = 0
+  let missingSnippetHashCount = 0
 
   for (const claim of claims) {
+    const provenance = summarizeClaimProvenance(claim)
     if (claim.status === "stale") staleCount++
     if (claim.status === "contradicted") contradictedCount++
     if (claim.status === "superseded") supersededCount++
     if (!pagePaths.has(toProjectRelativePath(projectPath, claim.page_path))) orphanCount++
     if (parseInteger(claim.reinforcement_count) > 0) reinforcedCount++
+    if (provenance.missingSourceRefs) missingSourceRefCount++
+    if (provenance.missingSnippetHash) missingSnippetHashCount++
   }
 
   return {
@@ -613,6 +834,8 @@ function summarizeClaimHealth(
     supersededCount,
     orphanCount,
     reinforcedCount,
+    missingSourceRefCount,
+    missingSnippetHashCount,
   }
 }
 

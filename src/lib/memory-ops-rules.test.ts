@@ -15,6 +15,10 @@ describe("memory ops lifecycle rules", () => {
       text: "Use the old retrieval stack.",
       page_path: "/project/wiki/concepts/search.md",
       status: "stale",
+      source_refs: [{
+        path: "raw/sources/search.md",
+        snippet_hash: "snippet_stale",
+      }],
       last_confirmed: "2025-01-01",
     }, { today: "2026-05-08" }).claim
     const contradicted = normalizeClaimRecord({
@@ -22,6 +26,10 @@ describe("memory ops lifecycle rules", () => {
       page_path: "/project/wiki/concepts/search.md",
       status: "contradicted",
       contradicts: ["claim_vector"],
+      source_refs: [{
+        path: "raw/sources/search.md",
+        snippet_hash: "snippet_contradicted",
+      }],
     }, { today: "2026-05-08" }).claim
 
     const suggestions = evaluateClaimSuggestions(snapshot([], {
@@ -45,6 +53,39 @@ describe("memory ops lifecycle rules", () => {
     expect(suggestions[0].proposedOperation).toBeUndefined()
     expect(suggestions[1].proposedOperation).toBeUndefined()
     expect(suggestions[0].reasons.join(" ")).toContain("does not demote the whole page")
+  })
+
+  it("creates review-only suggestions for claims with missing provenance", () => {
+    const missingSource = normalizeClaimRecord({
+      text: "Claim with no source refs.",
+      page_path: "/project/wiki/concepts/search.md",
+      status: "ok",
+    }, { today: "2026-05-08" }).claim
+    const pathOnly = normalizeClaimRecord({
+      text: "Claim with path-only source refs.",
+      page_path: "/project/wiki/concepts/search.md",
+      status: "ok",
+      source_refs: [{ path: "raw/sources/search.md" }],
+    }, { today: "2026-05-08" }).claim
+
+    const suggestions = evaluateClaimSuggestions(snapshot([], {
+      claims: [missingSource, pathOnly],
+    }), { today: "2026-05-08" })
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        kind: "review-action",
+        severity: "warning",
+        title: "Review claim with no source refs",
+      }),
+      expect.objectContaining({
+        kind: "review-action",
+        severity: "info",
+        title: "Review claim without snippet evidence",
+      }),
+    ])
+    expect(suggestions[0].proposedOperation).toBeUndefined()
+    expect(suggestions[1].proposedOperation).toBeUndefined()
   })
 
   it("suggests stale metadata for old low-confidence pages without rewriting content", () => {
@@ -638,6 +679,11 @@ function snapshot(
       supersededCount: claims.filter((claim) => claim.status === "superseded").length,
       orphanCount: 0,
       reinforcedCount: claims.filter((claim) => Number(claim.reinforcement_count) > 0).length,
+      missingSourceRefCount: claims.filter((claim) => claim.source_refs.length === 0).length,
+      missingSnippetHashCount: claims.filter((claim) =>
+        claim.source_refs.length > 0 &&
+        claim.source_refs.every((ref) => !ref.snippet_hash)
+      ).length,
     },
     stats: {
       pageCount: pages.length,
@@ -658,9 +704,27 @@ function snapshot(
       supersededClaimCount: claims.filter((claim) => claim.status === "superseded").length,
       orphanClaimCount: 0,
       reinforcedClaimCount: claims.filter((claim) => Number(claim.reinforcement_count) > 0).length,
+      claimsMissingSourceRefCount: claims.filter((claim) => claim.source_refs.length === 0).length,
+      claimsMissingSnippetHashCount: claims.filter((claim) =>
+        claim.source_refs.length > 0 &&
+        claim.source_refs.every((ref) => !ref.snippet_hash)
+      ).length,
       historicalConflictCandidateCount: 0,
       historicalConflictSuggestionCount: 0,
       historicalConflictWarningCount: 0,
+      selfHealingCandidateCount: 0,
+      selfHealingWarningCount: 0,
+    },
+    selfHealingSummary: {
+      candidateCount: 0,
+      claimProvenanceCandidateCount: 0,
+      claimIndexCandidateCount: 0,
+      consolidationQueueCandidateCount: 0,
+      relationCleanupCandidateCount: 0,
+      schemaWarningCandidateCount: 0,
+      policyWarningCandidateCount: 0,
+      warnings: [],
+      actions: [],
     },
   }
 }

@@ -1,5 +1,9 @@
 import { applyClaimCredibility } from "./claim-confidence"
 import {
+  mergeClaimSourceRefs,
+  type BuildClaimSourceRefsInput,
+} from "./claim-provenance"
+import {
   normalizeClaimRecord,
   type ClaimLifecycle,
   type ClaimRecord,
@@ -40,6 +44,7 @@ export interface ClaimExtractionInput {
   content?: string
   digest?: ClaimExtractionDigestInput
   sourceRefs?: readonly ClaimSourceRef[]
+  sourceRefsForText?: (claimText: string) => readonly ClaimSourceRef[]
   supports?: readonly string[]
   maxClaims?: number
   today?: string
@@ -90,7 +95,7 @@ export function extractClaimCandidates(input: ClaimExtractionInput): ClaimExtrac
       page_path: input.pagePath,
       page_title: input.pageTitle,
       page_anchor: candidate.pageAnchor ?? input.pageAnchor,
-      source_refs: candidate.sourceRefs,
+      source_refs: sourceRefsForCandidate(input, candidate),
       lifecycle: input.lifecycle ?? candidate.lifecycle,
       scope: input.scope ?? "shared",
       supports: input.supports ?? [],
@@ -112,6 +117,11 @@ export function extractClaimCandidates(input: ClaimExtractionInput): ClaimExtrac
   return { claims, warnings: uniqueStrings(warnings), skippedCount }
 }
 
+export type ClaimSourceRefsForTextInput = Pick<
+  BuildClaimSourceRefsInput,
+  "claimText" | "sourceContent" | "sourceTitle"
+>
+
 function digestDecisionCandidates(
   input: ClaimExtractionInput,
   warnings: string[],
@@ -129,7 +139,7 @@ function digestDecisionCandidates(
       anchorText: text,
       pageAnchor: id,
       lifecycle: "semantic" as const,
-      sourceRefs: mergeSourceRefs(input.sourceRefs, evidenceRefs(decision.evidencePaths)),
+      sourceRefs: mergeClaimSourceRefs(input.sourceRefs, evidenceRefs(decision.evidencePaths)),
     }]
   })
 }
@@ -151,7 +161,7 @@ function digestLessonCandidates(
       anchorText: text,
       pageAnchor: id,
       lifecycle: "episodic" as const,
-      sourceRefs: mergeSourceRefs(input.sourceRefs, evidenceRefs(lesson.evidencePaths)),
+      sourceRefs: mergeClaimSourceRefs(input.sourceRefs, evidenceRefs(lesson.evidencePaths)),
     }]
   })
 }
@@ -169,8 +179,17 @@ function markdownSignalCandidates(input: ClaimExtractionInput): DraftCandidate[]
       anchorText: text,
       pageAnchor: input.pageAnchor,
       lifecycle: "semantic" as const,
-      sourceRefs: [...(input.sourceRefs ?? [])],
+      sourceRefs: mergeClaimSourceRefs(input.sourceRefs),
     }))
+}
+
+function sourceRefsForCandidate(
+  input: ClaimExtractionInput,
+  candidate: DraftCandidate,
+): ClaimSourceRef[] {
+  const dynamicRefs = input.sourceRefsForText?.(candidate.text)
+  if (!dynamicRefs) return candidate.sourceRefs
+  return mergeClaimSourceRefs(candidate.sourceRefs, dynamicRefs)
 }
 
 function uniqueCandidateTexts(candidates: readonly DraftCandidate[]): DraftCandidate[] {
@@ -190,25 +209,6 @@ function evidenceRefs(paths: readonly string[] | undefined): ClaimSourceRef[] {
     .map((path) => path.trim())
     .filter(Boolean)
     .map((path) => ({ path }))
-}
-
-function mergeSourceRefs(
-  base: readonly ClaimSourceRef[] | undefined,
-  extra: readonly ClaimSourceRef[],
-): ClaimSourceRef[] {
-  const out: ClaimSourceRef[] = []
-  const seen = new Set<string>()
-  for (const ref of [...(base ?? []), ...extra]) {
-    const key = [
-      ref.path.trim().toLowerCase(),
-      ref.anchor?.trim().toLowerCase() ?? "",
-      ref.snippet_hash?.trim() ?? "",
-    ].join("\n")
-    if (!ref.path.trim() || seen.has(key)) continue
-    seen.add(key)
-    out.push(ref)
-  }
-  return out
 }
 
 function stripMarkdownListPrefix(value: string): string {

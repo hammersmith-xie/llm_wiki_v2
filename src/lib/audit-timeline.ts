@@ -16,6 +16,8 @@ export type AuditEventCategory =
   | "conflict"
   | "schema"
   | "quality"
+  | "export"
+  | "consolidation"
   | "other"
 
 export type AuditEventActor = "user" | "system" | "agent"
@@ -202,6 +204,7 @@ function categoryFromAction(action: string): AuditEventCategory {
   if (prefix === "lifecycle") return "lifecycle"
   if (prefix === "claim") return "claim"
   if (prefix === "conflict") return "conflict"
+  if (prefix === "audit" && action.endsWith(".export")) return "export"
   if (action === "schema.scan") return "schema"
   if (action === "quality.scan") return "quality"
   if (action === "digest.preview" || action === "digest.save") return "crystallize"

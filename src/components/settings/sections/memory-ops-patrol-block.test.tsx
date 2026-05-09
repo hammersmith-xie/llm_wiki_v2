@@ -13,6 +13,12 @@ describe("MemoryOpsPatrolBlock", () => {
         running={false}
         error={null}
         report={null}
+        claimRepairWorking={false}
+        claimRepairError={null}
+        claimRepairPlan={null}
+        claimBackfillWorking={false}
+        claimBackfillError={null}
+        claimBackfillResult={null}
         maintenanceStatus={{
           status: "reminder-due",
           needsPatrol: true,
@@ -20,6 +26,7 @@ describe("MemoryOpsPatrolBlock", () => {
           dirtySince: 1_000,
           eventCountSincePatrol: 7,
           lastReminderAt: 2_000,
+          dueReasons: ["event-threshold"],
         }}
         recentAuditEvents={[]}
         ignoredSuggestionIds={new Set()}
@@ -35,6 +42,10 @@ describe("MemoryOpsPatrolBlock", () => {
         rollbackErrors={{}}
         workingRollbackId={null}
         onRun={vi.fn()}
+        onPreviewClaimRepair={vi.fn()}
+        onApplyClaimRepair={vi.fn()}
+        onPreviewClaimBackfill={vi.fn()}
+        onApplyClaimBackfill={vi.fn()}
         onToggleSelection={vi.fn()}
         onSelectCategory={vi.fn()}
         onClearSelection={vi.fn()}
@@ -62,6 +73,12 @@ describe("MemoryOpsPatrolBlock", () => {
         running={false}
         error={null}
         report={patrolReport()}
+        claimRepairWorking={false}
+        claimRepairError={null}
+        claimRepairPlan={claimRepairPlan()}
+        claimBackfillWorking={false}
+        claimBackfillError={null}
+        claimBackfillResult={claimBackfillResult()}
         maintenanceStatus={null}
         recentAuditEvents={[]}
         ignoredSuggestionIds={new Set()}
@@ -77,6 +94,10 @@ describe("MemoryOpsPatrolBlock", () => {
         rollbackErrors={{}}
         workingRollbackId={null}
         onRun={vi.fn()}
+        onPreviewClaimRepair={vi.fn()}
+        onApplyClaimRepair={vi.fn()}
+        onPreviewClaimBackfill={vi.fn()}
+        onApplyClaimBackfill={vi.fn()}
         onToggleSelection={vi.fn()}
         onSelectCategory={vi.fn()}
         onClearSelection={vi.fn()}
@@ -93,10 +114,18 @@ describe("MemoryOpsPatrolBlock", () => {
     )
 
     expect(html).toContain("Latest Schema &amp; Quality scan")
+    expect(html).toContain("Claim provenance repair")
+    expect(html).toContain("1 repairable")
+    expect(html).toContain("1 refs repaired")
+    expect(html).toContain("Claim index backfill")
+    expect(html).toContain("1 anchored recovered")
+    expect(html).toContain("2 legacy backfilled")
     expect(html).toContain("3 schema findings")
     expect(html).toContain("2 schema warnings")
     expect(html).toContain("avg quality 0.73")
     expect(html).toContain("4 schema/quality suggestions")
+    expect(html).toContain("Claims: 2")
+    expect(html).toContain("1 no snippet hash")
     expect(html).toContain("No Memory Ops suggestions found.")
   })
 
@@ -112,6 +141,12 @@ describe("MemoryOpsPatrolBlock", () => {
         running={false}
         error={null}
         report={report}
+        claimRepairWorking={false}
+        claimRepairError={null}
+        claimRepairPlan={null}
+        claimBackfillWorking={false}
+        claimBackfillError={null}
+        claimBackfillResult={null}
         maintenanceStatus={null}
         recentAuditEvents={[]}
         ignoredSuggestionIds={new Set()}
@@ -127,6 +162,10 @@ describe("MemoryOpsPatrolBlock", () => {
         rollbackErrors={{}}
         workingRollbackId={null}
         onRun={vi.fn()}
+        onPreviewClaimRepair={vi.fn()}
+        onApplyClaimRepair={vi.fn()}
+        onPreviewClaimBackfill={vi.fn()}
+        onApplyClaimBackfill={vi.fn()}
         onToggleSelection={vi.fn()}
         onSelectCategory={vi.fn()}
         onClearSelection={vi.fn()}
@@ -147,6 +186,42 @@ describe("MemoryOpsPatrolBlock", () => {
     expect(html).toContain("1 conflict warnings")
   })
 })
+
+function claimRepairPlan() {
+  return {
+    dryRun: true,
+    items: [],
+    warnings: [],
+    stats: {
+      claimCount: 4,
+      repairableCount: 1,
+      repairedSourceRefCount: 1,
+      alreadyCompleteCount: 1,
+      noSourceRefsCount: 1,
+      sourceUnreadableCount: 0,
+      noMatchCount: 1,
+      warningCount: 0,
+    },
+  }
+}
+
+function claimBackfillResult() {
+  return {
+    dryRun: true,
+    recovered: [],
+    backfilled: [],
+    orphanClaims: [],
+    staleClaims: [],
+    warnings: [],
+    stats: {
+      recoveredCount: 1,
+      backfilledCount: 2,
+      orphanCount: 0,
+      staleCount: 1,
+      warningCount: 0,
+    },
+  }
+}
 
 function patrolReport(
   statsOverrides: Partial<MemoryOpsPatrolReport["stats"]> = {},
@@ -177,9 +252,13 @@ function patrolReport(
       supersededClaimCount: 0,
       orphanClaimCount: 0,
       reinforcedClaimCount: 1,
+      claimsMissingSourceRefCount: 0,
+      claimsMissingSnippetHashCount: 1,
       historicalConflictCandidateCount,
       historicalConflictSuggestionCount,
       historicalConflictWarningCount,
+      selfHealingCandidateCount: 0,
+      selfHealingWarningCount: 0,
       suggestionCount: 0,
       ...statsOverrides,
     },
@@ -206,6 +285,13 @@ function patrolReport(
           requireNoSourceSupport: true,
           requireNoReinforcement: true,
           requireNoRecentUse: true,
+        },
+        automation: {
+          autoPatrolEnabled: true,
+          eventThreshold: 5,
+          reminderCooldownMinutes: 30,
+          minPatrolIntervalMinutes: 30,
+          timeIntervalHours: 24,
         },
       },
       policyWarnings: [],
@@ -237,6 +323,19 @@ function patrolReport(
         supersededCount: 0,
         orphanCount: 0,
         reinforcedCount: 1,
+        missingSourceRefCount: 0,
+        missingSnippetHashCount: 1,
+      },
+      selfHealingSummary: {
+        candidateCount: 0,
+        claimProvenanceCandidateCount: 0,
+        claimIndexCandidateCount: 0,
+        consolidationQueueCandidateCount: 0,
+        relationCleanupCandidateCount: 0,
+        schemaWarningCandidateCount: 0,
+        policyWarningCandidateCount: 0,
+        warnings: [],
+        actions: [],
       },
       stats: {
         pageCount: 8,
@@ -257,9 +356,13 @@ function patrolReport(
         supersededClaimCount: 0,
         orphanClaimCount: 0,
         reinforcedClaimCount: 1,
+        claimsMissingSourceRefCount: 0,
+        claimsMissingSnippetHashCount: 1,
         historicalConflictCandidateCount,
         historicalConflictSuggestionCount,
         historicalConflictWarningCount,
+        selfHealingCandidateCount: 0,
+        selfHealingWarningCount: 0,
       },
     },
   }

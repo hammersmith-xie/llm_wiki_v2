@@ -22,6 +22,7 @@ import {
 } from "@/lib/lifecycle"
 import { insertClaimAnchor } from "@/lib/claim-anchors"
 import { extractClaimCandidates } from "@/lib/claim-extract"
+import { buildClaimSourceRefsForText } from "@/lib/claim-provenance"
 import { writeExtractedClaimArtifacts } from "@/lib/claim-write"
 import { buildFallbackSourceSummaryContent } from "@/lib/source-summary"
 import { recordWikiAutomationEvent } from "@/lib/wiki-automation-events"
@@ -617,6 +618,10 @@ async function autoIngestImpl(
     llmConfig,
     fileName,
     signal,
+    {
+      sourceContent: truncatedContent,
+      sourceTitle: fileName,
+    },
   )
 
   // Surface parser / writer warnings to the activity panel so users
@@ -782,6 +787,10 @@ async function writeFileBlocks(
   llmConfig: LlmConfig,
   sourceFileName: string,
   signal?: AbortSignal,
+  options: {
+    sourceContent?: string
+    sourceTitle?: string
+  } = {},
 ): Promise<{ writtenPaths: string[]; warnings: string[]; hardFailures: string[] }> {
   const { blocks, warnings: parseWarnings } = parseFileBlocks(text)
   const warnings = [...parseWarnings]
@@ -885,10 +894,19 @@ async function writeFileBlocks(
           },
         )
         const enriched = enrichLifecycleFrontmatter(merged)
+        const sourceRefs = claimSourceRefsForIngest(sourceFileName)
         const claimExtraction = extractClaimCandidates({
           pagePath: relativePath,
           content: enriched.content,
-          sourceRefs: claimSourceRefsForIngest(sourceFileName),
+          sourceRefs,
+          sourceRefsForText: options.sourceContent
+            ? (claimText) => buildClaimSourceRefsForText({
+                baseRefs: sourceRefs,
+                claimText,
+                sourceContent: options.sourceContent,
+                sourceTitle: options.sourceTitle ?? sourceFileName,
+              })
+            : undefined,
         })
         let toWrite = enriched.content
         for (const candidate of claimExtraction.claims) {
@@ -1681,11 +1699,19 @@ export async function executeIngestWrites(
   )
 
   const sourceFileName = store.ingestSource ? getFileName(store.ingestSource) : "chat"
+  const sourceContentForClaims = store.ingestSource
+    ? await tryReadFile(normalizePath(store.ingestSource))
+    : ""
   const {
     writtenPaths: relativeWrittenPaths,
     warnings: writeWarnings,
     hardFailures,
-  } = await writeFileBlocks(pp, accumulated, llmConfig, sourceFileName, signal)
+  } = await writeFileBlocks(pp, accumulated, llmConfig, sourceFileName, signal, {
+    sourceContent: sourceContentForClaims
+      ? sourceContentForClaims.slice(0, 50000)
+      : undefined,
+    sourceTitle: sourceFileName,
+  })
   const writtenPaths = relativeWrittenPaths.map((relativePath) => `${pp}/${relativePath}`)
 
   if (writeWarnings.length > 0 || hardFailures.length > 0) {

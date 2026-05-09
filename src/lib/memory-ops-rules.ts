@@ -4,6 +4,7 @@ import {
   type ReviewStatus,
 } from "@/lib/lifecycle"
 import { calculateClaimCredibility } from "@/lib/claim-confidence"
+import { summarizeClaimProvenance } from "@/lib/claim-provenance"
 import type { MetadataPatchOperation } from "@/lib/memory-ops-executor"
 import type {
   MemoryOpsPageEvidenceSummary,
@@ -138,22 +139,53 @@ export function evaluateClaimSuggestions(
   for (const claim of snapshot.claims) {
     const metadata = calculateClaimCredibility(claim, { today: options.today })
     const status = metadata.status
-    if (status !== "stale" && status !== "contradicted" && status !== "superseded") continue
+    if (status === "stale" || status === "contradicted" || status === "superseded") {
+      const severity = status === "stale" ? "info" : "warning"
+      suggestions.push({
+        id: suggestionId("claim", claim.claim_id, status),
+        kind: "review-action",
+        severity,
+        targetPath: claim.page_path,
+        title: `Review ${status} claim`,
+        detail: `${claim.scope === "private" ? "[private claim text redacted]" : claim.text}`,
+        reasons: [
+          `claim ${claim.claim_id} resolved to ${status}`,
+          ...metadata.reasons,
+          "claim-level review does not demote the whole page",
+        ],
+      })
+    }
 
-    const severity = status === "stale" ? "info" : "warning"
-    suggestions.push({
-      id: suggestionId("claim", claim.claim_id, status),
-      kind: "review-action",
-      severity,
-      targetPath: claim.page_path,
-      title: `Review ${status} claim`,
-      detail: `${claim.scope === "private" ? "[private claim text redacted]" : claim.text}`,
-      reasons: [
-        `claim ${claim.claim_id} resolved to ${status}`,
-        ...metadata.reasons,
-        "claim-level review does not demote the whole page",
-      ],
-    })
+    const provenance = summarizeClaimProvenance(claim)
+    if (provenance.missingSourceRefs) {
+      suggestions.push({
+        id: suggestionId("claim", claim.claim_id, "missing-source-refs"),
+        kind: "review-action",
+        severity: "warning",
+        targetPath: claim.page_path,
+        title: "Review claim with no source refs",
+        detail: `${claim.scope === "private" ? "[private claim text redacted]" : claim.text}`,
+        reasons: [
+          `claim ${claim.claim_id} has no source_refs`,
+          "claim provenance cannot be traced back to a local source path",
+          "review-only suggestion; Memory Ops will not infer a source automatically",
+        ],
+      })
+    } else if (provenance.missingSnippetHash) {
+      suggestions.push({
+        id: suggestionId("claim", claim.claim_id, "missing-snippet-hash"),
+        kind: "review-action",
+        severity: "info",
+        targetPath: claim.page_path,
+        title: "Review claim without snippet evidence",
+        detail: `${claim.scope === "private" ? "[private claim text redacted]" : claim.text}`,
+        reasons: [
+          `claim ${claim.claim_id} has ${provenance.sourceRefCount} source ref${provenance.sourceRefCount === 1 ? "" : "s"} but no snippet_hash`,
+          "path-only provenance is weaker than hashed local evidence",
+          "review-only suggestion; Memory Ops will not rewrite claim records automatically",
+        ],
+      })
+    }
   }
   return suggestions
 }

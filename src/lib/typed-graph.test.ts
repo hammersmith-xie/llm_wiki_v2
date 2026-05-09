@@ -62,6 +62,60 @@ describe("typed graph", () => {
         expect.objectContaining({ source: "rag", target: "chunking", type: "mentions", explicit: false }),
       ]),
     )
+    expect(graph.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "rag",
+          target: "vector-search",
+          sourceField: "uses",
+          sourcePath: "/p/wiki/concepts/rag.md",
+          rawTarget: "vector-search",
+          provenance: "frontmatter",
+        }),
+        expect.objectContaining({
+          source: "rag",
+          target: "chunking",
+          sourceField: "body:wikilink",
+          provenance: "wikilink",
+        }),
+      ]),
+    )
+  })
+
+  it("extracts node metadata for explainable typed graph views", () => {
+    const graph = extractTypedGraphFromPages([
+      {
+        id: "deep-research",
+        fileName: "deep-research.md",
+        path: "/p/wiki/concepts/deep-research.md",
+        content: [
+          "---",
+          "type: concept",
+          "title: Deep Research",
+          "aliases: [query rewriting]",
+          "tags: [retrieval, agent]",
+          "sources: [paper.md, eval.md]",
+          "lifecycle: semantic",
+          "last_confirmed: 2026-05-09",
+          "review_status: needs-review",
+          "contradicts: [old-search]",
+          "confidence: 0.8",
+          "---",
+          "",
+          "# Deep Research",
+        ].join("\n"),
+      },
+      page("old-search", "Old Search"),
+    ])
+
+    expect(graph.nodes.get("deep-research")).toMatchObject({
+      aliases: ["query rewriting"],
+      tags: ["retrieval", "agent"],
+      sourceCount: 2,
+      lifecycle: "semantic",
+      lastConfirmed: "2026-05-09",
+      reviewFlags: ["needs-review", "contradicts"],
+    })
   })
 
   it("reverses superseded_by into a supersedes edge from the newer page", () => {
@@ -90,6 +144,8 @@ describe("typed graph", () => {
           target: "old-claim",
           type: "supersedes",
           explicit: true,
+          sourceField: "superseded_by",
+          sourcePath: "/p/wiki/concepts/old-claim.md",
         }),
       ]),
     )

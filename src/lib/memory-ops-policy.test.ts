@@ -41,6 +41,13 @@ describe("memory ops policy", () => {
         requireNoReinforcement: true,
         requireNoRecentUse: true,
       },
+      automation: {
+        autoPatrolEnabled: true,
+        eventThreshold: 5,
+        reminderCooldownMinutes: 30,
+        minPatrolIntervalMinutes: 30,
+        timeIntervalHours: 24,
+      },
     })
   })
 
@@ -52,6 +59,13 @@ describe("memory ops policy", () => {
       lowConfidenceThreshold: 0.5,
       promotion: { minSources: 3 },
       archive: { requireNoRecentUse: false },
+      automation: {
+        autoPatrolEnabled: false,
+        eventThreshold: 7,
+        reminderCooldownMinutes: 45,
+        minPatrolIntervalMinutes: 10,
+        timeIntervalHours: 12,
+      },
     })
 
     expect(result.warnings).toEqual([])
@@ -74,6 +88,13 @@ describe("memory ops policy", () => {
         requireNoReinforcement: true,
         requireNoRecentUse: false,
       },
+      automation: {
+        autoPatrolEnabled: false,
+        eventThreshold: 7,
+        reminderCooldownMinutes: 45,
+        minPatrolIntervalMinutes: 10,
+        timeIntervalHours: 12,
+      },
     })
   })
 
@@ -82,15 +103,23 @@ describe("memory ops policy", () => {
       halfLives: { semantic: -1 },
       lowConfidenceThreshold: 2,
       promotion: { minSources: 1.5 },
+      automation: {
+        eventThreshold: 0,
+        minPatrolIntervalMinutes: -1,
+      },
     })
 
     expect(result.policy.halfLives.semantic).toBe(180)
     expect(result.policy.lowConfidenceThreshold).toBe(0.45)
     expect(result.policy.promotion.minSources).toBe(2)
+    expect(result.policy.automation.eventThreshold).toBe(5)
+    expect(result.policy.automation.minPatrolIntervalMinutes).toBe(30)
     expect(result.warnings).toEqual([
       "halfLives.semantic must be a positive number; using 180.",
       "lowConfidenceThreshold must be between 0 and 1; using 0.45.",
       "promotion.minSources must be a non-negative integer; using 2.",
+      "automation.eventThreshold must be a positive integer; using 5.",
+      "automation.minPatrolIntervalMinutes must be a non-negative number; using 30.",
     ])
   })
 

@@ -2,9 +2,13 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
+  BarChart3,
+  FileJson,
+  FileSpreadsheet,
   ExternalLink,
   History,
   ListFilter,
+  Loader2,
   RefreshCw,
   Search,
   XCircle,
@@ -18,9 +22,12 @@ import type {
   AuditTimelineWarning,
 } from "@/lib/audit-timeline"
 import {
+  buildAuditTimelineVisualizationSummary,
   filterAuditTimelineEvents,
   summarizeAuditTimelineEvent,
   summarizeAuditTimelineWarnings,
+  type AuditTimelineCountBucket,
+  type AuditTimelineDayBucket,
   type AuditTimelineEventSummary,
   type AuditTimelineUiFilter,
 } from "@/lib/audit-timeline-ui"
@@ -37,6 +44,7 @@ const CATEGORY_OPTIONS: Array<AuditEventCategory | "all"> = [
   "lifecycle",
   "schema",
   "quality",
+  "export",
   "other",
 ]
 
@@ -65,6 +73,10 @@ interface AuditTimelinePanelProps {
   pathFilterRequest?: string | null
   onRefresh: () => void
   onOpenPath: (path: string) => void
+  onExport?: (events: readonly AuditEvent[], format: "json" | "csv") => void
+  exportingFormat?: "json" | "csv" | null
+  exportError?: string | null
+  exportPath?: string | null
 }
 
 export function AuditTimelinePanel({
@@ -75,6 +87,10 @@ export function AuditTimelinePanel({
   pathFilterRequest,
   onRefresh,
   onOpenPath,
+  onExport,
+  exportingFormat,
+  exportError,
+  exportPath,
 }: AuditTimelinePanelProps) {
   const { t } = useTranslation()
   const [category, setCategory] = useState<AuditEventCategory | "all">("all")
@@ -107,6 +123,12 @@ export function AuditTimelinePanel({
   const filteredSummaries = useMemo(
     () => filterAuditTimelineEvents(events, filter).map(summarizeAuditTimelineEvent),
     [events, filter],
+  )
+  const visualizationSummary = useMemo(
+    () => buildAuditTimelineVisualizationSummary(
+      filteredSummaries.map((summary) => summary.event),
+    ),
+    [filteredSummaries],
   )
   const warningSummary = useMemo(() => summarizeAuditTimelineWarnings(warnings), [warnings])
   const hasActiveFilters =
@@ -301,7 +323,50 @@ export function AuditTimelinePanel({
             total: events.length,
           })}
         </span>
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onExport?.(filteredSummaries.map((summary) => summary.event), "json")}
+            disabled={!projectReady || !onExport || filteredSummaries.length === 0 || !!exportingFormat}
+          >
+            {exportingFormat === "json" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileJson className="h-3.5 w-3.5" />
+            )}
+            {t("settings.sections.maintenance.auditTimeline.exportJson")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onExport?.(filteredSummaries.map((summary) => summary.event), "csv")}
+            disabled={!projectReady || !onExport || filteredSummaries.length === 0 || !!exportingFormat}
+          >
+            {exportingFormat === "csv" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+            )}
+            {t("settings.sections.maintenance.auditTimeline.exportCsv")}
+          </Button>
+        </div>
       </div>
+
+      {exportError && (
+        <div className="flex items-start gap-1.5 rounded border border-rose-500/40 bg-rose-500/5 px-2 py-1.5 text-xs text-rose-700 dark:text-rose-400">
+          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>{t("settings.sections.maintenance.auditTimeline.exportFailed", { error: exportError })}</div>
+        </div>
+      )}
+
+      {exportPath && (
+        <div className="break-all rounded border border-emerald-500/40 bg-emerald-500/5 px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400">
+          {t("settings.sections.maintenance.auditTimeline.exportedTo", { path: exportPath })}
+        </div>
+      )}
+
+      <AuditTimelineVisualization summary={visualizationSummary} />
 
       {filteredSummaries.length === 0 ? (
         <div className="flex items-start gap-1.5 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs text-muted-foreground">
@@ -319,6 +384,97 @@ export function AuditTimelinePanel({
             />
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+function AuditTimelineVisualization({
+  summary,
+}: {
+  summary: ReturnType<typeof buildAuditTimelineVisualizationSummary>
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="space-y-2 rounded border border-border/60 bg-background/80 px-2 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex items-center gap-1.5 font-medium">
+          <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+          {t("settings.sections.maintenance.auditTimeline.visualTitle")}
+        </div>
+        <span className="text-muted-foreground">
+          {t("settings.sections.maintenance.auditTimeline.visualTotals", {
+            events: summary.totalCount,
+            days: summary.activeDayCount,
+          })}
+        </span>
+      </div>
+      {summary.totalCount === 0 ? (
+        <div className="text-muted-foreground">
+          {t("settings.sections.maintenance.auditTimeline.visualEmpty")}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+          <TimelineBucketGroup
+            title={t("settings.sections.maintenance.auditTimeline.visualDays")}
+            buckets={summary.dayBuckets}
+            labelForBucket={(bucket) => bucket.date}
+          />
+          <TimelineBucketGroup
+            title={t("settings.sections.maintenance.auditTimeline.visualCategories")}
+            buckets={summary.categoryBuckets}
+            labelForBucket={(bucket) =>
+              t(`settings.sections.maintenance.auditTimeline.categories.${bucket.key}`)
+            }
+          />
+          <TimelineBucketGroup
+            title={t("settings.sections.maintenance.auditTimeline.visualStatuses")}
+            buckets={summary.statusBuckets}
+            labelForBucket={(bucket) =>
+              bucket.key === "unknown"
+                ? t("settings.sections.maintenance.auditTimeline.statuses.unknown")
+                : t(`settings.sections.maintenance.auditTimeline.statuses.${bucket.key}`)
+            }
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TimelineBucketGroup<TBucket extends AuditTimelineCountBucket | AuditTimelineDayBucket>({
+  title,
+  buckets,
+  labelForBucket,
+}: {
+  title: string
+  buckets: readonly TBucket[]
+  labelForBucket: (bucket: TBucket) => string
+}) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <div className="font-medium text-muted-foreground">{title}</div>
+      {buckets.length === 0 ? (
+        <div className="text-muted-foreground">-</div>
+      ) : (
+        buckets.map((bucket) => (
+          <div key={bucket.key} className="grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="truncate">{labelForBucket(bucket)}</span>
+                <span className="shrink-0 text-muted-foreground">{bucket.percentage}%</span>
+              </div>
+              <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary/70"
+                  style={{ width: `${Math.max(4, bucket.percentage)}%` }}
+                />
+              </div>
+            </div>
+            <div className="text-right tabular-nums text-muted-foreground">{bucket.count}</div>
+          </div>
+        ))
       )}
     </div>
   )

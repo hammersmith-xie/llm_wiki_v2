@@ -37,6 +37,24 @@ export interface AuditTimelineWarningsSummary {
   messages: string[]
 }
 
+export interface AuditTimelineCountBucket {
+  key: string
+  count: number
+  percentage: number
+}
+
+export interface AuditTimelineDayBucket extends AuditTimelineCountBucket {
+  date: string
+}
+
+export interface AuditTimelineVisualizationSummary {
+  totalCount: number
+  activeDayCount: number
+  categoryBuckets: AuditTimelineCountBucket[]
+  statusBuckets: AuditTimelineCountBucket[]
+  dayBuckets: AuditTimelineDayBucket[]
+}
+
 export function filterAuditTimelineEvents(
   events: readonly AuditEvent[],
   filter: AuditTimelineUiFilter = {},
@@ -92,6 +110,44 @@ export function summarizeAuditTimelineWarnings(
   }
 }
 
+export function buildAuditTimelineVisualizationSummary(
+  events: readonly AuditEvent[],
+  options: { maxDayBuckets?: number; maxCategoryBuckets?: number; maxStatusBuckets?: number } = {},
+): AuditTimelineVisualizationSummary {
+  const sorted = sortAuditTimelineEvents(events)
+  const totalCount = sorted.length
+  const dayCounts = new Map<string, number>()
+  const categoryCounts = new Map<string, number>()
+  const statusCounts = new Map<string, number>()
+
+  for (const event of sorted) {
+    const day = dayKey(event.timestamp)
+    if (day) dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1)
+    const category = eventCategory(event)
+    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1)
+    const status = eventStatus(event) ?? "unknown"
+    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1)
+  }
+
+  const maxDayBuckets = Math.max(0, options.maxDayBuckets ?? 14)
+  return {
+    totalCount,
+    activeDayCount: dayCounts.size,
+    categoryBuckets: countBuckets(categoryCounts, totalCount, options.maxCategoryBuckets ?? 6),
+    statusBuckets: countBuckets(statusCounts, totalCount, options.maxStatusBuckets ?? 6),
+    dayBuckets: [...dayCounts.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, maxDayBuckets)
+      .reverse()
+      .map(([date, count]) => ({
+        key: date,
+        date,
+        count,
+        percentage: percentage(count, maxMapValue(dayCounts)),
+      })),
+  }
+}
+
 export function sortAuditTimelineEvents(events: readonly AuditEvent[]): AuditEvent[] {
   return [...events].sort((a, b) => timestampValue(b.timestamp) - timestampValue(a.timestamp))
 }
@@ -141,6 +197,39 @@ function timestampValue(timestamp: string | undefined): number {
   if (!timestamp) return 0
   const value = Date.parse(timestamp)
   return Number.isFinite(value) ? value : 0
+}
+
+function countBuckets(
+  counts: ReadonlyMap<string, number>,
+  totalCount: number,
+  limit: number,
+): AuditTimelineCountBucket[] {
+  return [...counts.entries()]
+    .sort(([aKey, aCount], [bKey, bCount]) => {
+      if (bCount !== aCount) return bCount - aCount
+      return aKey.localeCompare(bKey)
+    })
+    .slice(0, Math.max(0, limit))
+    .map(([key, count]) => ({
+      key,
+      count,
+      percentage: percentage(count, totalCount),
+    }))
+}
+
+function dayKey(timestamp: string | undefined): string | null {
+  if (!timestamp) return null
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10)
+}
+
+function maxMapValue(map: ReadonlyMap<string, number>): number {
+  return Math.max(0, ...map.values())
+}
+
+function percentage(count: number, totalCount: number): number {
+  if (totalCount <= 0) return 0
+  return Math.round((count / totalCount) * 100)
 }
 
 function normalizeText(value: unknown): string {
