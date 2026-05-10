@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 8 / 14
+**总体进度**: 🚧 9 / 14
 
 ---
 
@@ -221,7 +221,7 @@ graph TD
 
 **目标**: 当前 Markdown page 可本地导出为 Marp 或 CSV。  
 **依赖**: M1  
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 3.1 ✅ 实现 Marp export helper
 
@@ -277,7 +277,7 @@ graph TD
 
 ---
 
-### Task 3.3 ⏳ Preview Panel 集成 Export menu
+### Task 3.3 ✅ Preview Panel 集成 Export menu
 
 **描述**: 在 Preview Panel header 加 Export menu，使用 Tauri save dialog 写本地文件。
 
@@ -292,17 +292,17 @@ graph TD
 - `src/components/layout/export-menu.test.tsx` (新建或现有测试扩展)
 
 **验收**:
-- [ ] Markdown page 显示 Export 按钮，非 markdown/binary 预览不显示或禁用。
-- [ ] `save()` 返回 null 时不写文件。
-- [ ] Marp 导出写用户选择路径。
-- [ ] CSV 仅 table page 激活。
-- [ ] 导出不触发 preview autosave 到原文件。
+- [x] Markdown page 显示 Export 按钮，非 markdown/binary 预览不显示或禁用。
+- [x] `save()` 返回 null 时不写文件。
+- [x] Marp 导出写用户选择路径。
+- [x] CSV 仅 table page 激活。
+- [x] 导出不触发 preview autosave 到原文件。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 组件测试环境是 node/static markup，不适合真实 DOM 菜单交互；导出行为通过纯 async functions 测试，菜单显示通过 static markup 测试。
+- 🔧 **最终实现逻辑**: 新增 `ExportMenu`，Preview Panel 仅在 markdown 页面 header 显示；Marp/CSV 导出分别调用 helper 生成内容，再用 Tauri `save()` 选择本地路径并 `writeFile` 到该路径。
+- 🎯 **关键决策**: 导出函数只写用户选择的外部路径，不触发 `handleSave`，不修改当前 `selectedFile`；CSV 对非 table 页面直接 no-op。
 
 ---
 
@@ -497,10 +497,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 文档收口 | 3 | 3 | ✅ |
 | M2 | Post-ingest lint hints | 3 | 3 | ✅ |
-| M3 | Local export | 2 | 3 | 🚧 |
+| M3 | Local export | 3 | 3 | ✅ |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **8** | **14** | **🚧** |
+| **总计** | | **9** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -515,6 +515,7 @@ graph TD
 | 2026-05-10 | Activity Panel 新增 post-ingest lint badge，点击进入 Lint 面板 |
 | 2026-05-10 | 新增 Marp export helper，支持 frontmatter title、metadata 和 H2 分片 |
 | 2026-05-10 | 新增 Markdown pipe table to CSV helper 与 focused tests |
+| 2026-05-10 | Preview Panel 集成本地 Export menu，支持 Marp 和 CSV 写出 |
 
 ## 最终审核索引
 

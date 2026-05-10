@@ -6,6 +6,7 @@ import { getFileCategory, isBinary } from "@/lib/file-types"
 import { WikiEditor } from "@/components/editor/wiki-editor"
 import { FilePreview } from "@/components/editor/file-preview"
 import { getFileName } from "@/lib/path-utils"
+import { ExportMenu } from "@/components/layout/export-menu"
 
 export function PreviewPanel() {
   const selectedFile = useWikiStore((s) => s.selectedFile)
@@ -84,6 +85,7 @@ export function PreviewPanel() {
 
   const category = getFileCategory(selectedFile)
   const fileName = getFileName(selectedFile)
+  const isMarkdown = category === "markdown"
 
   return (
     <div className="flex h-full flex-col">
@@ -91,15 +93,26 @@ export function PreviewPanel() {
         <span className="truncate text-xs text-muted-foreground" title={selectedFile}>
           {fileName}
         </span>
-        <button
-          onClick={() => setSelectedFile(null)}
-          className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {isMarkdown && (
+            <ExportMenu
+              page={{
+                path: selectedFile,
+                content: fileContent,
+                frontmatter: {},
+              }}
+            />
+          )}
+          <button
+            onClick={() => setSelectedFile(null)}
+            className="rounded p-1 text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <div className="flex-1 min-w-0 overflow-auto">
-        {category === "markdown" ? (
+        {isMarkdown ? (
           <WikiEditor
             key={selectedFile}
             content={fileContent}
