@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 3 / 14
+**总体进度**: 🚧 4 / 14
 
 ---
 
@@ -133,9 +133,9 @@ graph TD
 
 **目标**: Ingest 成功后本地生成 structural lint hints，并在 Activity Panel 提示。  
 **依赖**: M1  
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 2.1 ⏳ 新增 ingest lint hints 持久化 helper
+### Task 2.1 ✅ 新增 ingest lint hints 持久化 helper
 
 **描述**: 新建纯 helper 读写 `.llm-wiki/ingest-lint-hints.json`。
 
@@ -149,16 +149,16 @@ graph TD
 - `src/lib/ingest-lint-hints.test.ts` (新建)
 
 **验收**:
-- [ ] 先写测试覆盖写入、读取、clean 清理、malformed JSON fallback。
-- [ ] helper 使用 `runStructuralLint(projectPath)`。
-- [ ] hints 文件 schema 包含 `ingestId`、`sourcePath`、`timestamp`、`hints`、`totalCount`。
-- [ ] 无 hints 时删除或清理旧文件。
+- [x] 先写测试覆盖写入、读取、clean 清理、malformed JSON fallback。
+- [x] helper 使用 `runStructuralLint(projectPath)`。
+- [x] hints 文件 schema 包含 `ingestId`、`sourcePath`、`timestamp`、`hints`、`totalCount`。
+- [x] 无 hints 时删除或清理旧文件。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: TDD 红灯确认时测试因缺少 `src/lib/ingest-lint-hints.ts` 失败，符合预期；实现后 focused test 和 typecheck 均通过。
+- 🔧 **最终实现逻辑**: 新增 `writePostIngestLintHints`、`readPostIngestLintHints`、`clearPostIngestLintHints`；写入前调用 `runStructuralLint(projectPath)`，有 findings 时写 `.llm-wiki/ingest-lint-hints.json`，无 findings 时 best-effort 删除旧文件。
+- 🎯 **关键决策**: hints 是 last-ingest 的可替换本地派生状态，不写 audit、不写 Markdown；读取失败或 malformed JSON 返回 `null`，避免 UI 因坏状态崩溃。
 
 ---
 
@@ -496,11 +496,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 文档收口 | 3 | 3 | ✅ |
-| M2 | Post-ingest lint hints | 0 | 3 | ⏳ |
+| M2 | Post-ingest lint hints | 1 | 3 | 🚧 |
 | M3 | Local export | 0 | 3 | ⏳ |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **3** | **14** | **🚧** |
+| **总计** | | **4** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -510,6 +510,7 @@ graph TD
 | 2026-05-10 | 用户确认 daemon 默认每 15 分钟做轻量维护检查 |
 | 2026-05-10 | 修订 6 个 fix 计划：fix-05 升级为 app-resident daemon，fix-06 降为 future backlog |
 | 2026-05-10 | README / README_CN 新增 local-first 设计哲学并移除 no-daemon 旧口径 |
+| 2026-05-10 | 新增 post-ingest lint hints 持久化 helper 与 focused tests |
 
 ## 最终审核索引
 
