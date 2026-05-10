@@ -28,6 +28,8 @@ export interface MemoryOpsAutomationPolicy {
   reminderCooldownMinutes: number
   minPatrolIntervalMinutes: number
   timeIntervalHours: number
+  maintenanceDaemonEnabled: boolean
+  maintenanceCheckIntervalMinutes: number
 }
 
 export interface MemoryOpsPolicy {
@@ -73,6 +75,8 @@ export const DEFAULT_MEMORY_OPS_POLICY: MemoryOpsPolicy = {
     reminderCooldownMinutes: 30,
     minPatrolIntervalMinutes: 30,
     timeIntervalHours: 24,
+    maintenanceDaemonEnabled: true,
+    maintenanceCheckIntervalMinutes: 15,
   },
 }
 
@@ -110,6 +114,8 @@ export function normalizeMemoryOpsPolicy(input: unknown): MemoryOpsPolicyLoadRes
       reminderCooldownMinutes: positiveNumber(recordAt(record.automation, "reminderCooldownMinutes"), DEFAULT_MEMORY_OPS_POLICY.automation.reminderCooldownMinutes, "automation.reminderCooldownMinutes", warnings),
       minPatrolIntervalMinutes: nonNegativeNumber(recordAt(record.automation, "minPatrolIntervalMinutes"), DEFAULT_MEMORY_OPS_POLICY.automation.minPatrolIntervalMinutes, "automation.minPatrolIntervalMinutes", warnings),
       timeIntervalHours: nonNegativeNumber(recordAt(record.automation, "timeIntervalHours"), DEFAULT_MEMORY_OPS_POLICY.automation.timeIntervalHours, "automation.timeIntervalHours", warnings),
+      maintenanceDaemonEnabled: booleanValue(recordAt(record.automation, "maintenanceDaemonEnabled"), DEFAULT_MEMORY_OPS_POLICY.automation.maintenanceDaemonEnabled),
+      maintenanceCheckIntervalMinutes: positiveNumber(recordAt(record.automation, "maintenanceCheckIntervalMinutes"), DEFAULT_MEMORY_OPS_POLICY.automation.maintenanceCheckIntervalMinutes, "automation.maintenanceCheckIntervalMinutes", warnings),
     },
   }
 

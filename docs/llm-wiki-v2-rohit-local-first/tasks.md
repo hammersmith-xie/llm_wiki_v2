@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 10 / 14
+**总体进度**: 🚧 11 / 14
 
 ---
 
@@ -341,7 +341,7 @@ graph TD
 
 ---
 
-### Task 4.2 ⏳ 实现 local maintenance daemon controller
+### Task 4.2 ✅ 实现 local maintenance daemon controller
 
 **描述**: 新建 app-resident daemon controller，负责 project 运行期间的本地维护检查。
 
@@ -357,18 +357,18 @@ graph TD
 - `src/lib/memory-ops-policy.ts`
 
 **验收**:
-- [ ] 同一 project 重复 start 不创建多个 loop。
-- [ ] stop 后 interval 清理。
-- [ ] `autoPatrolEnabled=false` 时只产生 reminder。
-- [ ] 默认每 15 分钟执行一次轻量 due check。
-- [ ] `autoPatrolEnabled=true` 且 due 时调用 `scheduleAutoMemoryOpsPatrol`。
-- [ ] 所有异常被捕获并记录，不抛到 UI 主流程。
+- [x] 同一 project 重复 start 不创建多个 loop。
+- [x] stop 后 interval 清理。
+- [x] `autoPatrolEnabled=false` 时只产生 reminder。
+- [x] 默认每 15 分钟执行一次轻量 due check。
+- [x] `autoPatrolEnabled=true` 且 due 时调用 `scheduleAutoMemoryOpsPatrol`。
+- [x] 所有异常被捕获并记录，不抛到 UI 主流程。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 新增 policy 字段后，旧的手写测试 fixture 缺少 `maintenanceDaemonEnabled` 和 `maintenanceCheckIntervalMinutes`，typecheck 能及时捕获。
+- 🔧 **最终实现逻辑**: 扩展 `MemoryOpsAutomationPolicy`，默认开启 app-resident daemon 且 15 分钟轻量检查；新增 `local-maintenance-daemon` controller，start/stop 管 interval，单次 check 只读取 policy + maintenance status。
+- 🎯 **关键决策**: 15 分钟不是全量 patrol 间隔；只有 `reminderDue` 且 `autoPatrolEnabled=true` 时才调用现有 `scheduleAutoMemoryOpsPatrol`，异常只写 Activity，不向 UI 主流程抛出。
 
 ---
 

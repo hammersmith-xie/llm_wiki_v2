@@ -47,6 +47,8 @@ describe("memory ops policy", () => {
         reminderCooldownMinutes: 30,
         minPatrolIntervalMinutes: 30,
         timeIntervalHours: 24,
+        maintenanceDaemonEnabled: true,
+        maintenanceCheckIntervalMinutes: 15,
       },
     })
   })
@@ -65,6 +67,8 @@ describe("memory ops policy", () => {
         reminderCooldownMinutes: 45,
         minPatrolIntervalMinutes: 10,
         timeIntervalHours: 12,
+        maintenanceDaemonEnabled: false,
+        maintenanceCheckIntervalMinutes: 20,
       },
     })
 
@@ -94,6 +98,8 @@ describe("memory ops policy", () => {
         reminderCooldownMinutes: 45,
         minPatrolIntervalMinutes: 10,
         timeIntervalHours: 12,
+        maintenanceDaemonEnabled: false,
+        maintenanceCheckIntervalMinutes: 20,
       },
     })
   })
@@ -106,6 +112,7 @@ describe("memory ops policy", () => {
       automation: {
         eventThreshold: 0,
         minPatrolIntervalMinutes: -1,
+        maintenanceCheckIntervalMinutes: 0,
       },
     })
 
@@ -114,12 +121,15 @@ describe("memory ops policy", () => {
     expect(result.policy.promotion.minSources).toBe(2)
     expect(result.policy.automation.eventThreshold).toBe(5)
     expect(result.policy.automation.minPatrolIntervalMinutes).toBe(30)
+    expect(result.policy.automation.maintenanceDaemonEnabled).toBe(true)
+    expect(result.policy.automation.maintenanceCheckIntervalMinutes).toBe(15)
     expect(result.warnings).toEqual([
       "halfLives.semantic must be a positive number; using 180.",
       "lowConfidenceThreshold must be between 0 and 1; using 0.45.",
       "promotion.minSources must be a non-negative integer; using 2.",
       "automation.eventThreshold must be a positive integer; using 5.",
       "automation.minPatrolIntervalMinutes must be a non-negative number; using 30.",
+      "automation.maintenanceCheckIntervalMinutes must be a positive number; using 15.",
     ])
   })
 

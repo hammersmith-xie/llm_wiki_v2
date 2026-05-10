@@ -292,6 +292,8 @@ function patrolReport(
           reminderCooldownMinutes: 30,
           minPatrolIntervalMinutes: 30,
           timeIntervalHours: 24,
+          maintenanceDaemonEnabled: true,
+          maintenanceCheckIntervalMinutes: 15,
         },
       },
       policyWarnings: [],
