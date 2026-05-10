@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 1 / 14
+**总体进度**: 🚧 2 / 14
 
 ---
 
@@ -71,7 +71,7 @@ graph TD
 
 ---
 
-### Task 1.2 ⏳ 修订 6 个 fix 计划的范围和优先级
+### Task 1.2 ✅ 修订 6 个 fix 计划的范围和优先级
 
 **描述**: 将 `fix-01` 到 `fix-06` 对齐本期范围，尤其是 fix-05 从启动一次检查升级为 app-resident daemon，fix-06 降级为后续。
 
@@ -89,16 +89,16 @@ graph TD
 - `docs/llm-wiki-v2-rohit-gap-analysis/fix-06-deep-contradiction-scan.md`
 
 **验收**:
-- [ ] fix-05 标题/内容体现 app-running daemon，而不是只启动时检查。
-- [ ] fix-06 明确不自动写 Markdown，只作为 future manual review queue。
-- [ ] README 计划要求同步 README_CN。
-- [ ] README 总览 ROI 顺序更新。
+- [x] fix-05 标题/内容体现 app-running daemon，而不是只启动时检查。
+- [x] fix-06 明确不自动写 Markdown，只作为 future manual review queue。
+- [x] README 计划要求同步 README_CN。
+- [x] README 总览 ROI 顺序更新。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 原 `fix-05` 仍按“启动时提醒一次”设计，和用户确认的 15 分钟后台维护循环不一致；`fix-01` 也继续把 Rohit 证据写成过硬的精确 pipeline。
+- 🔧 **最终实现逻辑**: 重写 README 总览、fix-01、fix-02、fix-05，并小幅修订 fix-03、fix-04、fix-06；将 fix-05 规格改成 app-resident local daemon，默认 15 分钟轻量 due check，复用现有 `autoPatrolEnabled`、cooldown 和 `scheduleAutoMemoryOpsPatrol`。
+- 🎯 **关键决策**: fix-06 降为 Future / Backlog，不进入本轮 local-first closure；README / README_CN 同步从可选改为必做验收。
 
 ---
 
@@ -495,12 +495,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 文档收口 | 1 | 3 | 🚧 |
+| M1 | 文档收口 | 2 | 3 | 🚧 |
 | M2 | Post-ingest lint hints | 0 | 3 | ⏳ |
 | M3 | Local export | 0 | 3 | ⏳ |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **1** | **14** | **🚧** |
+| **总计** | | **2** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -508,6 +508,7 @@ graph TD
 |------|------|
 | 2026-05-10 | 初稿，按 local-first + app-resident daemon 收口，14 个任务 |
 | 2026-05-10 | 用户确认 daemon 默认每 15 分钟做轻量维护检查 |
+| 2026-05-10 | 修订 6 个 fix 计划：fix-05 升级为 app-resident daemon，fix-06 降为 future backlog |
 
 ## 最终审核索引
 
