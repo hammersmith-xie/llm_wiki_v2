@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 6 / 14
+**总体进度**: 🚧 7 / 14
 
 ---
 
@@ -221,9 +221,9 @@ graph TD
 
 **目标**: 当前 Markdown page 可本地导出为 Marp 或 CSV。  
 **依赖**: M1  
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 3.1 ⏳ 实现 Marp export helper
+### Task 3.1 ✅ 实现 Marp export helper
 
 **描述**: 将 Markdown page 内容转换为 `.marp.md`。
 
@@ -238,16 +238,16 @@ graph TD
 - `src/lib/frontmatter.ts`
 
 **验收**:
-- [ ] 测试覆盖无 H2、单 H2、多 H2、H2 前有正文、空正文。
-- [ ] 输出包含 `marp: true`、`theme: default`、`paginate: true`。
-- [ ] title slide 从 frontmatter title 或文件名推导。
-- [ ] 不破坏原 markdown body。
+- [x] 测试覆盖无 H2、单 H2、多 H2、H2 前有正文、空正文。
+- [x] 输出包含 `marp: true`、`theme: default`、`paginate: true`。
+- [x] title slide 从 frontmatter title 或文件名推导。
+- [x] 不破坏原 markdown body。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 现有 `WikiPage` 类型没有单独 `body` 字段，必须从 `content` 中解析 frontmatter/body，同时兼容调用方传入的 `frontmatter`。
+- 🔧 **最终实现逻辑**: 新增 `pageToMarp` 和 `splitBodyIntoSlides`；输出 Marp frontmatter、title slide、可选 metadata，并按 H2 切分 body，保留原 Markdown 内容。
+- 🎯 **关键决策**: title 优先取 frontmatter `title`，否则取文件名 stem；metadata 只放 type/created/updated/confidence/source count，避免把整段 frontmatter 灌入 slides。
 
 ---
 
@@ -497,10 +497,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 文档收口 | 3 | 3 | ✅ |
 | M2 | Post-ingest lint hints | 3 | 3 | ✅ |
-| M3 | Local export | 0 | 3 | ⏳ |
+| M3 | Local export | 1 | 3 | 🚧 |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **6** | **14** | **🚧** |
+| **总计** | | **7** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -513,6 +513,7 @@ graph TD
 | 2026-05-10 | 新增 post-ingest lint hints 持久化 helper 与 focused tests |
 | 2026-05-10 | autoIngest 成功路径接入 post-ingest lint hints，cache-hit 也刷新 hints |
 | 2026-05-10 | Activity Panel 新增 post-ingest lint badge，点击进入 Lint 面板 |
+| 2026-05-10 | 新增 Marp export helper，支持 frontmatter title、metadata 和 H2 分片 |
 
 ## 最终审核索引
 
