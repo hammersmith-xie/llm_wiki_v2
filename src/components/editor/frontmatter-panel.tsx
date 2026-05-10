@@ -25,9 +25,11 @@ import {
   unwrapWikilink,
 } from "@/lib/wiki-page-resolver"
 import { collectTypedRelationGroups } from "@/lib/frontmatter-relations"
+import { assessConfidenceStaleness } from "@/lib/confidence-staleness"
 import { useWikiStore } from "@/stores/wiki-store"
 import { normalizePath } from "@/lib/path-utils"
 import { useWikiAliasIndex } from "@/components/editor/use-wiki-alias-index"
+import { ConfidenceStaleBadge } from "@/components/editor/confidence-stale-badge"
 import {
   WIKI_GRAPH_SEED_ARRAY_FIELDS,
   WIKI_REFERENCE_ARRAY_FIELDS,
@@ -62,6 +64,7 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
   const fileTree = useWikiStore((s) => s.fileTree)
   const dataVersion = useWikiStore((s) => s.dataVersion)
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
+  const setActiveView = useWikiStore((s) => s.setActiveView)
 
   const title = stringValue(data.title)
   const type = stringValue(data.type)
@@ -102,6 +105,7 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
 
   const typeStyle = getWikiTypeStyle(type)
   const TypeIcon = typeStyle.icon
+  const confidenceStaleness = assessConfidenceStaleness(lastConfirmed, lifecycle)
 
   const hasIdentity = title || type || tags.length > 0 || created
   const hasRelations = sources.length > 0 || related.length > 0 || typedRelationCount > 0
@@ -180,72 +184,78 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
       )}
 
       {hasLifecycle && (
-        <div className="mx-4 mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-          {lifecycle && (
-            <MetaChip
-              icon={<Activity className="h-3 w-3" />}
-              label={lifecycle}
-              tone="neutral"
-              title="Lifecycle tier"
-            />
-          )}
-          {confidence && (
-            <MetaChip
-              icon={<ShieldCheck className="h-3 w-3" />}
-              label={`confidence ${confidence}`}
-              tone={Number(confidence) >= 0.65 ? "good" : "warn"}
-              title="Deterministic confidence score"
-            />
-          )}
-          {qualityScore && (
-            <MetaChip
-              icon={<ShieldCheck className="h-3 w-3" />}
-              label={`quality ${qualityScore}`}
-              tone={Number(qualityScore) >= 0.65 ? "good" : "warn"}
-              title="Quality score"
-            />
-          )}
-          {reviewStatus && (
-            <MetaChip
-              icon={<AlertTriangle className="h-3 w-3" />}
-              label={reviewStatus}
-              tone={reviewStatus === "ok" ? "good" : "warn"}
-              title="Review status"
-            />
-          )}
-          {scope && (
-            <MetaChip
-              icon={<Layers className="h-3 w-3" />}
-              label={scope}
-              tone="neutral"
-              title="Knowledge scope"
-            />
-          )}
-          {lastConfirmed && (
-            <MetaChip
-              icon={<Calendar className="h-3 w-3" />}
-              label={`confirmed ${lastConfirmed}`}
-              tone="neutral"
-              title="Last confirmed"
-            />
-          )}
-          {reinforcementCount && (
-            <MetaChip
-              icon={<GitBranch className="h-3 w-3" />}
-              label={`${reinforcementCount} reinforcement${reinforcementCount === "1" ? "" : "s"}`}
-              tone="neutral"
-              title="Reinforcement count"
-            />
-          )}
-          {typedRelationCount > 0 && (
-            <MetaChip
-              icon={<GitBranch className="h-3 w-3" />}
-              label={`${typedRelationCount} typed relation${typedRelationCount === 1 ? "" : "s"}`}
-              tone="neutral"
-              title="Typed relationship fields"
-            />
-          )}
-        </div>
+        <>
+          <div className="mx-4 mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+            {lifecycle && (
+              <MetaChip
+                icon={<Activity className="h-3 w-3" />}
+                label={lifecycle}
+                tone="neutral"
+                title="Lifecycle tier"
+              />
+            )}
+            {confidence && (
+              <MetaChip
+                icon={<ShieldCheck className="h-3 w-3" />}
+                label={`confidence ${confidence}`}
+                tone={Number(confidence) >= 0.65 ? "good" : "warn"}
+                title="Deterministic confidence score"
+              />
+            )}
+            {qualityScore && (
+              <MetaChip
+                icon={<ShieldCheck className="h-3 w-3" />}
+                label={`quality ${qualityScore}`}
+                tone={Number(qualityScore) >= 0.65 ? "good" : "warn"}
+                title="Quality score"
+              />
+            )}
+            {reviewStatus && (
+              <MetaChip
+                icon={<AlertTriangle className="h-3 w-3" />}
+                label={reviewStatus}
+                tone={reviewStatus === "ok" ? "good" : "warn"}
+                title="Review status"
+              />
+            )}
+            {scope && (
+              <MetaChip
+                icon={<Layers className="h-3 w-3" />}
+                label={scope}
+                tone="neutral"
+                title="Knowledge scope"
+              />
+            )}
+            {lastConfirmed && (
+              <MetaChip
+                icon={<Calendar className="h-3 w-3" />}
+                label={`confirmed ${lastConfirmed}`}
+                tone="neutral"
+                title="Last confirmed"
+              />
+            )}
+            {reinforcementCount && (
+              <MetaChip
+                icon={<GitBranch className="h-3 w-3" />}
+                label={`${reinforcementCount} reinforcement${reinforcementCount === "1" ? "" : "s"}`}
+                tone="neutral"
+                title="Reinforcement count"
+              />
+            )}
+            {typedRelationCount > 0 && (
+              <MetaChip
+                icon={<GitBranch className="h-3 w-3" />}
+                label={`${typedRelationCount} typed relation${typedRelationCount === 1 ? "" : "s"}`}
+                tone="neutral"
+                title="Typed relationship fields"
+              />
+            )}
+          </div>
+          <ConfidenceStaleBadge
+            assessment={confidenceStaleness}
+            onRunPatrol={() => setActiveView("settings")}
+          />
+        </>
       )}
 
       {/* Sources card row ───────────────────────────────────────── */}

@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 9 / 14
+**总体进度**: 🚧 10 / 14
 
 ---
 
@@ -310,9 +310,9 @@ graph TD
 
 **目标**: 让 stale confidence 可见，并实现 app-resident local maintenance daemon。  
 **依赖**: M1  
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 4.1 ⏳ 实现 confidence staleness helper 和 UI badge
+### Task 4.1 ✅ 实现 confidence staleness helper 和 UI badge
 
 **描述**: 按 lifecycle half-life 判断 `last_confirmed` 是否 stale，并在 frontmatter panel 展示。
 
@@ -328,16 +328,16 @@ graph TD
 - `src/components/editor/frontmatter-panel.test.tsx` (如已有则扩展)
 
 **验收**:
-- [ ] 先写测试覆盖 undefined、新日期、过期、malformed、archived。
-- [ ] UI 显示天数和 half-life，不只靠颜色。
-- [ ] 点击 “Run patrol” 跳转 Settings。
-- [ ] 不自动改 confidence。
+- [x] 先写测试覆盖 undefined、新日期、过期、malformed、archived。
+- [x] UI 显示天数和 half-life，不只靠颜色。
+- [x] 点击 “Run patrol” 跳转 Settings。
+- [x] 不自动改 confidence。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 现有 lifecycle 计算会给 archived 旧页面年龄惩罚；本任务的 UI 提醒若沿用该逻辑会把归档内容误报成需要维护。
+- 🔧 **最终实现逻辑**: 新增 `confidence-staleness` helper，按 lifecycle half-life 计算 `last_confirmed` 年龄；Frontmatter Panel 在 stale 时展示明确天数、half-life 和 `Run patrol` 操作。
+- 🎯 **关键决策**: archived 页面不显示 confidence stale badge；badge 只跳 Settings，不写 frontmatter、不自动改 confidence。
 
 ---
 
