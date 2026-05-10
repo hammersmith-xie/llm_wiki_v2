@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 12 / 14
+**总体进度**: 🚧 13 / 14
 
 ---
 
@@ -400,7 +400,7 @@ graph TD
 
 ---
 
-### Task 4.4 ⏳ 本地维护提醒 UI
+### Task 4.4 ✅ 本地维护提醒 UI
 
 **描述**: 显示 daemon 产生的 patrol due / overdue reminder，并提供跳转 Maintenance 操作。
 
@@ -415,16 +415,16 @@ graph TD
 - `src/stores/local-maintenance-store.ts` (如新建)
 
 **验收**:
-- [ ] reminder 显示原因和天数/阈值。
-- [ ] 点击跳转 Settings。
-- [ ] Dismiss 只影响本 session。
-- [ ] banner 不遮挡主内容，文本可读。
+- [x] reminder 显示原因和天数/阈值。
+- [x] 点击跳转 Settings。
+- [x] Dismiss 只影响本 session。
+- [x] banner 不遮挡主内容，文本可读。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 只用 Activity item 会把 daemon reminder 埋在左下角折叠面板里，不足以表达“维护到期”。
+- 🔧 **最终实现逻辑**: 新增 session-only `local-maintenance-store` 和 `LocalMaintenanceBanner`；daemon due check 写入 reminder，layout 顶部展示原因、event count、dirty 天数和 last patrol 天数。
+- 🎯 **关键决策**: Dismiss 只写运行时 store，不持久化；点击 `Open Settings` 只切到 Settings，不自动运行 patrol 或应用建议。
 
 ---
 
@@ -498,9 +498,9 @@ graph TD
 | M1 | 文档收口 | 3 | 3 | ✅ |
 | M2 | Post-ingest lint hints | 3 | 3 | ✅ |
 | M3 | Local export | 3 | 3 | ✅ |
-| M4 | Confidence and local daemon | 0 | 4 | ⏳ |
+| M4 | Confidence and local daemon | 4 | 4 | ✅ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **9** | **14** | **🚧** |
+| **总计** | | **13** | **14** | **🚧** |
 
 ## 变更记录
 

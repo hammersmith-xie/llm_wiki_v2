@@ -6,6 +6,7 @@ import {
 import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
 import type { MemoryOpsMaintenanceStatus } from "./memory-ops"
 import { useActivityStore } from "@/stores/activity-store"
+import { useLocalMaintenanceStore } from "@/stores/local-maintenance-store"
 
 vi.mock("./memory-ops-policy", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./memory-ops-policy")>()
@@ -39,6 +40,7 @@ beforeEach(() => {
   mockSchedulePatrol.mockReset()
   mockSchedulePatrol.mockReturnValue(true)
   useActivityStore.setState({ items: [] })
+  useLocalMaintenanceStore.getState().clearReminder()
 })
 
 describe("local maintenance daemon", () => {
@@ -75,6 +77,11 @@ describe("local maintenance daemon", () => {
         detail: "Local daemon found patrol due: event-threshold, time-interval.",
       }),
     ])
+    expect(useLocalMaintenanceStore.getState().reminder).toMatchObject({
+      projectPath: "/project",
+      dueReasons: ["event-threshold", "time-interval"],
+      eventCountSincePatrol: 0,
+    })
   })
 
   it("schedules auto patrol when policy allows it and maintenance is due", async () => {

@@ -6,6 +6,7 @@ import {
 import { loadMemoryOpsPolicy } from "@/lib/memory-ops-policy"
 import { normalizePath } from "@/lib/path-utils"
 import { useActivityStore } from "@/stores/activity-store"
+import { useLocalMaintenanceStore } from "@/stores/local-maintenance-store"
 
 export const DEFAULT_LOCAL_MAINTENANCE_INTERVAL_MS = 15 * 60 * 1000
 export const LOCAL_MAINTENANCE_DAEMON_ACTION = "local-maintenance-daemon"
@@ -81,6 +82,15 @@ export async function runLocalMaintenanceCheck(
     options.onStatus?.(status)
 
     if (!status.reminderDue) return status
+
+    useLocalMaintenanceStore.getState().setReminder({
+      projectPath,
+      dueReasons: status.dueReasons,
+      eventCountSincePatrol: status.eventCountSincePatrol,
+      dirtySince: status.dirtySince,
+      lastPatrolAt: status.lastPatrolAt,
+      createdAt: Date.now(),
+    })
 
     useActivityStore.getState().addItem({
       type: "maintenance",
