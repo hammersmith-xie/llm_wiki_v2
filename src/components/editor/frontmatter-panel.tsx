@@ -28,6 +28,7 @@ import { collectTypedRelationGroups } from "@/lib/frontmatter-relations"
 import { assessConfidenceStaleness } from "@/lib/confidence-staleness"
 import { useWikiStore } from "@/stores/wiki-store"
 import { normalizePath } from "@/lib/path-utils"
+import { openMaintenanceSettings } from "@/lib/open-maintenance-settings"
 import { useWikiAliasIndex } from "@/components/editor/use-wiki-alias-index"
 import { ConfidenceStaleBadge } from "@/components/editor/confidence-stale-badge"
 import {
@@ -253,7 +254,7 @@ export function FrontmatterPanel({ data }: FrontmatterPanelProps) {
           </div>
           <ConfidenceStaleBadge
             assessment={confidenceStaleness}
-            onRunPatrol={() => setActiveView("settings")}
+            onRunPatrol={() => openMaintenanceSettings(setActiveView)}
           />
         </>
       )}

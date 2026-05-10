@@ -3,7 +3,7 @@
 **版本**: v0.1
 **日期**: 2026-05-10
 **作者**: user + AI
-**状态**: 评审中
+**状态**: 已完成（二次 dev-spec-flow 复核通过）
 **关联任务列表**: [`tasks.md`](./tasks.md)
 
 ---
@@ -123,9 +123,9 @@
 **输出**: 修订后的 gap 文档。
 
 **验收标准**:
-- [ ] 文档不再要求远程服务或多用户同步。
-- [ ] 文档明确 app-resident daemon 和 OS-level daemon 的区别。
-- [ ] 文档能解释为什么 deep contradiction scan 不进入本期实现。
+- [x] 文档不再要求远程服务或多用户同步。
+- [x] 文档明确 app-resident daemon 和 OS-level daemon 的区别。
+- [x] 文档能解释为什么 deep contradiction scan 不进入本期实现。
 
 ### F2: README / README_CN Local-First Design Philosophy
 
@@ -141,9 +141,9 @@
 **输出**: 更新后的 README/README_CN。
 
 **验收标准**:
-- [ ] README 和 README_CN 都明确 Markdown source of truth。
-- [ ] 文档明确 LLM 不自动判真、不静默重写 Markdown。
-- [ ] 文档明确 daemon 是本地 app 运行期维护循环，不是远程 server。
+- [x] README 和 README_CN 都明确 Markdown source of truth。
+- [x] 文档明确 LLM 不自动判真、不静默重写 Markdown。
+- [x] 文档明确 daemon 是本地 app 运行期维护循环，不是远程 server。
 
 ### F3: Post-Ingest Structural Lint Hints
 
@@ -160,10 +160,10 @@
 **输出**: `.llm-wiki/ingest-lint-hints.json` 或清理后的无提示状态。
 
 **验收标准**:
-- [ ] structural lint findings 能持久化为 hints。
-- [ ] clean ingest 后旧 hints 清除。
-- [ ] lint helper 异常只 `console.warn`，不改变 ingest 成功/失败状态。
-- [ ] Activity Panel 显示 hints 数量并能跳到 Lint view。
+- [x] structural lint findings 能持久化为 hints。
+- [x] clean ingest 后旧 hints 清除。
+- [x] lint helper 异常只 `console.warn`，不改变 ingest 成功/失败状态。
+- [x] Activity Panel 显示 hints 数量并能跳到 Lint view。
 
 ### F4: Local Marp / CSV Export
 
@@ -180,11 +180,11 @@
 **输出**: 用户选择路径上的 `.marp.md` 或 `.csv` 文件。
 
 **验收标准**:
-- [ ] Marp markdown 包含合法 `marp: true` header。
-- [ ] 无 H2 页面导出为单页内容，有多个 H2 时拆成多张 slides。
-- [ ] CSV 正确处理逗号、引号、换行。
-- [ ] 取消 save dialog 时不写文件、不报错。
-- [ ] 导出不改 wiki 原文件。
+- [x] Marp markdown 包含合法 `marp: true` header。
+- [x] 无 H2 页面导出为单页内容，有多个 H2 时拆成多张 slides。
+- [x] CSV 正确处理逗号、引号、换行。
+- [x] 取消 save dialog 时不写文件、不报错。
+- [x] 导出不改 wiki 原文件。
 
 ### F5: Confidence Stale Badge
 
@@ -200,10 +200,10 @@
 **输出**: 可见的 stale warning。
 
 **验收标准**:
-- [ ] 超过 half-life 时显示提示。
-- [ ] 缺失或非法 `last_confirmed` 不显示且不崩溃。
-- [ ] `archived` 页面不显示 stale warning。
-- [ ] 点击跳转到 Settings。
+- [x] 超过 half-life 时显示提示。
+- [x] 缺失或非法 `last_confirmed` 不显示且不崩溃。
+- [x] `archived` 页面不显示 stale warning。
+- [x] 点击跳转到 Settings -> Maintenance。
 
 ### F6: App-Resident Local Maintenance Daemon
 
@@ -221,11 +221,11 @@
 **输出**: Activity item、banner/store 状态，或一次本地 deterministic patrol。
 
 **验收标准**:
-- [ ] 同一 project 同时最多一个 loop。
-- [ ] app 运行/隐藏时可检查；app quit 后无进程残留。
-- [ ] `autoPatrolEnabled=false` 时只提醒不自动 patrol。
-- [ ] `autoPatrolEnabled=true` 且 gate 满足时能调度 patrol。
-- [ ] 失败写 warning/activity，不影响 app 主流程。
+- [x] 同一 project 同时最多一个 loop。
+- [x] app 运行/隐藏时可检查；app quit 后无进程残留。
+- [x] `autoPatrolEnabled=false` 时只提醒不自动 patrol。
+- [x] `autoPatrolEnabled=true` 且 gate 满足时能调度 patrol。
+- [x] 失败写 warning/activity，不影响 app 主流程。
 
 ## 5. 非功能需求
 
@@ -384,5 +384,5 @@ src/stores/local-maintenance-store.ts  ← banner/reminder state if needed
 ## 9. 开放问题 / 待用户拍板
 
 - [ ] OS 级本地 daemon 是否要作为下一期独立规格推进？本期默认只做 app-resident daemon。
-- [ ] App-resident daemon 默认每 15 分钟轻量检查一次；是否自动运行 patrol 建议继续复用现有 `autoPatrolEnabled`，而不是新增单独开关。
+- [x] App-resident daemon 默认每 15 分钟轻量检查一次；自动运行 patrol 复用现有 `autoPatrolEnabled`，不新增单独开关。
 - [ ] Marp 导出默认 theme 采用 `default`，是否需要同时提供 `gaia` / `uncover` 选择？本期建议先固定 default。

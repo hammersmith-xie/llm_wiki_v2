@@ -2,6 +2,7 @@ import { AlertTriangle, Settings, X } from "lucide-react"
 import { useLocalMaintenanceStore, shouldShowLocalMaintenanceBanner } from "@/stores/local-maintenance-store"
 import type { LocalMaintenanceReminder } from "@/stores/local-maintenance-store"
 import { useWikiStore } from "@/stores/wiki-store"
+import { openMaintenanceSettings } from "@/lib/open-maintenance-settings"
 
 const DAY_MS = 86_400_000
 
@@ -16,7 +17,7 @@ export function LocalMaintenanceBanner() {
   return (
     <LocalMaintenanceBannerView
       reminder={reminder}
-      onOpenMaintenance={() => setActiveView("settings")}
+      onOpenMaintenance={() => openMaintenanceSettings(setActiveView)}
       onDismiss={dismissReminder}
     />
   )

@@ -424,7 +424,7 @@ graph TD
 
 - 🐛 **遇到的问题**: 只用 Activity item 会把 daemon reminder 埋在左下角折叠面板里，不足以表达“维护到期”。
 - 🔧 **最终实现逻辑**: 新增 session-only `local-maintenance-store` 和 `LocalMaintenanceBanner`；daemon due check 写入 reminder，layout 顶部展示原因、event count、dirty 天数和 last patrol 天数。
-- 🎯 **关键决策**: Dismiss 只写运行时 store，不持久化；点击 `Open Settings` 只切到 Settings，不自动运行 patrol 或应用建议。
+- 🎯 **关键决策**: Dismiss 只写运行时 store，不持久化；点击 `Open Settings` 跳转到 Settings -> Maintenance，不自动运行 patrol 或应用建议。
 
 ---
 
@@ -454,7 +454,7 @@ graph TD
 
 #### 备注
 
-- 🐛 **遇到的问题**: 无阻塞；全量 mock 回归覆盖 145 个 test files / 1418 个 tests。
+- 🐛 **遇到的问题**: 无阻塞；首轮全量 mock 回归覆盖 145 个 test files / 1418 个 tests，二次 dev-spec-flow 复核后覆盖 147 个 test files / 1420 个 tests。
 - 🔧 **最终实现逻辑**: 运行 `npm run typecheck` 和 `npm run test:mocks`，两者均通过。
 - 🎯 **关键决策**: 本轮未跑 `npm run test:llm`，因为本期改动均为 deterministic/local UI 与存储逻辑，real LLM tests 需要外部 provider 配置且不属于必要验收面。
 
@@ -517,6 +517,7 @@ graph TD
 | 2026-05-10 | 新增 Markdown pipe table to CSV helper 与 focused tests |
 | 2026-05-10 | Preview Panel 集成本地 Export menu，支持 Marp 和 CSV 写出 |
 | 2026-05-10 | 完成 confidence stale badge、本地维护 daemon、reminder banner 和 5 轮最终审核 |
+| 2026-05-10 | 二次 dev-spec-flow 复核补齐 Settings -> Maintenance 深链路和 requirements 验收状态 |
 
 ## 最终审核索引
 
@@ -527,3 +528,4 @@ graph TD
 | 3 | 性能 | ✅ | `review-round-3.md` |
 | 4 | 安全 | ✅ | `review-round-4.md` |
 | 5 | UX & a11y | ✅ | `review-round-5.md` |
+| 6 | 二次复核 | ✅ | `review-rerun-2026-05-10.md` |

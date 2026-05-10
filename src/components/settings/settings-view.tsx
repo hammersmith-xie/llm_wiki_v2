@@ -18,6 +18,10 @@ import { Button } from "@/components/ui/button"
 import { useWikiStore } from "@/stores/wiki-store"
 import { useChatStore } from "@/stores/chat-store"
 import { useUpdateStore, hasAvailableUpdate } from "@/stores/update-store"
+import {
+  useSettingsNavigationStore,
+  type SettingsCategoryId,
+} from "@/stores/settings-navigation-store"
 import { saveLanguage } from "@/lib/project-store"
 import type { SettingsDraft, DraftSetter } from "./settings-types"
 import { LlmProviderSection } from "./sections/llm-provider-section"
@@ -31,20 +35,8 @@ import { ChangelogSection } from "./sections/changelog-section"
 import { MaintenanceSection } from "./sections/maintenance-section"
 import { AboutSection } from "./sections/about-section"
 
-type CategoryId =
-  | "llm"
-  | "embedding"
-  | "multimodal"
-  | "web-search"
-  | "network"
-  | "output"
-  | "interface"
-  | "maintenance"
-  | "changelog"
-  | "about"
-
 interface Category {
-  id: CategoryId
+  id: SettingsCategoryId
   /** i18n key under settings.categories — resolved at render time so
    *  switching language in Settings → Interface takes effect without
    *  remounting this component (Bug #53). */
@@ -132,7 +124,10 @@ export function SettingsView() {
   // per version.
   const updateAvailable = useUpdateStore((s) => hasAvailableUpdate(s))
 
-  const [active, setActive] = useState<CategoryId>("llm")
+  const requestedCategory = useSettingsNavigationStore((s) => s.requestedCategory)
+  const consumeRequestedCategory = useSettingsNavigationStore((s) => s.consumeRequestedCategory)
+
+  const [active, setActive] = useState<SettingsCategoryId>("llm")
   const [saved, setSaved] = useState(false)
   const [draft, setDraftState] = useState<SettingsDraft>(() =>
     initialDraft(
@@ -145,6 +140,12 @@ export function SettingsView() {
       i18n.language,
     ),
   )
+
+  useEffect(() => {
+    if (!requestedCategory) return
+    setActive(requestedCategory)
+    consumeRequestedCategory()
+  }, [requestedCategory, consumeRequestedCategory])
 
   // Resync draft from store if it changes out-of-band (e.g. project switch).
   // IMPORTANT: keep the current draft.uiLanguage instead of re-reading
