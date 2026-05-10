@@ -33,6 +33,7 @@ import {
   createPreWriteEvidenceResolverCache,
   previewPreWriteConflict,
 } from "@/lib/prewrite-conflict-resolver"
+import { writePostIngestLintHints } from "@/lib/ingest-lint-hints"
 
 /**
  * Resolve the LLM config that the caption pipeline should use.
@@ -402,6 +403,7 @@ async function autoIngestImpl(
       detail: `Skipped (unchanged) — ${cachedFiles.length} files from previous ingest`,
       filesWritten: cachedFiles,
     })
+    await writePostIngestLintHintsSafely(pp, activityId, sp)
     return cachedFiles
   }
 
@@ -744,7 +746,26 @@ async function autoIngestImpl(
     filesWritten: writtenPaths,
   })
 
+  if (writtenPaths.length > 0) {
+    await writePostIngestLintHintsSafely(pp, activityId, sp)
+  }
+
   return writtenPaths
+}
+
+async function writePostIngestLintHintsSafely(
+  projectPath: string,
+  ingestId: string,
+  sourcePath: string,
+): Promise<void> {
+  try {
+    await writePostIngestLintHints(projectPath, ingestId, sourcePath)
+  } catch (err) {
+    console.warn(
+      "[ingest] post-ingest lint hints failed:",
+      err instanceof Error ? err.message : err,
+    )
+  }
 }
 
 /**

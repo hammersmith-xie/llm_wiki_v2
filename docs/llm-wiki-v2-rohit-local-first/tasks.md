@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 4 / 14
+**总体进度**: 🚧 5 / 14
 
 ---
 
@@ -162,7 +162,7 @@ graph TD
 
 ---
 
-### Task 2.2 ⏳ 接入 autoIngest 成功路径
+### Task 2.2 ✅ 接入 autoIngest 成功路径
 
 **描述**: 在 `autoIngestImpl` 成功更新 activity 后 best-effort 调用 lint hints helper。
 
@@ -176,16 +176,16 @@ graph TD
 - `src/lib/ingest.scenarios.test.ts` 或 `src/lib/ingest.test.ts`
 
 **验收**:
-- [ ] `runStructuralLint` 失败不会改变 ingest 结果。
-- [ ] 成功 ingest 后调用 hints helper。
-- [ ] cache-hit 分支是否运行 hints 有明确决策并记录备注。
-- [ ] focused test 覆盖 helper failure 不影响 `autoIngest`。
+- [x] `runStructuralLint` 失败不会改变 ingest 结果。
+- [x] 成功 ingest 后调用 hints helper。
+- [x] cache-hit 分支是否运行 hints 有明确决策并记录备注。
+- [x] focused test 覆盖 helper failure 不影响 `autoIngest`。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: TDD 红灯确认显示 `autoIngest` 成功路径没有调用 hints helper；cache-hit fixture 的返回值受现有缓存文件存在性影响，测试改为只验证“再次成功导入会刷新 hints”。
+- 🔧 **最终实现逻辑**: 在 full ingest 写入成功并更新 activity 后 best-effort 调用 `writePostIngestLintHints`；cache-hit 分支更新 activity 后也调用同一安全 wrapper。helper 异常只 `console.warn`，不改变 ingest 返回值。
+- 🎯 **关键决策**: cache-hit 仍刷新 lint hints，因为用户可能在两次导入之间手动修复 wiki，重新导入应清理或更新 last-ingest badge，而不是保留旧提示。
 
 ---
 
@@ -496,11 +496,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 文档收口 | 3 | 3 | ✅ |
-| M2 | Post-ingest lint hints | 1 | 3 | 🚧 |
+| M2 | Post-ingest lint hints | 2 | 3 | 🚧 |
 | M3 | Local export | 0 | 3 | ⏳ |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **4** | **14** | **🚧** |
+| **总计** | | **5** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -511,6 +511,7 @@ graph TD
 | 2026-05-10 | 修订 6 个 fix 计划：fix-05 升级为 app-resident daemon，fix-06 降为 future backlog |
 | 2026-05-10 | README / README_CN 新增 local-first 设计哲学并移除 no-daemon 旧口径 |
 | 2026-05-10 | 新增 post-ingest lint hints 持久化 helper 与 focused tests |
+| 2026-05-10 | autoIngest 成功路径接入 post-ingest lint hints，cache-hit 也刷新 hints |
 
 ## 最终审核索引
 

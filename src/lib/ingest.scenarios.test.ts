@@ -31,11 +31,18 @@ vi.mock("./llm-client", () => ({
   }),
 }))
 
+vi.mock("./ingest-lint-hints", () => ({
+  writePostIngestLintHints: vi.fn(async () => {}),
+}))
+
 import { autoIngest } from "./ingest"
+import { writePostIngestLintHints } from "./ingest-lint-hints"
 import { useWikiStore } from "@/stores/wiki-store"
 import { useReviewStore } from "@/stores/review-store"
 import { useActivityStore } from "@/stores/activity-store"
 import { useChatStore } from "@/stores/chat-store"
+
+const mockWritePostIngestLintHints = vi.mocked(writePostIngestLintHints)
 
 const FIXTURES_ROOT = path.join(
   process.cwd(),
@@ -54,6 +61,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   pendingResponses = []
+  mockWritePostIngestLintHints.mockReset()
+  mockWritePostIngestLintHints.mockResolvedValue(undefined)
   useReviewStore.setState({ items: [] })
   useActivityStore.setState({ items: [] })
   useChatStore.setState({
@@ -195,4 +204,54 @@ describe("ingest scenarios (fixture-driven)", () => {
       await assertOutcome(scenario, ctx.tmp.path)
     },
   )
+
+  it("does not fail a successful full ingest when post-ingest lint hints fail", async () => {
+    const scenario = ingestScenarios.find((s) => s.name === "basic-new-source")
+    expect(scenario).toBeTruthy()
+    ctx = await setup(scenario!)
+    mockWritePostIngestLintHints.mockRejectedValueOnce(new Error("lint unavailable"))
+
+    const sourceFullPath = path.join(ctx.tmp.path, scenario!.source.path)
+    const writtenPaths = await autoIngest(
+      ctx.tmp.path,
+      sourceFullPath,
+      useWikiStore.getState().llmConfig,
+    )
+
+    expect(writtenPaths).toEqual(scenario!.expected.writtenPaths)
+    expect(mockWritePostIngestLintHints).toHaveBeenCalledWith(
+      ctx.tmp.path,
+      expect.any(String),
+      sourceFullPath,
+    )
+    await assertOutcome(scenario!, ctx.tmp.path)
+  })
+
+  it("refreshes post-ingest lint hints on cache-hit ingests", async () => {
+    const scenario = ingestScenarios.find((s) => s.name === "basic-new-source")
+    expect(scenario).toBeTruthy()
+    ctx = await setup(scenario!)
+    const sourceFullPath = path.join(ctx.tmp.path, scenario!.source.path)
+
+    await autoIngest(
+      ctx.tmp.path,
+      sourceFullPath,
+      useWikiStore.getState().llmConfig,
+    )
+    mockWritePostIngestLintHints.mockClear()
+    pendingResponses = []
+
+    const secondRunPaths = await autoIngest(
+      ctx.tmp.path,
+      sourceFullPath,
+      useWikiStore.getState().llmConfig,
+    )
+
+    expect(secondRunPaths.length).toBeGreaterThan(0)
+    expect(mockWritePostIngestLintHints).toHaveBeenCalledWith(
+      ctx.tmp.path,
+      expect.any(String),
+      sourceFullPath,
+    )
+  })
 })
