@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 7 / 14
+**总体进度**: 🚧 8 / 14
 
 ---
 
@@ -251,7 +251,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ 实现 Markdown table to CSV helper
+### Task 3.2 ✅ 实现 Markdown table to CSV helper
 
 **描述**: 检测并导出第一张标准 pipe table。
 
@@ -265,15 +265,15 @@ graph TD
 - `src/lib/table-export.test.ts` (新建)
 
 **验收**:
-- [ ] 测试覆盖 table-heavy 检测、普通页面 disabled、alignment row 跳过。
-- [ ] CSV escape 正确处理逗号、引号、换行。
-- [ ] 无合法 table 时返回 null。
+- [x] 测试覆盖 table-heavy 检测、普通页面 disabled、alignment row 跳过。
+- [x] CSV escape 正确处理逗号、引号、换行。
+- [x] 无合法 table 时返回 null。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Markdown pipe table 没有引入 parser 依赖，需保持规则窄而可预测。
+- 🔧 **最终实现逻辑**: 新增 `hasDominantMarkdownTable` 和 `extractFirstTableAsCsv`；只识别首尾都有 `|` 的标准 pipe table，跳过 alignment row，支持 `<br>` 转换为 CSV 单元格内换行。
+- 🎯 **关键决策**: v1 不解析 escaped pipe 或复杂 GFM 嵌套表格，避免 ad hoc parser 过度扩张；后续如需要再引入正式 Markdown AST。
 
 ---
 
@@ -497,10 +497,10 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 文档收口 | 3 | 3 | ✅ |
 | M2 | Post-ingest lint hints | 3 | 3 | ✅ |
-| M3 | Local export | 1 | 3 | 🚧 |
+| M3 | Local export | 2 | 3 | 🚧 |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **7** | **14** | **🚧** |
+| **总计** | | **8** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -514,6 +514,7 @@ graph TD
 | 2026-05-10 | autoIngest 成功路径接入 post-ingest lint hints，cache-hit 也刷新 hints |
 | 2026-05-10 | Activity Panel 新增 post-ingest lint badge，点击进入 Lint 面板 |
 | 2026-05-10 | 新增 Marp export helper，支持 frontmatter title、metadata 和 H2 分片 |
+| 2026-05-10 | 新增 Markdown pipe table to CSV helper 与 focused tests |
 
 ## 最终审核索引
 
