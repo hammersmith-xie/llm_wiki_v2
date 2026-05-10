@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="#设计哲学">设计哲学</a> •
   <a href="#这是什么">这是什么？</a> •
   <a href="#我们的修改与新增">功能特性</a> •
   <a href="#技术栈">技术栈</a> •
@@ -43,6 +44,16 @@
 - **深度研究** — LLM 智能生成搜索主题，多查询网络搜索，研究结果自动摄入 Wiki
 - **异步审核系统** — LLM 在摄入时标记需人工判断的项，预定义操作，预生成搜索查询
 - **Chrome 网页剪藏** — 一键捕获网页内容，自动摄入知识库
+
+## 设计哲学
+
+**Markdown-first、human-gated、local-first。** 这是一个有明确取舍的 LLM wiki：`wiki/` 里的 Markdown 始终是事实源，`.llm-wiki/` 保存本地派生索引、审计、维护状态和 review 建议。
+
+- **Markdown 是事实源。** 图谱、索引和派生记录都可以从本地文件重建；wiki 离开 app 也能读、能进 Git diff，也能被 Obsidian 这类工具消费。
+- **高风险写入需要人确认。** app 可以提出更新、supersession 和维护建议，但不会在你背后静默改 Markdown。
+- **app 内本地 daemon 让维护可见。** 只要 app 进程仍在运行，本地维护循环默认每 15 分钟做一次轻量 due check；它可以提醒你，也可以在 policy 允许时调度确定性 patrol。app 完全退出后它就停止。
+- **不做远程 memory server 或 mesh sync。** 本阶段明确不引入远程后端、登录鉴权、多用户 ACL 或跨设备协作同步。
+- **显式优于魔法。** Confidence、contradiction 和 crystallization 都应该可检查、可审阅，而不是隐形后台突变。
 
 ## 这是什么？
 
@@ -248,7 +259,7 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **Schema 与质量扫描** —— Settings -> Maintenance 可解析 contract，扫描 `wiki/**/*.md` 的 frontmatter drift、typed relation 问题、路径/类型不匹配和确定性页面质量维度
 - **Schema findings 接入 Memory Ops 建议** —— 安全的 metadata-only finding 复用现有 preview/apply/ignore 和批量治理流程；review-only finding 只提示，不会变成自动 patch
 - **巡检展示最近扫描摘要** —— Memory Ops patrol 会展示最近一次已保存的 Schema 与质量摘要，包括 finding 数、warning、低质量页、平均质量分和建议数，但不会在巡检时重复运行昂贵的 schema scan
-- **事件 hooks** —— `session.start/end`、`memory.write`、`schema.scan`、`quality.scan`、`digest.preview` 和 `digest.save` 会写入 best-effort audit event 与 maintenance marker；当本地策略允许时，到期活动可以触发带冷却的本地巡检，但不会引入 daemon 或高频 source rescan
+- **事件 hooks** —— `session.start/end`、`memory.write`、`schema.scan`、`quality.scan`、`digest.preview` 和 `digest.save` 会写入 best-effort audit event 与 maintenance marker；当本地策略允许时，到期活动可以通过 app 内本地 daemon 触发带冷却的本地巡检，但不会高频重扫 source
 - **统一审计时间线** —— `.llm-wiki/audit.jsonl` 记录 lifecycle、crystallization、patrol、ignore、metadata apply 等事件，写入前脱敏并容忍坏行
 - **事实源边界** —— 巡检读取 Wiki 页面、typed graph state、review state、chat history 和 audit activity；原始资料仍是不可变输入，不作为后台重扫描目标
 - **事实级 claim evidence** —— 高价值 findings、decisions、recommendations、contradictions、conclusions 可以获得 app-managed Markdown anchors，例如 `<!-- claim:claim_xxx -->`；`.llm-wiki/claims.jsonl` 只保存可重建的派生 claim index，用于 search/chat evidence、Memory Ops claim health 和 claim audit handoff
@@ -257,7 +268,7 @@ Rohit 风格的 LLM Wiki v2 在这里落成一个本地维护层，而不是外�
 - **写入前冲突 gate** —— ingest 内容页、crystallized save 和 review-created page 会在落盘前构建 bounded write candidate。系统用相关页面和 claim evidence 将候选写入分类为 new、reinforcement、update、duplicate、possible contradiction、supersession 或 uncertain；安全写入继续并记录 `conflict.accept` audit，高风险写入跳过直接覆盖、进入或暴露 review handoff，并记录 `conflict.review`。
 - **历史冲突巡检** —— Memory Ops 在手动或策略触发 patrol 时复用同一套 bounded conflict resolver 检查已有 Wiki 页面；duplicate、possible contradiction、supersession、uncertain 会生成 review-only 建议并写入巡检统计，同路径 update 和 reinforcement 会被过滤。
 - **确定性巡检入口** —— Settings -> Maintenance 可扫描本地项目状态，不依赖 LLM 配置；普通项目默认使用策略门控的自动 patrol，严谨或高准确性知识库可以关闭自动 patrol 后手动确认运行
-- **无 daemon 的可配置自动巡检** —— query、search、review 活动可以标记“需要巡检”。当 `autoPatrolEnabled: true` 时，app 会在活动阈值、时间间隔和冷却条件满足后运行本地 Memory Ops patrol；当 `autoPatrolEnabled: false` 时，同样的活动只更新 due state 和提醒，由用户在 Maintenance 中确认巡检。
+- **app 内可配置自动巡检** —— query、search、review 活动可以标记“需要巡检”。本地维护 daemon 在 app 运行期间默认每 15 分钟检查一次 due state。当 `autoPatrolEnabled: true` 时，app 会在活动阈值、时间间隔和冷却条件满足后运行本地 Memory Ops patrol；当 `autoPatrolEnabled: false` 时，同样的活动只更新 due state 和提醒，由用户在 Maintenance 中确认巡检。
 - **生命周期建议** —— stale、low-confidence、superseded、archivable、promotion candidate 以 metadata suggestion 呈现，不自动重写页面
 - **关系清理建议** —— broken typed relationship target 和 dangling supersession link 独立提示，不和普通 wikilink lint 混在一起
 - **批量 metadata 治理** —— 可选择支持 metadata patch 的建议，批量 preview、批量 apply、批量 ignore；单项失败不会阻断其他项，并写入批量摘要 audit

@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 2 / 14
+**总体进度**: 🚧 3 / 14
 
 ---
 
@@ -42,7 +42,7 @@ graph TD
 
 **目标**: 修正 Rohit gap 文档和 README，使后续实现清楚服务 local-first + app-resident daemon 的边界。  
 **依赖**: 无  
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 1.1 ✅ 修订 gap-analysis 主报告和详解版
 
@@ -102,7 +102,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ README / README_CN 前置 local-first 哲学
+### Task 1.3 ✅ README / README_CN 前置 local-first 哲学
 
 **描述**: 在 README 开头新增短设计哲学段落，并同步中文版。
 
@@ -116,16 +116,16 @@ graph TD
 - `README_CN.md`
 
 **验收**:
-- [ ] README 明确 local-first、Markdown source of truth、human-gated writes。
-- [ ] README_CN 同步表达。
-- [ ] 文档明确本地 daemon 是 app 运行期维护循环，不是远程服务。
-- [ ] 没有重复堆砌已有 Memory Ops 详细功能列表。
+- [x] README 明确 local-first、Markdown source of truth、human-gated writes。
+- [x] README_CN 同步表达。
+- [x] 文档明确本地 daemon 是 app 运行期维护循环，不是远程服务。
+- [x] 没有重复堆砌已有 Memory Ops 详细功能列表。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: README / README_CN 的 Memory Ops 功能列表里仍有 “without daemon / 无 daemon” 旧口径，和用户确认的 app 内 daemon 不一致。
+- 🔧 **最终实现逻辑**: 在 README / README_CN 的功能亮点后新增设计哲学段落，并把 Memory Ops 事件 hooks、auto patrol 文案改为 app-resident local daemon；默认 15 分钟轻量 due check，app 完全退出后停止。
+- 🎯 **关键决策**: README 只讲边界和使用心智，不重复展开已有 Memory Ops 细节；双语文档保持同等约束。
 
 ---
 
@@ -495,12 +495,12 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 文档收口 | 2 | 3 | 🚧 |
+| M1 | 文档收口 | 3 | 3 | ✅ |
 | M2 | Post-ingest lint hints | 0 | 3 | ⏳ |
 | M3 | Local export | 0 | 3 | ⏳ |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **2** | **14** | **🚧** |
+| **总计** | | **3** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -509,6 +509,7 @@ graph TD
 | 2026-05-10 | 初稿，按 local-first + app-resident daemon 收口，14 个任务 |
 | 2026-05-10 | 用户确认 daemon 默认每 15 分钟做轻量维护检查 |
 | 2026-05-10 | 修订 6 个 fix 计划：fix-05 升级为 app-resident daemon，fix-06 降为 future backlog |
+| 2026-05-10 | README / README_CN 新增 local-first 设计哲学并移除 no-daemon 旧口径 |
 
 ## 最终审核索引
 

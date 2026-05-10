@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="#design-philosophy">Design Philosophy</a> •
   <a href="#what-is-this">What is this?</a> •
   <a href="#what-we-changed--added">Features</a> •
   <a href="#tech-stack">Tech Stack</a> •
@@ -43,6 +44,16 @@
 - **Deep Research** — LLM-optimized search topics, multi-query web search, auto-ingest results into wiki
 - **Async Review System** — LLM flags items for human judgment, predefined actions, pre-generated search queries
 - **Chrome Web Clipper** — one-click web page capture with auto-ingest into knowledge base
+
+## Design Philosophy
+
+**Markdown-first, human-gated, local-first.** This is an opinionated LLM wiki: `wiki/` remains the source of truth, and `.llm-wiki/` stores derived local state such as indexes, audit logs, maintenance state, and review suggestions.
+
+- **Markdown is the source of truth.** Graphs, indexes, and derived records can be rebuilt from local files. Your wiki stays readable without the app, diffable in Git, and portable to tools like Obsidian.
+- **Humans approve risky writes.** The app may suggest updates, supersessions, and maintenance actions, but it does not silently rewrite Markdown behind your back.
+- **A local app daemon keeps maintenance visible.** While the app process is running, a lightweight local maintenance loop checks due state every 15 minutes by default. It can remind you, and when policy allows it can schedule deterministic patrol. It stops when the app fully quits.
+- **No remote memory server or mesh sync.** This phase deliberately excludes a hosted backend, auth system, multi-user ACL, and cross-device mesh sync.
+- **Explicit beats auto-magic.** Confidence, contradictions, and crystallization are designed to be inspectable and reviewable rather than invisible background mutations.
 
 ## What is this?
 
@@ -248,7 +259,7 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Schema & Quality scan** — Settings -> Maintenance can parse the contract, scan `wiki/**/*.md` for frontmatter drift, typed relation issues, path/type mismatches, and deterministic page quality dimensions
 - **Schema findings as Memory Ops suggestions** — safe metadata-only findings reuse the existing preview/apply/ignore and batch governance flow; review-only findings stay visible without becoming automatic patches
 - **Latest scan in patrol** — Memory Ops patrol shows the latest saved Schema & Quality summary, including finding counts, warnings, low-quality pages, average quality, and suggestion count, without rerunning the expensive schema scan during patrol
-- **Event hooks** — `session.start/end`, `memory.write`, `schema.scan`, `quality.scan`, `digest.preview`, and `digest.save` write best-effort audit events and maintenance markers; when the local policy allows it, due activity can schedule a cooldown-gated patrol without creating a daemon or high-frequency source rescan
+- **Event hooks** — `session.start/end`, `memory.write`, `schema.scan`, `quality.scan`, `digest.preview`, and `digest.save` write best-effort audit events and maintenance markers; when the local policy allows it, due activity can schedule a cooldown-gated patrol through the app-resident local daemon without high-frequency source rescan
 - **Unified audit timeline** — `.llm-wiki/audit.jsonl` records lifecycle, crystallization, patrol, ignore, and metadata-apply events with redaction and bad-line tolerance
 - **Source-of-truth boundary** — patrol reads wiki pages, typed graph state, review state, chat history, and audit activity; raw documents remain immutable inputs, not a background rescan target
 - **Fact-level claim evidence** — high-value findings, decisions, recommendations, contradictions, and conclusions can receive app-managed Markdown anchors such as `<!-- claim:claim_xxx -->`; `.llm-wiki/claims.jsonl` stores a derived, rebuildable claim index for search/chat evidence, Memory Ops claim health, and claim audit handoff
@@ -257,7 +268,7 @@ Rohit-style LLM Wiki v2 ideas are implemented here as a local maintenance layer,
 - **Pre-write conflict gate** — ingest content pages, crystallized saves, and review-created pages build bounded write candidates before landing. Related pages and claim evidence classify writes as new, reinforcement, update, duplicate, possible contradiction, supersession, or uncertain; safe writes continue with `conflict.accept` audit, while risky writes skip direct overwrite, create or expose review handoff, and write `conflict.review`.
 - **Historical conflict patrol** — Memory Ops reuses the same bounded conflict resolver for existing wiki pages during manual or policy-triggered patrol. Duplicate, possible contradiction, supersession, or uncertain findings become review-only suggestions with summary stats in patrol audit; same-target updates and reinforcement are filtered out.
 - **Deterministic patrol runner** — Settings -> Maintenance can scan local project state without requiring an LLM; routine projects default to policy-gated automatic patrol after enough activity, while stricter knowledge bases can disable automatic patrol and run it manually
-- **Configurable auto patrol without daemon** — query, search, and review activity can mark that a patrol is due. With `autoPatrolEnabled: true`, the app may run local Memory Ops patrol after the event threshold, time interval, and cooldown gates are satisfied. With `autoPatrolEnabled: false`, the same events only update due state and reminders; users confirm patrol from Maintenance.
+- **Configurable app-resident auto patrol** — query, search, and review activity can mark that a patrol is due. The local maintenance daemon checks due state every 15 minutes by default while the app is running. With `autoPatrolEnabled: true`, the app may run local Memory Ops patrol after the event threshold, time interval, and cooldown gates are satisfied. With `autoPatrolEnabled: false`, the same events only update due state and reminders; users confirm patrol from Maintenance.
 - **Lifecycle suggestions** — stale, low-confidence, superseded, archivable, and promotion candidates are surfaced as metadata suggestions instead of automatic rewrites
 - **Relation cleanup suggestions** — broken typed relationship targets and dangling supersession links are flagged separately from ordinary wikilink lint
 - **Batch metadata governance** — selectable metadata suggestions support batch preview, batch apply, and batch ignore with per-item failure isolation and batch summary audit events
