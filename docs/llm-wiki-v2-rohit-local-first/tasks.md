@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 13 / 14
+**总体进度**: 🚧 14 / 14
 
 ---
 
@@ -432,9 +432,9 @@ graph TD
 
 **目标**: 跑完整验证，完成 5 轮审核报告，并补齐遗漏。  
 **依赖**: M2, M3, M4  
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 5.1 ⏳ 全量静态检查和 mock tests
+### Task 5.1 ✅ 全量静态检查和 mock tests
 
 **描述**: 跑项目级验证并修复阻塞问题。
 
@@ -448,15 +448,15 @@ graph TD
 - 所有本期修改文件
 
 **验收**:
-- [ ] `npm run typecheck` 通过。
-- [ ] `npm run test:mocks` 通过。
-- [ ] 如跳过 real LLM tests，在备注说明原因。
+- [x] `npm run typecheck` 通过。
+- [x] `npm run test:mocks` 通过。
+- [x] 如跳过 real LLM tests，在备注说明原因。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 无阻塞；全量 mock 回归覆盖 145 个 test files / 1418 个 tests。
+- 🔧 **最终实现逻辑**: 运行 `npm run typecheck` 和 `npm run test:mocks`，两者均通过。
+- 🎯 **关键决策**: 本轮未跑 `npm run test:llm`，因为本期改动均为 deterministic/local UI 与存储逻辑，real LLM tests 需要外部 provider 配置且不属于必要验收面。
 
 ---
 
