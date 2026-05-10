@@ -17,6 +17,12 @@
  * from any environment without crashing at module load.
  */
 
+import {
+  evaluateNetworkPolicy,
+  type NetworkPolicyConfig,
+  type NetworkPolicyDecision,
+} from "@/lib/network-policy"
+
 let pluginFetchPromise: Promise<typeof globalThis.fetch> | null = null
 
 /**
@@ -50,6 +56,56 @@ export function getHttpFetch(): Promise<typeof globalThis.fetch> {
     }
   }
   return pluginFetchPromise
+}
+
+export interface PolicyFetchMetadata {
+  feature: string
+  provider: string
+  reason: string
+  policy: NetworkPolicyConfig
+  fetchImpl?: typeof globalThis.fetch
+}
+
+export class NetworkPolicyBlockedError extends Error {
+  readonly decision: NetworkPolicyDecision
+  readonly feature: string
+  readonly provider: string
+  readonly reason: string
+
+  constructor(input: {
+    decision: NetworkPolicyDecision
+    feature: string
+    provider: string
+    reason: string
+  }) {
+    super(
+      `Network request blocked by ${input.decision.policy.mode} policy: ${input.decision.url.hostname || input.decision.url.input}`,
+    )
+    this.name = "NetworkPolicyBlockedError"
+    this.decision = input.decision
+    this.feature = input.feature
+    this.provider = input.provider
+    this.reason = input.reason
+  }
+}
+
+export async function policyFetch(
+  input: string,
+  init: RequestInit | undefined,
+  metadata: PolicyFetchMetadata,
+): Promise<Response> {
+  const decision = evaluateNetworkPolicy(input, metadata.policy)
+  if (!decision.allowed) {
+    throw new NetworkPolicyBlockedError({
+      decision,
+      feature: metadata.feature,
+      provider: metadata.provider,
+      reason: metadata.reason,
+    })
+  }
+
+  const httpFetch = metadata.fetchImpl ?? await getHttpFetch()
+  return httpFetch(input, init)
 }
 
 /**

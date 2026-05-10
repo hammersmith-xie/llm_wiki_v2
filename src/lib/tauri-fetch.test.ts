@@ -13,8 +13,14 @@
  * fallback doesn't regress silently (you'd only notice via a vitest
  * run crash with "window is not defined").
  */
-import { describe, it, expect } from "vitest"
-import { getHttpFetch, isFetchNetworkError } from "./tauri-fetch"
+import { describe, it, expect, vi } from "vitest"
+import {
+  getHttpFetch,
+  isFetchNetworkError,
+  NetworkPolicyBlockedError,
+  policyFetch,
+} from "./tauri-fetch"
+import { DEFAULT_NETWORK_POLICY } from "./network-policy"
 
 describe("getHttpFetch — Node fallback", () => {
   it("returns a callable function under Node (typeof window === undefined)", async () => {
@@ -75,5 +81,50 @@ describe("isFetchNetworkError", () => {
   it("matches generic 'network error' substring for less-common backends", () => {
     const err = new Error("there was a network error while connecting")
     expect(isFetchNetworkError(err)).toBe(true)
+  })
+})
+
+describe("policyFetch", () => {
+  it("allows loopback requests in local-only mode and delegates to the provided fetch", async () => {
+    const response = new Response("ok", { status: 200 })
+    const fetchImpl = vi.fn(async () => response)
+
+    const result = await policyFetch(
+      "http://127.0.0.1:11434/v1/chat/completions",
+      { method: "POST" },
+      {
+        policy: { ...DEFAULT_NETWORK_POLICY, mode: "local-only" },
+        feature: "llm",
+        provider: "ollama",
+        reason: "chat completion",
+        fetchImpl,
+      },
+    )
+
+    expect(result).toBe(response)
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "http://127.0.0.1:11434/v1/chat/completions",
+      { method: "POST" },
+    )
+  })
+
+  it("blocks public requests in local-only mode before invoking fetch", async () => {
+    const fetchImpl = vi.fn()
+
+    await expect(
+      policyFetch(
+        "https://api.openai.com/v1/chat/completions",
+        { method: "POST" },
+        {
+          policy: { ...DEFAULT_NETWORK_POLICY, mode: "local-only" },
+          feature: "llm",
+          provider: "openai",
+          reason: "chat completion",
+          fetchImpl,
+        },
+      ),
+    ).rejects.toBeInstanceOf(NetworkPolicyBlockedError)
+
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 })

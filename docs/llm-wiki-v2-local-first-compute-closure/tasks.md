@@ -1,8 +1,8 @@
 # 任务列表 — LLM Wiki v2 Local-First Compute Closure
 
-**关联需求**: [`requirements.md`](./requirements.md)  
-**估算量级**: 超大 (审核轮数：10+)  
-**总体进度**: 🚧 1 / 28  
+**关联需求**: [`requirements.md`](./requirements.md)
+**估算量级**: 超大 (审核轮数：10+)
+**总体进度**: 🚧 4 / 28
 **执行状态**: 先建档，Phase 3 暂缓；后续按批次推进
 
 ---
@@ -45,15 +45,15 @@ graph TD
 
 ## Milestone 1: 文档与产品边界
 
-**目标**: 先把 comment 转成准确的产品/技术边界，避免后续实现跑偏。  
-**依赖**: 无  
+**目标**: 先把 comment 转成准确的产品/技术边界，避免后续实现跑偏。
+**依赖**: 无
 **状态**: 🚧
 
 ### Task 1.1 ✅ 固化 comment triage 文档
 
 **描述**: 把 comment 里的 10 个缺口逐项归类为“直接采纳 / 修正后采纳 / Non-Goal”。
 
-**依赖**: 无  
+**依赖**: 无
 **阻塞**: T1.2, T2.1
 
 **关联文件 / 模块**:
@@ -77,7 +77,7 @@ graph TD
 
 **描述**: 在设计哲学附近补一张清晰表格，说明哪些能力纯本地、哪些可选本地、哪些云依赖。
 
-**依赖**: T1.1  
+**依赖**: T1.1
 **阻塞**: T5.1
 
 **关联文件 / 模块**:
@@ -101,7 +101,7 @@ graph TD
 
 **描述**: 将 “Claude Code CLI (local)” 改成更准确的 “Claude Code CLI (local process, remote model)”。
 
-**依赖**: T1.1  
+**依赖**: T1.1
 **阻塞**: T5.2
 
 **关联文件 / 模块**:
@@ -127,7 +127,7 @@ graph TD
 
 **描述**: 明确 app 不内建 mesh sync，跨设备同步依赖用户自带 git/Syncthing/iCloud。
 
-**依赖**: T1.1  
+**依赖**: T1.1
 **阻塞**: T7.4
 
 **关联文件 / 模块**:
@@ -150,15 +150,15 @@ graph TD
 
 ## Milestone 2: Network Policy Kernel
 
-**目标**: 建立 local-first compute 的硬执行边界。  
-**依赖**: M1  
-**状态**: ⏳
+**目标**: 建立 local-first compute 的硬执行边界。
+**依赖**: M1
+**状态**: 🚧
 
-### Task 2.1 ⏳ 新增 network policy 类型和持久化
+### Task 2.1 ✅ 新增 network policy 类型和持久化
 
 **描述**: 增加 `NetworkPolicyConfig`、默认值、迁移和 project-store 持久化。
 
-**依赖**: T1.1  
+**依赖**: T1.1
 **阻塞**: T2.2, T2.3, T3.x
 
 **关联文件 / 模块**:
@@ -169,24 +169,24 @@ graph TD
 - `src/components/settings/settings-types.ts`
 
 **验收**:
-- [ ] `mode` 支持 `local-only | allowlist | any`。
-- [ ] loopback 默认允许。
-- [ ] 旧配置迁移有测试。
-- [ ] 持久化读写有测试。
+- [x] `mode` 支持 `local-only | allowlist | any`。
+- [x] loopback 默认允许。
+- [x] 旧配置迁移有测试。
+- [x] 持久化读写有测试。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `project-store` 直接依赖 Tauri plugin-store，单测需要轻量 mock；Settings UI 尚未实现，但 draft/save 类型必须先接上，否则后续 UI 无法保存。
+- 🔧 **最终实现逻辑**: 新增 `NetworkPolicyConfig`、`DEFAULT_NETWORK_POLICY`、`normalizeNetworkPolicy`，接入 `wiki-store`、`settings-types` 和 `project-store` 的 `saveNetworkPolicyConfig` / `loadNetworkPolicyConfig`。
+- 🎯 **关键决策**: 默认使用 `allowlist` 且 `allowLan=false`，保留现有用户迁移空间；真正可操作 UI 留给 Task 2.4。
 
 ---
 
-### Task 2.2 ⏳ URL 分类和 allowlist 判断
+### Task 2.2 ✅ URL 分类和 allowlist 判断
 
 **描述**: 实现 URL parse、loopback/LAN/public host 分类、allowlist 匹配。
 
-**依赖**: T2.1  
+**依赖**: T2.1
 **阻塞**: T2.3
 
 **关联文件 / 模块**:
@@ -194,25 +194,25 @@ graph TD
 - `src/lib/network-policy.test.ts`
 
 **验收**:
-- [ ] `http://localhost:11434` 和 `http://127.0.0.1:11434` 判为 loopback。
-- [ ] `[::1]` 判为 loopback。
-- [ ] `192.168.x.x` / `10.x.x.x` / `172.16-31.x.x` 判为 LAN。
-- [ ] `https://api.openai.com` 判为 public。
-- [ ] allowlist 支持 origin 级匹配。
+- [x] `http://localhost:11434` 和 `http://127.0.0.1:11434` 判为 loopback。
+- [x] `[::1]` 判为 loopback。
+- [x] `192.168.x.x` / `10.x.x.x` / `172.16-31.x.x` 判为 LAN。
+- [x] `https://api.openai.com` 判为 public。
+- [x] allowlist 支持 origin 级匹配。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: URL allowlist 需要同时支持 `https://api.example.com` 这种 origin，也支持 `localhost:11434` 这种用户常写的 host:port。
+- 🔧 **最终实现逻辑**: 新增 `classifyNetworkUrl` 和 `evaluateNetworkPolicy`，支持 loopback、RFC1918 LAN、public、invalid 四类，并按 `local-only` / `allowlist` / `any` 输出可测试 decision reason。
+- 🎯 **关键决策**: allowlist 模式默认仍允许 loopback；LAN 只有 `allowLan=true` 或显式 allowlist 时放行。
 
 ---
 
-### Task 2.3 ⏳ 新增 policy-aware HTTP wrapper
+### Task 2.3 ✅ 新增 policy-aware HTTP wrapper
 
 **描述**: 在 `tauri-fetch.ts` 上层增加必须传 metadata 的 `policyFetch`。
 
-**依赖**: T2.1, T2.2  
+**依赖**: T2.1, T2.2
 **阻塞**: M3, M6
 
 **关联文件 / 模块**:
@@ -222,16 +222,16 @@ graph TD
 - `src/lib/egress-log.ts` (后续 T6.1 可先 stub)
 
 **验收**:
-- [ ] 调用方必须传 `feature/provider/reason`。
-- [ ] local-only 阻止 public URL。
-- [ ] block 抛出 `NetworkPolicyBlockedError`。
+- [x] 调用方必须传 `feature/provider/reason`。
+- [x] local-only 阻止 public URL。
+- [x] block 抛出 `NetworkPolicyBlockedError`。
 - [ ] allow/block 都能调用 egress logger 的 safe stub。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: egress logger 属于 M6，当前还没有 `egress-log.ts`；本切片先建立 block/allow 执行点，避免为了 stub 提前引入半成品日志格式。
+- 🔧 **最终实现逻辑**: 在 `tauri-fetch.ts` 新增 `policyFetch` 和 `NetworkPolicyBlockedError`，调用方必须传 `feature`、`provider`、`reason`、`policy`；测试用 injectable `fetchImpl` 验证 block 前不触发真实请求。
+- 🎯 **关键决策**: 这次不迁移现有出网调用，避免一次性改动 LLM/embedding/web/update/vision；迁移放在 M3。
 
 ---
 
@@ -239,7 +239,7 @@ graph TD
 
 **描述**: 在 Network 设置页暴露 policy mode、allowlist、LAN 选项。
 
-**依赖**: T2.1  
+**依赖**: T2.1
 **阻塞**: T5.1
 
 **关联文件 / 模块**:
@@ -265,8 +265,8 @@ graph TD
 
 ## Milestone 3: Existing Egress Migration
 
-**目标**: 把所有现有出网点迁移到 policy gate。  
-**依赖**: M2  
+**目标**: 把所有现有出网点迁移到 policy gate。
+**依赖**: M2
 **状态**: ⏳
 
 ### Task 3.1 ⏳ 迁移 LLM provider 请求
@@ -375,8 +375,8 @@ graph TD
 
 ## Milestone 4: Local Defaults
 
-**目标**: 让“选本地”比“选云”更容易。  
-**依赖**: M3  
+**目标**: 让“选本地”比“选云”更容易。
+**依赖**: M3
 **状态**: ⏳
 
 ### Task 4.1 ⏳ Embedding 本地 Ollama 预设
@@ -444,8 +444,8 @@ graph TD
 
 ## Milestone 5: Offline UX
 
-**目标**: local-only 下不要运行时才失败，而是提前禁用或降级。  
-**依赖**: M3, M4  
+**目标**: local-only 下不要运行时才失败，而是提前禁用或降级。
+**依赖**: M3, M4
 **状态**: ⏳
 
 ### Task 5.1 ⏳ Cloud-dependent disabled states
@@ -496,8 +496,8 @@ graph TD
 
 ## Milestone 6: Egress Report
 
-**目标**: local-first 可证明，用户能看出 app 连过哪里。  
-**依赖**: M2, M3  
+**目标**: local-first 可证明，用户能看出 app 连过哪里。
+**依赖**: M2, M3
 **状态**: ⏳
 
 ### Task 6.1 ⏳ Egress append-only log
@@ -565,8 +565,8 @@ graph TD
 
 ## Milestone 7: Chat Privacy and Auto Git
 
-**目标**: 补齐本地敏感状态和可回滚 bulk operation。  
-**依赖**: M4, M5, M6  
+**目标**: 补齐本地敏感状态和可回滚 bulk operation。
+**依赖**: M4, M5, M6
 **状态**: ⏳
 
 ### Task 7.1 ⏳ Chat history privacy policy
@@ -659,8 +659,8 @@ graph TD
 
 ## Milestone 8: Verification and Final Review
 
-**目标**: 超大任务完成后做 10+ 轮最终审核。  
-**依赖**: M1-M7  
+**目标**: 超大任务完成后做 10+ 轮最终审核。
+**依赖**: M1-M7
 **状态**: ⏳
 
 ### Task 8.1 ⏳ 全量静态检查和 mock tests
@@ -718,14 +718,14 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 文档与产品边界 | 1 | 4 | 🚧 |
-| M2 | Network Policy Kernel | 0 | 4 | ⏳ |
+| M2 | Network Policy Kernel | 3 | 4 | 🚧 |
 | M3 | Existing Egress Migration | 0 | 5 | ⏳ |
 | M4 | Local Defaults | 0 | 3 | ⏳ |
 | M5 | Offline UX | 0 | 2 | ⏳ |
 | M6 | Egress Report | 0 | 3 | ⏳ |
 | M7 | Chat Privacy and Auto Git | 0 | 4 | ⏳ |
 | M8 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **1** | **28** | **🚧** |
+| **总计** | | **4** | **28** | **🚧** |
 
 ## 变更记录
 
@@ -733,3 +733,4 @@ graph TD
 |------|------|
 | 2026-05-10 | 初稿，按 comment 建立 local-first compute / egress closure 路线图，Phase 3 暂缓 |
 | 2026-05-10 | 完成 Task 1.1 comment triage 建档：直接采纳 / 修正后采纳 / Non-Goal 分级 |
+| 2026-05-10 | 完成 M2 内核切片：network policy 类型/持久化、URL 分类、policy-aware fetch wrapper；Settings UI 与现有出网迁移后续执行 |

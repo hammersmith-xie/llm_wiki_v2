@@ -1,5 +1,7 @@
 import { create } from "zustand"
 import type { WikiProject, FileNode } from "@/types/wiki"
+import type { NetworkPolicyConfig } from "@/lib/network-policy"
+import { DEFAULT_NETWORK_POLICY } from "@/lib/network-policy"
 
 /**
  * Wire protocol used when `provider === "custom"`. Other providers have a
@@ -209,6 +211,7 @@ interface WikiState {
   multimodalConfig: MultimodalConfig
   outputLanguage: OutputLanguage
   proxyConfig: ProxyConfig
+  networkPolicyConfig: NetworkPolicyConfig
   dataVersion: number
 
   setProject: (project: WikiProject | null) => void
@@ -226,6 +229,7 @@ interface WikiState {
   setMultimodalConfig: (config: MultimodalConfig) => void
   setOutputLanguage: (lang: OutputLanguage) => void
   setProxyConfig: (config: ProxyConfig) => void
+  setNetworkPolicyConfig: (config: NetworkPolicyConfig) => void
   bumpDataVersion: () => void
 }
 
@@ -297,6 +301,8 @@ export const useWikiStore = create<WikiState>((set) => ({
     bypassLocal: true,
   },
 
+  networkPolicyConfig: DEFAULT_NETWORK_POLICY,
+
   setLlmConfig: (llmConfig) => set({ llmConfig }),
   setProviderConfigs: (providerConfigs) => set({ providerConfigs }),
   setActivePresetId: (activePresetId) => set({ activePresetId }),
@@ -305,7 +311,8 @@ export const useWikiStore = create<WikiState>((set) => ({
   setMultimodalConfig: (multimodalConfig) => set({ multimodalConfig }),
   setOutputLanguage: (outputLanguage) => set({ outputLanguage }),
   setProxyConfig: (proxyConfig) => set({ proxyConfig }),
+  setNetworkPolicyConfig: (networkPolicyConfig) => set({ networkPolicyConfig }),
   bumpDataVersion: () => set((state) => ({ dataVersion: state.dataVersion + 1 })),
 }))
 
-export type { WikiState, LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProxyConfig }
+export type { WikiState, LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProxyConfig, NetworkPolicyConfig }

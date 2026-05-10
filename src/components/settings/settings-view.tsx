@@ -63,6 +63,7 @@ function initialDraft(
   multimodal: ReturnType<typeof useWikiStore.getState>["multimodalConfig"],
   outputLanguage: ReturnType<typeof useWikiStore.getState>["outputLanguage"],
   proxy: ReturnType<typeof useWikiStore.getState>["proxyConfig"],
+  networkPolicy: ReturnType<typeof useWikiStore.getState>["networkPolicyConfig"],
   maxHistoryMessages: number,
   uiLanguage: string,
 ): SettingsDraft {
@@ -95,6 +96,7 @@ function initialDraft(
     proxyEnabled: proxy.enabled,
     proxyUrl: proxy.url,
     proxyBypassLocal: proxy.bypassLocal,
+    networkPolicyConfig: networkPolicy,
     uiLanguage,
   }
 }
@@ -112,6 +114,8 @@ export function SettingsView() {
   const project = useWikiStore((s) => s.project)
   const proxyConfig = useWikiStore((s) => s.proxyConfig)
   const setProxyConfig = useWikiStore((s) => s.setProxyConfig)
+  const networkPolicyConfig = useWikiStore((s) => s.networkPolicyConfig)
+  const setNetworkPolicyConfig = useWikiStore((s) => s.setNetworkPolicyConfig)
   const maxHistoryMessages = useChatStore((s) => s.maxHistoryMessages)
   const setMaxHistoryMessages = useChatStore((s) => s.setMaxHistoryMessages)
   // Drives the red dot next to the "About" row in the settings
@@ -136,6 +140,7 @@ export function SettingsView() {
       multimodalConfig,
       outputLanguage,
       proxyConfig,
+      networkPolicyConfig,
       maxHistoryMessages,
       i18n.language,
     ),
@@ -163,6 +168,7 @@ export function SettingsView() {
         multimodalConfig,
         outputLanguage,
         proxyConfig,
+        networkPolicyConfig,
         maxHistoryMessages,
         prev.uiLanguage,
       ),
@@ -173,6 +179,7 @@ export function SettingsView() {
     multimodalConfig,
     outputLanguage,
     proxyConfig,
+    networkPolicyConfig,
     maxHistoryMessages,
   ])
 
@@ -187,6 +194,7 @@ export function SettingsView() {
       saveMultimodalConfig,
       saveOutputLanguage,
       saveProxyConfig,
+      saveNetworkPolicyConfig,
     } = await import("@/lib/project-store")
 
     const newLlm = {
@@ -241,6 +249,8 @@ export function SettingsView() {
     await saveOutputLanguage(draft.outputLanguage as typeof outputLanguage, project?.id)
     setProxyConfig(newProxy)
     await saveProxyConfig(newProxy)
+    setNetworkPolicyConfig(draft.networkPolicyConfig)
+    await saveNetworkPolicyConfig(draft.networkPolicyConfig)
     // Apply the proxy env vars LIVE so the next outbound request
     // picks them up — no app restart needed. tauri-plugin-http
     // builds a fresh reqwest client per fetch and reqwest reads
@@ -265,6 +275,7 @@ export function SettingsView() {
     setEmbeddingConfig,
     setOutputLanguage,
     setProxyConfig,
+    setNetworkPolicyConfig,
     setMaxHistoryMessages,
     outputLanguage,
     project,

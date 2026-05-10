@@ -1,5 +1,5 @@
 import type { CustomApiMode } from "./llm-presets"
-import type { ReasoningConfig } from "@/stores/wiki-store"
+import type { NetworkPolicyConfig, ReasoningConfig } from "@/stores/wiki-store"
 
 /**
  * Shape of the draft state each section reads from and writes into.
@@ -49,6 +49,7 @@ export interface SettingsDraft {
   proxyEnabled: boolean
   proxyUrl: string
   proxyBypassLocal: boolean
+  networkPolicyConfig: NetworkPolicyConfig
 
   // UI
   uiLanguage: string

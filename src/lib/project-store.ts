@@ -1,6 +1,7 @@
 import { load } from "@tauri-apps/plugin-store"
 import type { WikiProject } from "@/types/wiki"
-import type { LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProviderConfigs, ProxyConfig } from "@/stores/wiki-store"
+import type { LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProviderConfigs, ProxyConfig, NetworkPolicyConfig } from "@/stores/wiki-store"
+import { normalizeNetworkPolicy } from "@/lib/network-policy"
 import { normalizePath } from "@/lib/path-utils"
 
 const STORE_NAME = "app-state.json"
@@ -132,6 +133,19 @@ export async function saveProxyConfig(config: ProxyConfig): Promise<void> {
 export async function loadProxyConfig(): Promise<ProxyConfig | null> {
   const store = await getStore()
   return (await store.get<ProxyConfig>(PROXY_CONFIG_KEY)) ?? null
+}
+
+const NETWORK_POLICY_CONFIG_KEY = "networkPolicyConfig"
+
+export async function saveNetworkPolicyConfig(config: NetworkPolicyConfig): Promise<void> {
+  const store = await getStore()
+  await store.set(NETWORK_POLICY_CONFIG_KEY, normalizeNetworkPolicy(config))
+}
+
+export async function loadNetworkPolicyConfig(): Promise<NetworkPolicyConfig | null> {
+  const store = await getStore()
+  const value = await store.get<unknown>(NETWORK_POLICY_CONFIG_KEY)
+  return value === null || value === undefined ? null : normalizeNetworkPolicy(value)
 }
 
 export async function removeFromRecentProjects(
