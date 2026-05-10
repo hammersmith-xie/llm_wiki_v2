@@ -9,6 +9,7 @@ import { getLastProject, getRecentProjects, saveLastProject, loadLlmConfig, load
 import { loadReviewItems, loadChatHistory } from "@/lib/persist"
 import { setupAutoSave } from "@/lib/auto-save"
 import { startClipWatcher } from "@/lib/clip-watcher"
+import { startProjectLocalMaintenanceLifecycle } from "@/lib/project-local-maintenance"
 import { AppLayout } from "@/components/layout/app-layout"
 import { WelcomeScreen } from "@/components/project/welcome-screen"
 import { CreateProjectDialog } from "@/components/project/create-project-dialog"
@@ -28,6 +29,12 @@ function App() {
     setupAutoSave()
     startClipWatcher()
   }, [])
+
+  useEffect(() => {
+    if (!project) return
+    const lifecycle = startProjectLocalMaintenanceLifecycle(project.path)
+    return () => lifecycle.stop()
+  }, [project?.path])
 
   // Dev-only helper for visually testing the update-banner UX.
   // Open dev tools and run:

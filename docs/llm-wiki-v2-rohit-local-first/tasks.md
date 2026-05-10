@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 11 / 14
+**总体进度**: 🚧 12 / 14
 
 ---
 
@@ -372,7 +372,7 @@ graph TD
 
 ---
 
-### Task 4.3 ⏳ App lifecycle 接入 local daemon
+### Task 4.3 ✅ App lifecycle 接入 local daemon
 
 **描述**: Project open 后启动 daemon，project switch/unmount/quit 时停止。
 
@@ -387,16 +387,16 @@ graph TD
 - `src/stores/local-maintenance-store.ts` (如需新建)
 
 **验收**:
-- [ ] 打开 project 后 daemon start。
-- [ ] 切换 project 时旧 project daemon stop，新 project daemon start。
-- [ ] Welcome/no project 状态不运行 daemon。
-- [ ] App unmount 清理。
+- [x] 打开 project 后 daemon start。
+- [x] 切换 project 时旧 project daemon stop，新 project daemon start。
+- [x] Welcome/no project 状态不运行 daemon。
+- [x] App unmount 清理。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: React cleanup 可能发生在 policy 异步加载完成之前，若直接在 `App.tsx` 内 await 后 start，切 project 时容易出现晚启动的旧 daemon。
+- 🔧 **最终实现逻辑**: 新增 `project-local-maintenance` lifecycle helper，按 project policy 启动 daemon；cleanup 会停止已启动 handle，并在 late start 完成后立即 stop。
+- 🎯 **关键决策**: `App.tsx` 只按 `project?.path` 挂载/清理 lifecycle；无 project 时不启动，policy 关闭 daemon 时返回 null。
 
 ---
 
