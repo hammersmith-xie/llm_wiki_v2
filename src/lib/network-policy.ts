@@ -66,6 +66,19 @@ export function normalizeNetworkPolicy(value: unknown): NetworkPolicyConfig {
   }
 }
 
+export function normalizeNetworkAllowlistEntry(entry: string): string {
+  const trimmed = entry.trim().toLowerCase().replace(/\/+$/, "")
+  if (!trimmed) return ""
+  if (trimmed.includes("://")) {
+    try {
+      return new URL(trimmed).origin.toLowerCase()
+    } catch {
+      return stripIpv6Brackets(trimmed)
+    }
+  }
+  return stripIpv6Brackets(trimmed)
+}
+
 export function classifyNetworkUrl(input: string): NetworkUrlInfo {
   let parsed: URL
   try {
@@ -175,18 +188,7 @@ function matchesAllowlist(url: NetworkUrlInfo, allowedHosts: readonly string[]):
   const host = url.hostname
 
   return allowedHosts.some((entry) => {
-    const normalized = normalizeAllowlistEntry(entry)
+    const normalized = normalizeNetworkAllowlistEntry(entry)
     return normalized === origin || normalized === hostWithPort || normalized === host
   })
-}
-
-function normalizeAllowlistEntry(entry: string): string {
-  const trimmed = entry.trim().toLowerCase().replace(/\/+$/, "")
-  if (!trimmed) return ""
-  try {
-    const parsed = new URL(trimmed)
-    return parsed.origin.toLowerCase()
-  } catch {
-    return stripIpv6Brackets(trimmed)
-  }
 }

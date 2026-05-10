@@ -3,6 +3,7 @@ import {
   DEFAULT_NETWORK_POLICY,
   classifyNetworkUrl,
   evaluateNetworkPolicy,
+  normalizeNetworkAllowlistEntry,
   normalizeNetworkPolicy,
   type NetworkPolicyConfig,
 } from "./network-policy"
@@ -111,6 +112,19 @@ describe("evaluateNetworkPolicy", () => {
     })
   })
 
+  it("allowlist mode supports public host:port entries without a URL scheme", () => {
+    const policy: NetworkPolicyConfig = {
+      ...DEFAULT_NETWORK_POLICY,
+      mode: "allowlist",
+      allowedHosts: ["api.example.com:8443"],
+    }
+
+    expect(evaluateNetworkPolicy("https://api.example.com:8443/v1", policy)).toMatchObject({
+      allowed: true,
+      reason: "allowed-allowlist",
+    })
+  })
+
   it("any mode allows public URLs while preserving parsed metadata", () => {
     const result = evaluateNetworkPolicy("https://api.openai.com/v1", {
       ...DEFAULT_NETWORK_POLICY,
@@ -124,5 +138,16 @@ describe("evaluateNetworkPolicy", () => {
         hostname: "api.openai.com",
       },
     })
+  })
+})
+
+describe("normalizeNetworkAllowlistEntry", () => {
+  it("normalizes URL origins and preserves host:port entries", () => {
+    expect(normalizeNetworkAllowlistEntry(" HTTPS://API.EXAMPLE.COM/v1/ ")).toBe(
+      "https://api.example.com",
+    )
+    expect(normalizeNetworkAllowlistEntry("api.example.com:8443")).toBe(
+      "api.example.com:8443",
+    )
   })
 })

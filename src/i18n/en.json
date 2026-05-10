@@ -221,7 +221,35 @@
       },
       "network": {
         "title": "Network",
-        "description": "Route all outbound HTTP requests (LLM, embedding, search, update check) through a proxy. Changes apply on Save — no restart needed.",
+        "description": "Control app-layer outbound policy and proxy routing. Policy changes apply on Save; proxy changes apply on app restart.",
+        "policyTitle": "Outbound policy",
+        "policyDescription": "Policy-aware HTTP requests check this before egress. Existing integrations are being migrated in the next milestone, so this UI does not claim full-app enforcement yet.",
+        "modes": {
+          "local-only": {
+            "label": "Local only",
+            "hint": "Loopback endpoints only; public cloud blocked."
+          },
+          "allowlist": {
+            "label": "Allowlist",
+            "hint": "Loopback plus listed hosts/origins."
+          },
+          "any": {
+            "label": "Any",
+            "hint": "Permit all outbound hosts."
+          }
+        },
+        "anyWarningTitle": "Cloud egress allowed",
+        "anyWarning": "Any permits policy-aware requests to public cloud endpoints. Use it only when you intentionally want remote providers or external search.",
+        "allowlistTitle": "Allowed hosts",
+        "allowlistPlaceholder": "https://api.example.com or localhost:11434",
+        "allowlistHelp": "Use an origin like https://api.example.com or a host:port like localhost:11434. Paths are normalized to the origin.",
+        "addAllowedHost": "Add",
+        "removeAllowedHost": "Remove {{host}}",
+        "emptyAllowlist": "No public hosts are allowlisted.",
+        "allowLan": "Allow LAN addresses",
+        "allowLanHelp": "Allows RFC1918 addresses such as 10.x.x.x, 172.16-31.x.x, and 192.168.x.x. Keep off unless your local models or services run on another device.",
+        "proxyTitle": "Proxy",
+        "proxyDescription": "Route outbound HTTP through a proxy after the app restarts. This does not override the outbound policy above.",
         "enable": "Enable proxy",
         "url": "Proxy URL",
         "urlHelp": "Full URL with scheme. Supported: http://, https://. (SOCKS5 not supported in this version.)",

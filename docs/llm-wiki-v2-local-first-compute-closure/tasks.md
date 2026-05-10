@@ -235,7 +235,7 @@ graph TD
 
 ---
 
-### Task 2.4 ⏳ Settings → Network policy UI
+### Task 2.4 ✅ Settings → Network policy UI
 
 **描述**: 在 Network 设置页暴露 policy mode、allowlist、LAN 选项。
 
@@ -250,16 +250,17 @@ graph TD
 - `src/components/settings/sections/network-section.test.tsx`
 
 **验收**:
-- [ ] 用户能切换 `local-only / allowlist / any`。
-- [ ] allowlist 可增删 host/origin。
-- [ ] UI 明确 `any` 会允许 cloud egress。
-- [ ] 保存后立刻影响 runtime。
+- [x] 用户能切换 `local-only / allowlist / any`。
+- [x] allowlist 可增删 host/origin。
+- [x] UI 明确 `any` 会允许 cloud egress。
+- [x] 保存后立刻影响 runtime，并且冷启动会 hydrate 已保存 policy。
+- [x] UI 不夸大 M3 前的 enforcement 范围：明确现有集成仍在迁移中。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: Settings 保存路径已经接入 `networkPolicyConfig`，但 `App.tsx` 启动时没有加载 `loadNetworkPolicyConfig`；如果只做 UI，重启后用户选择会回到默认值。实现中还发现核心 allowlist matcher 对公网 `host:port`（例如 `api.example.com:8443`）匹配失败，因为旧逻辑会被 `new URL()` 误判为 scheme。
+- 🔧 **最终实现逻辑**: `NetworkSection` 新增 outbound policy 面板，支持三种 mode、allowlist 增删、LAN toggle 和 `any` cloud egress warning；保留 proxy 面板但明确 proxy 重启生效且不会覆盖 policy。新增 `startup-settings.ts` 承载启动设置 hydrate，`App.tsx` 通过它加载 LLM/search/embedding/multimodal/proxy/network policy，并用测试锁住 active preset fallback 行为。`network-policy.ts` 导出共享 `normalizeNetworkAllowlistEntry`，UI 和 matcher 复用同一规范化规则。
+- 🎯 **关键决策**: UI 文案明确“policy-aware requests”而非“全应用已强制拦截”，因为现有 LLM/embedding/web/update/vision 调用迁移到 `policyFetch` 属于 M3；Task 2.4 只保证保存后的 runtime store 和已接入 wrapper 的请求立即使用新 policy。
 
 ---
 
