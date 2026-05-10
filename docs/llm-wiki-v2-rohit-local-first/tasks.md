@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 5 / 14
+**总体进度**: 🚧 6 / 14
 
 ---
 
@@ -133,7 +133,7 @@ graph TD
 
 **目标**: Ingest 成功后本地生成 structural lint hints，并在 Activity Panel 提示。  
 **依赖**: M1  
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 新增 ingest lint hints 持久化 helper
 
@@ -189,7 +189,7 @@ graph TD
 
 ---
 
-### Task 2.3 ⏳ Activity Panel 展示 post-ingest lint badge
+### Task 2.3 ✅ Activity Panel 展示 post-ingest lint badge
 
 **描述**: 在 Activity Panel 顶部展示最近 ingest 的 lint hint 数量，点击跳转 Lint view。
 
@@ -204,16 +204,16 @@ graph TD
 - `src/components/layout/post-ingest-lint-badge.test.tsx` (新建或合并现有 layout test)
 
 **验收**:
-- [ ] 有 hints 时显示文本数量，不只靠颜色。
-- [ ] 无 project 或 totalCount=0 时不显示。
-- [ ] 点击设置 `activeView` 为 `lint`。
-- [ ] 组件测试覆盖显示和点击。
+- [x] 有 hints 时显示文本数量，不只靠颜色。
+- [x] 无 project 或 totalCount=0 时不显示。
+- [x] 点击设置 `activeView` 为 `lint`。
+- [x] 组件测试覆盖显示和点击。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 项目当前 React 组件测试主要使用 node 环境下的 static markup，没有 DOM click helper；测试拆成静态渲染输出和 view handler wiring。
+- 🔧 **最终实现逻辑**: 新增 `PostIngestLintBadge` / `PostIngestLintBadgeView`，读取 `.llm-wiki/ingest-lint-hints.json`，有 hints 时在 Activity Panel 展开区顶部显示数量和 source 文件名；点击调用 `setActiveView("lint")`。
+- 🎯 **关键决策**: 组件按 `projectPath + dataVersion` 重新读取，并保留 3 秒轻量轮询兜底；badge 文案带数量和 source 名，不只依赖 amber 颜色。
 
 ---
 
@@ -496,11 +496,11 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 文档收口 | 3 | 3 | ✅ |
-| M2 | Post-ingest lint hints | 2 | 3 | 🚧 |
+| M2 | Post-ingest lint hints | 3 | 3 | ✅ |
 | M3 | Local export | 0 | 3 | ⏳ |
 | M4 | Confidence and local daemon | 0 | 4 | ⏳ |
 | M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **5** | **14** | **🚧** |
+| **总计** | | **6** | **14** | **🚧** |
 
 ## 变更记录
 
@@ -512,6 +512,7 @@ graph TD
 | 2026-05-10 | README / README_CN 新增 local-first 设计哲学并移除 no-daemon 旧口径 |
 | 2026-05-10 | 新增 post-ingest lint hints 持久化 helper 与 focused tests |
 | 2026-05-10 | autoIngest 成功路径接入 post-ingest lint hints，cache-hit 也刷新 hints |
+| 2026-05-10 | Activity Panel 新增 post-ingest lint badge，点击进入 Lint 面板 |
 
 ## 最终审核索引
 

@@ -8,6 +8,7 @@ import { useActivityStore, type ActivityItem } from "@/stores/activity-store"
 import { useWikiStore } from "@/stores/wiki-store"
 import { normalizePath, getFileName, isAbsolutePath } from "@/lib/path-utils"
 import { getQueue, getQueueSummary, retryTask, cancelTask, cancelAllTasks, type IngestTask } from "@/lib/ingest-queue"
+import { PostIngestLintBadge } from "@/components/layout/post-ingest-lint-badge"
 
 const FILE_TYPE_ICONS: Record<string, typeof FileText> = {
   sources: BookOpen,
@@ -133,6 +134,8 @@ export function ActivityPanel() {
 
       {expanded && (
         <div className="max-h-64 overflow-y-auto border-t">
+          {project && <PostIngestLintBadge projectPath={project.path} />}
+
           {/* Queue progress bar */}
           {hasQueue && (queueSummary.processing > 0 || queueSummary.pending > 0) && (
             <div className="px-3 py-1.5 border-b border-border/50">
