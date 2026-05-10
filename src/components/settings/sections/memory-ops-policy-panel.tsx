@@ -29,6 +29,7 @@ type NumericPolicyKey =
   | "automation.reminderCooldownMinutes"
   | "automation.minPatrolIntervalMinutes"
   | "automation.timeIntervalHours"
+  | "automation.maintenanceCheckIntervalMinutes"
 
 interface MemoryOpsPolicyPanelProps {
   projectReady: boolean
@@ -231,6 +232,26 @@ export function MemoryOpsPolicyPanel({
             }))
           }
         />
+        <CheckboxRow
+          label={t("settings.sections.maintenance.policy.maintenanceDaemonEnabled")}
+          checked={draft.automation.maintenanceDaemonEnabled}
+          onChange={(checked) =>
+            setDraft((prev) => ({
+              ...prev,
+              automation: { ...prev.automation, maintenanceDaemonEnabled: checked },
+            }))
+          }
+        />
+        <NumberField
+          label={t("settings.sections.maintenance.policy.maintenanceCheckIntervalMinutes")}
+          value={draft.automation.maintenanceCheckIntervalMinutes}
+          min={1}
+          step={1}
+          onChange={(value) => setNumber("automation.maintenanceCheckIntervalMinutes", value)}
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("settings.sections.maintenance.policy.maintenanceCheckHelp")}
+        </p>
         <NumberField
           label={t("settings.sections.maintenance.policy.eventThreshold")}
           value={draft.automation.eventThreshold}
@@ -411,6 +432,8 @@ function memoryOpsPolicyEquals(a: MemoryOpsPolicy, b: MemoryOpsPolicy): boolean 
     a.automation.eventThreshold === b.automation.eventThreshold &&
     a.automation.reminderCooldownMinutes === b.automation.reminderCooldownMinutes &&
     a.automation.minPatrolIntervalMinutes === b.automation.minPatrolIntervalMinutes &&
-    a.automation.timeIntervalHours === b.automation.timeIntervalHours
+    a.automation.timeIntervalHours === b.automation.timeIntervalHours &&
+    a.automation.maintenanceDaemonEnabled === b.automation.maintenanceDaemonEnabled &&
+    a.automation.maintenanceCheckIntervalMinutes === b.automation.maintenanceCheckIntervalMinutes
   )
 }

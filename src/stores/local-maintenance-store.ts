@@ -22,9 +22,14 @@ export const useLocalMaintenanceStore = create<LocalMaintenanceState>((set) => (
   reminder: null,
   dismissedReminderKey: null,
   setReminder: (reminder) =>
-    set({
-      reminder,
-      dismissedReminderKey: null,
+    set((state) => {
+      const nextKey = reminderKey(reminder)
+      const dismissedReminderKey =
+        state.dismissedReminderKey === nextKey ? state.dismissedReminderKey : null
+      return {
+        reminder,
+        dismissedReminderKey,
+      }
     }),
   dismissReminder: () =>
     set((state) => ({
@@ -47,8 +52,9 @@ export function shouldShowLocalMaintenanceBanner(
 function reminderKey(reminder: LocalMaintenanceReminder): string {
   return [
     reminder.projectPath,
-    reminder.createdAt,
     reminder.eventCountSincePatrol,
     reminder.dueReasons.join("+"),
+    reminder.dirtySince ?? "none",
+    reminder.lastPatrolAt ?? "none",
   ].join("|")
 }

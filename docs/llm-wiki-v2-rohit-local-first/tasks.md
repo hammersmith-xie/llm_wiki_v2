@@ -2,7 +2,7 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 中 (审核轮数：5)
-**总体进度**: 🚧 14 / 14
+**总体进度**: ✅ 14 / 14
 
 ---
 
@@ -310,7 +310,7 @@ graph TD
 
 **目标**: 让 stale confidence 可见，并实现 app-resident local maintenance daemon。  
 **依赖**: M1  
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 4.1 ✅ 实现 confidence staleness helper 和 UI badge
 
@@ -432,7 +432,7 @@ graph TD
 
 **目标**: 跑完整验证，完成 5 轮审核报告，并补齐遗漏。  
 **依赖**: M2, M3, M4  
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 5.1 ✅ 全量静态检查和 mock tests
 
@@ -460,7 +460,7 @@ graph TD
 
 ---
 
-### Task 5.2 ⏳ Phase 4 五轮最终审核
+### Task 5.2 ✅ Phase 4 五轮最终审核
 
 **描述**: 按中量级要求完成 5 轮最终审核并写报告。
 
@@ -477,17 +477,17 @@ graph TD
 - `docs/llm-wiki-v2-rohit-local-first/review-round-5.md`
 
 **验收**:
-- [ ] Round 1 功能完整性：对照 requirements/tasks 无遗漏。
-- [ ] Round 2 类型安全：typecheck、类型边界、no hidden any。
-- [ ] Round 3 性能：daemon interval、lint/export 成本、不会高频扫描。
-- [ ] Round 4 安全：local-first、redaction、无远程后端/自动重写。
-- [ ] Round 5 UX & a11y：按钮 label、banner 可读、i18n 状态。
+- [x] Round 1 功能完整性：对照 requirements/tasks 无遗漏。
+- [x] Round 2 类型安全：typecheck、类型边界、no hidden any。
+- [x] Round 3 性能：daemon interval、lint/export 成本、不会高频扫描。
+- [x] Round 4 安全：local-first、redaction、无远程后端/自动重写。
+- [x] Round 5 UX & a11y：按钮 label、banner 可读、i18n 状态。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 最终审核发现两处缺漏：Settings policy 面板未暴露 daemon 开关/interval；session dismiss 在同一 due state 下会被后续 daemon tick 重置。
+- 🔧 **最终实现逻辑**: 写入 5 份 review report，并补齐 policy UI/i18n、stable reminder dismiss key 和对应回归测试。
+- 🎯 **关键决策**: 本期保留局部英文 UI 文案作为后续 i18n 整理项；local-first 功能闭环不受影响。
 
 ---
 
@@ -499,8 +499,8 @@ graph TD
 | M2 | Post-ingest lint hints | 3 | 3 | ✅ |
 | M3 | Local export | 3 | 3 | ✅ |
 | M4 | Confidence and local daemon | 4 | 4 | ✅ |
-| M5 | 验证与最终审核 | 0 | 2 | ⏳ |
-| **总计** | | **13** | **14** | **🚧** |
+| M5 | 验证与最终审核 | 2 | 2 | ✅ |
+| **总计** | | **14** | **14** | **✅** |
 
 ## 变更记录
 
@@ -516,13 +516,14 @@ graph TD
 | 2026-05-10 | 新增 Marp export helper，支持 frontmatter title、metadata 和 H2 分片 |
 | 2026-05-10 | 新增 Markdown pipe table to CSV helper 与 focused tests |
 | 2026-05-10 | Preview Panel 集成本地 Export menu，支持 Marp 和 CSV 写出 |
+| 2026-05-10 | 完成 confidence stale badge、本地维护 daemon、reminder banner 和 5 轮最终审核 |
 
 ## 最终审核索引
 
 | Round | 视角 | 状态 | 报告 |
 |-------|------|------|------|
-| 1 | 功能 | ⏳ | `review-round-1.md` |
-| 2 | 类型 & 静态分析 | ⏳ | `review-round-2.md` |
-| 3 | 性能 | ⏳ | `review-round-3.md` |
-| 4 | 安全 | ⏳ | `review-round-4.md` |
-| 5 | UX & a11y | ⏳ | `review-round-5.md` |
+| 1 | 功能 | ✅ | `review-round-1.md` |
+| 2 | 类型 & 静态分析 | ✅ | `review-round-2.md` |
+| 3 | 性能 | ✅ | `review-round-3.md` |
+| 4 | 安全 | ✅ | `review-round-4.md` |
+| 5 | UX & a11y | ✅ | `review-round-5.md` |
