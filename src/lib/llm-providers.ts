@@ -1,4 +1,5 @@
 import type { LlmConfig, ReasoningConfig } from "@/stores/wiki-store"
+import type { NetworkPolicyConfig } from "@/lib/network-policy"
 
 /**
  * One piece of a multimodal message body. Text + image is the only
@@ -50,6 +51,11 @@ export interface RequestOverrides {
   max_tokens?: number
   stop?: string | string[]
   reasoning?: ReasoningConfig
+  networkPolicy?: NetworkPolicyConfig
+  networkFeature?: string
+  networkProvider?: string
+  networkReason?: string
+  fetchImpl?: typeof globalThis.fetch
 }
 
 interface ProviderConfig {
@@ -222,8 +228,21 @@ function buildOpenAiBody(
   return { messages: translated, stream: true, ...stripWireAgnosticOverrides(overrides) }
 }
 
-function stripWireAgnosticOverrides(overrides?: RequestOverrides): Omit<RequestOverrides, "reasoning"> {
-  const { reasoning: _reasoning, ...rest } = overrides ?? {}
+function stripWireAgnosticOverrides(
+  overrides?: RequestOverrides,
+): Omit<
+  RequestOverrides,
+  "reasoning" | "networkPolicy" | "networkFeature" | "networkProvider" | "networkReason" | "fetchImpl"
+> {
+  const {
+    reasoning: _reasoning,
+    networkPolicy: _networkPolicy,
+    networkFeature: _networkFeature,
+    networkProvider: _networkProvider,
+    networkReason: _networkReason,
+    fetchImpl: _fetchImpl,
+    ...rest
+  } = overrides ?? {}
   return rest
 }
 

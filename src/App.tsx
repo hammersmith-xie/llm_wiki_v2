@@ -145,9 +145,7 @@ function App() {
         }
 
         useUpdateStore.getState().setChecking(true)
-        console.log(
-          `[update-check] fetching GitHub releases (local=${__APP_VERSION__})`,
-        )
+        console.log(`[update-check] checking release status (local=${__APP_VERSION__})`)
         const result = await checkForUpdates({
           currentVersion: __APP_VERSION__,
           repo: "nashsu/llm_wiki",

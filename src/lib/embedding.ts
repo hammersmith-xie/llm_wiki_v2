@@ -22,10 +22,11 @@
 
 import { readFile, listDirectory } from "@/commands/fs"
 import { invoke } from "@tauri-apps/api/core"
-import type { EmbeddingConfig } from "@/stores/wiki-store"
+import { useWikiStore, type EmbeddingConfig } from "@/stores/wiki-store"
+import type { NetworkPolicyConfig } from "@/lib/network-policy"
 import type { FileNode } from "@/types/wiki"
 import { normalizePath } from "@/lib/path-utils"
-import { getHttpFetch, isFetchNetworkError } from "@/lib/tauri-fetch"
+import { isFetchNetworkError, NetworkPolicyBlockedError, policyFetch } from "@/lib/tauri-fetch"
 import { chunkMarkdown, type Chunk } from "@/lib/text-chunker"
 
 // ── Error surfacing ──────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ export async function fetchEmbedding(
   text: string,
   cfg: EmbeddingConfig,
   maxRetries = 3,
+  networkPolicy?: NetworkPolicyConfig,
 ): Promise<number[] | null> {
   if (!cfg.endpoint) return null
 
@@ -92,12 +94,21 @@ export async function fetchEmbedding(
   while (attempts <= maxRetries) {
     attempts++
     try {
-      const httpFetch = await getHttpFetch()
-      const resp = await httpFetch(cfg.endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ model: cfg.model, input: current }),
-      })
+      const policy = networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+      const resp = await policyFetch(
+        cfg.endpoint,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ model: cfg.model, input: current }),
+        },
+        {
+          feature: "embedding",
+          provider: "openai-compatible",
+          reason: "embedding request",
+          policy,
+        },
+      )
 
       if (resp.ok) {
         const data = await resp.json()
@@ -143,7 +154,9 @@ export async function fetchEmbedding(
       console.warn(`[Embedding] ${lastEmbeddingError}`)
       return null
     } catch (err) {
-      if (isFetchNetworkError(err)) {
+      if (err instanceof NetworkPolicyBlockedError) {
+        lastEmbeddingError = `Embedding endpoint blocked by ${err.decision.policy.mode} network policy: ${err.decision.url.hostname || cfg.endpoint}`
+      } else if (isFetchNetworkError(err)) {
         lastEmbeddingError = `Network error reaching ${cfg.endpoint}. Check endpoint URL, API key, and connectivity.`
       } else {
         lastEmbeddingError = err instanceof Error ? err.message : String(err)
@@ -271,6 +284,7 @@ export async function embedPage(
   title: string,
   content: string,
   cfg: EmbeddingConfig,
+  networkPolicy?: NetworkPolicyConfig,
 ): Promise<void> {
   if (!cfg.enabled || !cfg.model) return
 
@@ -285,7 +299,7 @@ export async function embedPage(
   let failedChunks = 0
   for (const chunk of chunks) {
     const embedText = enrichChunkForEmbedding(title, chunk)
-    const vec = await fetchEmbedding(embedText, cfg)
+    const vec = await fetchEmbedding(embedText, cfg, 3, networkPolicy)
     if (vec) {
       rows.push({
         chunkIndex: chunk.index,
@@ -322,6 +336,7 @@ export async function embedAllPages(
   projectPath: string,
   cfg: EmbeddingConfig,
   onProgress?: (done: number, total: number) => void,
+  networkPolicy?: NetworkPolicyConfig,
 ): Promise<number> {
   if (!cfg.enabled || !cfg.model) return 0
 
@@ -355,7 +370,7 @@ export async function embedAllPages(
       const content = await readFile(file.path)
       const titleMatch = content.match(/^---\n[\s\S]*?^title:\s*["']?(.+?)["']?\s*$/m)
       const title = titleMatch ? titleMatch[1].trim() : file.id
-      await embedPage(pp, file.id, title, content, cfg)
+      await embedPage(pp, file.id, title, content, cfg, networkPolicy)
     } catch {
       // skip — individual file failure doesn't halt the batch
     }
@@ -392,10 +407,11 @@ export async function searchByEmbedding(
   query: string,
   cfg: EmbeddingConfig,
   topK: number = 10,
+  networkPolicy?: NetworkPolicyConfig,
 ): Promise<PageSearchResult[]> {
   if (!cfg.enabled || !cfg.model) return []
 
-  const queryEmb = await fetchEmbedding(query, cfg)
+  const queryEmb = await fetchEmbedding(query, cfg, 3, networkPolicy)
   if (!queryEmb) return []
 
   const t0 = performance.now()

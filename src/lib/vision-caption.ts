@@ -198,6 +198,9 @@ export async function captionImage(
     {
       temperature: options?.temperature ?? 0,
       max_tokens: options?.maxTokens ?? 4096,
+      networkFeature: "vision-caption",
+      networkProvider: llmConfig.provider,
+      networkReason: "image caption",
     },
   )
 

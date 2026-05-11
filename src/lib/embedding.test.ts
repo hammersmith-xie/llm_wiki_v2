@@ -18,15 +18,64 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (cmd: string, args?: unknown) => mockInvoke(cmd, args),
 }))
 
-// Stub getHttpFetch so fetchEmbedding calls hit our in-test responder.
+// Stub policyFetch/getHttpFetch so fetchEmbedding calls hit our in-test responder.
 const mockHttpFetch = vi.fn<(url: string, opts?: RequestInit) => Promise<Response>>()
-vi.mock("@/lib/tauri-fetch", () => ({
-  getHttpFetch: () => Promise.resolve(mockHttpFetch),
-  isFetchNetworkError: (err: unknown) =>
-    err instanceof TypeError ||
-    (err instanceof Error &&
-      (err.message === "Load failed" || err.message === "Failed to fetch")),
-}))
+vi.mock("@/lib/tauri-fetch", async () => {
+  const networkPolicy = await import("@/lib/network-policy")
+  class MockNetworkPolicyBlockedError extends Error {
+    decision: unknown
+    feature: string
+    provider: string
+    reason: string
+
+    constructor(input: {
+      decision: unknown
+      feature: string
+      provider: string
+      reason: string
+    }) {
+      super("Network request blocked by test policy")
+      this.name = "NetworkPolicyBlockedError"
+      this.decision = input.decision
+      this.feature = input.feature
+      this.provider = input.provider
+      this.reason = input.reason
+    }
+  }
+
+  return {
+    getHttpFetch: () => Promise.resolve(mockHttpFetch),
+    policyFetch: async (
+      url: string,
+      opts: RequestInit | undefined,
+      metadata: {
+        policy: unknown
+        feature: string
+        provider: string
+        reason: string
+        fetchImpl?: typeof globalThis.fetch
+      },
+    ) => {
+      const decision = networkPolicy.evaluateNetworkPolicy(url, metadata.policy)
+      if (!decision.allowed) {
+        throw new MockNetworkPolicyBlockedError({
+          decision,
+          feature: metadata.feature,
+          provider: metadata.provider,
+          reason: metadata.reason,
+        })
+      }
+      return (metadata.fetchImpl ?? mockHttpFetch)(url, opts)
+    },
+    NetworkPolicyBlockedError: MockNetworkPolicyBlockedError,
+    isFetchNetworkError: (err: unknown) =>
+      err instanceof TypeError ||
+      (err instanceof Error &&
+        (err.message === "Load failed" ||
+          err.message === "Failed to fetch" ||
+          err.name === "NetworkPolicyBlockedError")),
+  }
+})
 
 // readFile / listDirectory aren't exercised in this file's cases; stub.
 vi.mock("@/commands/fs", () => ({
@@ -45,12 +94,18 @@ import {
   removePageEmbedding,
   type PageSearchResult,
 } from "./embedding"
+import { DEFAULT_NETWORK_POLICY, type NetworkPolicyConfig } from "@/lib/network-policy"
 
 const cfg = {
   enabled: true,
   endpoint: "http://localhost:1234/v1/embeddings",
   apiKey: "",
   model: "test-embed",
+}
+
+const localOnlyPolicy: NetworkPolicyConfig = {
+  ...DEFAULT_NETWORK_POLICY,
+  mode: "local-only",
 }
 
 /** Build an embedding-shaped JSON Response. */
@@ -230,6 +285,30 @@ describe("searchByEmbedding — aggregation", () => {
 // ── fetchEmbedding auto-halve — via embedPage/searchByEmbedding ─────
 
 describe("fetchEmbedding (via searchByEmbedding) — auto-halve", () => {
+  it("blocks public embedding endpoints in local-only mode before fetch", async () => {
+    const out = await searchByEmbedding(
+      "/tmp/p",
+      "hello",
+      { ...cfg, endpoint: "https://api.openai.com/v1/embeddings" },
+      5,
+      localOnlyPolicy,
+    )
+
+    expect(out).toEqual([])
+    expect(mockHttpFetch).not.toHaveBeenCalled()
+    expect(getLastEmbeddingError()).toContain("blocked by local-only network policy")
+  })
+
+  it("allows loopback embedding endpoints in local-only mode", async () => {
+    mockHttpFetch.mockResolvedValue(okResponse([0.1, 0.2, 0.3]))
+    mockInvoke.mockResolvedValueOnce([])
+
+    await searchByEmbedding("/tmp/p", "hello", cfg, 5, localOnlyPolicy)
+
+    expect(mockHttpFetch).toHaveBeenCalledOnce()
+    expect(mockHttpFetch.mock.calls[0]?.[0]).toBe(cfg.endpoint)
+  })
+
   it("retries after an oversize 400 with halved text and succeeds", async () => {
     const responses = [oversizeErrorResponse(400), okResponse([0.1, 0.2])]
     let call = 0

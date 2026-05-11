@@ -300,6 +300,32 @@ describe("Sampling override translation across wires", () => {
     expect(body.max_tokens).toBe(500)
   })
 
+  it("OpenAI wires do not leak network-policy metadata into request bodies", () => {
+    const cfg = getProviderConfig({
+      provider: "openai",
+      apiKey: "k",
+      model: "gpt-4o",
+      ollamaUrl: "",
+      customEndpoint: "",
+      maxContextSize: 128000,
+    })
+    const body = cfg.buildBody(baseMessages, {
+      temperature: 0.1,
+      networkPolicy: { mode: "local-only", allowedHosts: [], allowLan: false, policyVersion: 1 },
+      networkFeature: "vision-caption",
+      networkProvider: "openai",
+      networkReason: "image caption",
+      fetchImpl: (() => Promise.resolve(new Response())) as typeof globalThis.fetch,
+    }) as Record<string, unknown>
+
+    expect(body.temperature).toBe(0.1)
+    expect(body.networkPolicy).toBeUndefined()
+    expect(body.networkFeature).toBeUndefined()
+    expect(body.networkProvider).toBeUndefined()
+    expect(body.networkReason).toBeUndefined()
+    expect(body.fetchImpl).toBeUndefined()
+  })
+
   it("Anthropic maps stop → stop_sequences and respects max_tokens override", () => {
     const cfg = getProviderConfig({
       provider: "anthropic",

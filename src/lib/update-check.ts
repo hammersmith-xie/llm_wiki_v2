@@ -14,7 +14,10 @@
  * covers 95% of the value.
  */
 
-import { getHttpFetch, isFetchNetworkError } from "./tauri-fetch"
+import type { NetworkPolicyConfig } from "@/lib/network-policy"
+import { evaluateNetworkPolicy } from "@/lib/network-policy"
+import { useWikiStore } from "@/stores/wiki-store"
+import { isFetchNetworkError, policyFetch } from "./tauri-fetch"
 
 /** The subset of the GitHub release API response we care about. */
 /**
@@ -58,6 +61,16 @@ export type UpdateStatus =
   | { kind: "up-to-date"; local: string; remote: string }
   | { kind: "error"; local: string; message: string }
 
+function latestReleaseApiUrl(repo: string): string {
+  return `https://api.github.com/repos/${repo}/releases/latest`
+}
+
+function blockedUpdateMessage(url: string, policy: NetworkPolicyConfig): string | null {
+  const decision = evaluateNetworkPolicy(url, policy)
+  if (decision.allowed) return null
+  return `Update check blocked by ${decision.policy.mode} network policy: ${decision.url.hostname || url}`
+}
+
 /**
  * Strict semver-ish comparison of two "MAJOR.MINOR.PATCH" strings.
  * We don't use pre-release tags or build metadata in this project, so
@@ -100,17 +113,27 @@ export function isNewer(remote: string, local: string): boolean {
  */
 export async function fetchLatestRelease(
   repo: string,
+  networkPolicy?: NetworkPolicyConfig,
 ): Promise<GithubRelease | null> {
-  const url = `https://api.github.com/repos/${repo}/releases/latest`
+  const url = latestReleaseApiUrl(repo)
+  const policy = networkPolicy ?? useWikiStore.getState().networkPolicyConfig
   try {
-    const httpFetch = await getHttpFetch()
-    const resp = await httpFetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+    const resp = await policyFetch(
+      url,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
       },
-    })
+      {
+        feature: "update-check",
+        provider: "github",
+        reason: "release check",
+        policy,
+      },
+    )
     if (!resp.ok) return null
     const data = await resp.json()
     // Duck-type the response shape — GitHub occasionally adds fields
@@ -144,9 +167,21 @@ export async function fetchLatestRelease(
 export async function checkForUpdates(opts: {
   currentVersion: string
   repo: string
+  networkPolicy?: NetworkPolicyConfig
 }): Promise<UpdateStatus> {
   const { currentVersion, repo } = opts
-  const release = await fetchLatestRelease(repo)
+  const policy = opts.networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+  const url = latestReleaseApiUrl(repo)
+  const blockedMessage = blockedUpdateMessage(url, policy)
+  if (blockedMessage) {
+    return {
+      kind: "error",
+      local: currentVersion,
+      message: blockedMessage,
+    }
+  }
+
+  const release = await fetchLatestRelease(repo, policy)
   if (!release) {
     return {
       kind: "error",

@@ -80,13 +80,19 @@ export function AboutSection() {
   // update is always shown in detail.
   const showAvailable = hasAvailableUpdate(updateStore)
   const lastCheckFailed = updateStore.lastResult?.kind === "error"
+  const lastCheckErrorMessage =
+    updateStore.lastResult?.kind === "error" ? updateStore.lastResult.message : null
   const lastCheckedLabel = updateStore.lastCheckedAt
     ? lastCheckFailed
       // Failed checks are overwhelmingly "GitHub unreachable from the
-      // user's network" (common in mainland China). Not actionable,
-      // so don't display a colored warning — keep the status in the
-      // same muted timestamp line and move on.
-      ? `${formatRelative(updateStore.lastCheckedAt, t)} · ${t("settings.sections.about.unreachable")}`
+      // user's network" (common in mainland China). Policy blocks are
+      // actionable though, so surface their explicit reason instead of
+      // flattening them into a generic unreachable label.
+      ? `${formatRelative(updateStore.lastCheckedAt, t)} · ${
+          lastCheckErrorMessage?.includes("network policy")
+            ? lastCheckErrorMessage
+            : t("settings.sections.about.unreachable")
+        }`
       : formatRelative(updateStore.lastCheckedAt, t)
     : t("settings.sections.about.lastCheckedNever")
 

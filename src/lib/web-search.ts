@@ -1,5 +1,6 @@
-import type { SearchApiConfig, SearchProvider, SearchProviderConfigs, SerpApiEngine } from "@/stores/wiki-store"
-import { getHttpFetch, isFetchNetworkError } from "@/lib/tauri-fetch"
+import { type SearchApiConfig, type SearchProvider, type SearchProviderConfigs, type SerpApiEngine, useWikiStore } from "@/stores/wiki-store"
+import type { NetworkPolicyConfig } from "@/lib/network-policy"
+import { isFetchNetworkError, NetworkPolicyBlockedError, policyFetch } from "@/lib/tauri-fetch"
 
 export interface WebSearchResult {
   title: string
@@ -52,17 +53,19 @@ export async function webSearch(
   query: string,
   config: SearchApiConfig,
   maxResults: number = 10,
+  networkPolicy?: NetworkPolicyConfig,
 ): Promise<WebSearchResult[]> {
   const resolved = resolveSearchConfig(config)
   if (resolved.provider === "none" || !resolved.apiKey) {
     throw new Error("Web search not configured. Add a Tavily or SerpApi API key in Settings.")
   }
 
+  const policy = networkPolicy ?? useWikiStore.getState().networkPolicyConfig
   switch (resolved.provider) {
     case "tavily":
-      return tavilySearch(query, resolved.apiKey, maxResults)
+      return tavilySearch(query, resolved.apiKey, maxResults, policy)
     case "serpapi":
-      return serpApiSearch(query, resolved.apiKey, maxResults, resolved.serpApiEngine ?? "google")
+      return serpApiSearch(query, resolved.apiKey, maxResults, resolved.serpApiEngine ?? "google", policy)
     default:
       throw new Error(`Unknown search provider: ${resolved.provider}`)
   }
@@ -80,25 +83,38 @@ async function tavilySearch(
   query: string,
   apiKey: string,
   maxResults: number,
+  policy: NetworkPolicyConfig,
 ): Promise<WebSearchResult[]> {
   // Route through the Tauri HTTP plugin so future non-Tavily search
   // providers (Serper, Exa, Brave, Google CSE, ...) with less friendly
   // CORS don't each need their own workaround. See tauri-fetch.ts.
-  const httpFetch = await getHttpFetch()
+  const url = "https://api.tavily.com/search"
   let response: Response
   try {
-    response = await httpFetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query,
-        max_results: maxResults,
-        search_depth: "advanced",
-        include_answer: false,
-      }),
-    })
+    response = await policyFetch(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query,
+          max_results: maxResults,
+          search_depth: "advanced",
+          include_answer: false,
+        }),
+      },
+      {
+        feature: "web-search",
+        provider: "tavily",
+        reason: "web search",
+        policy,
+      },
+    )
   } catch (err) {
+    if (err instanceof NetworkPolicyBlockedError) {
+      throw new Error(`Tavily search blocked by ${err.decision.policy.mode} network policy: ${err.decision.url.hostname || url}`)
+    }
     if (isFetchNetworkError(err)) {
       throw new Error(
         "Network error reaching api.tavily.com. Check your connectivity and whether the Tavily API key is still valid.",
@@ -127,6 +143,7 @@ async function serpApiSearch(
   apiKey: string,
   maxResults: number,
   engine: SerpApiEngine,
+  policy: NetworkPolicyConfig,
 ): Promise<WebSearchResult[]> {
   const params = new URLSearchParams({
     engine,
@@ -135,14 +152,26 @@ async function serpApiSearch(
     num: String(maxResults),
   })
 
-  const httpFetch = await getHttpFetch()
+  const url = `https://serpapi.com/search?${params.toString()}`
   let response: Response
   try {
-    response = await httpFetch(`https://serpapi.com/search?${params.toString()}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    })
+    response = await policyFetch(
+      url,
+      {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      },
+      {
+        feature: "web-search",
+        provider: "serpapi",
+        reason: "web search",
+        policy,
+      },
+    )
   } catch (err) {
+    if (err instanceof NetworkPolicyBlockedError) {
+      throw new Error(`SerpApi search blocked by ${err.decision.policy.mode} network policy: ${err.decision.url.hostname || "serpapi.com"}`)
+    }
     if (isFetchNetworkError(err)) {
       throw new Error(
         "Network error reaching serpapi.com. Check your connectivity and whether the SerpApi API key is still valid.",

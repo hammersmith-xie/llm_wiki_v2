@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { DEFAULT_NETWORK_POLICY, type NetworkPolicyConfig } from "@/lib/network-policy"
 import { webSearch } from "./web-search"
 
 const fetchMock = vi.fn<typeof fetch>()
+const localOnlyPolicy: NetworkPolicyConfig = {
+  ...DEFAULT_NETWORK_POLICY,
+  mode: "local-only",
+}
+const anyPolicy: NetworkPolicyConfig = {
+  ...DEFAULT_NETWORK_POLICY,
+  mode: "any",
+}
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
@@ -24,7 +33,7 @@ describe("webSearch", () => {
       ],
     }))
 
-    const out = await webSearch("alpha", { provider: "tavily", apiKey: "tvly" }, 3)
+    const out = await webSearch("alpha", { provider: "tavily", apiKey: "tvly" }, 3, anyPolicy)
 
     expect(fetchMock).toHaveBeenCalledWith("https://api.tavily.com/search", expect.objectContaining({
       method: "POST",
@@ -42,7 +51,7 @@ describe("webSearch", () => {
       ],
     }))
 
-    const out = await webSearch("knowledge graph", { provider: "serpapi", apiKey: "serp" }, 1)
+    const out = await webSearch("knowledge graph", { provider: "serpapi", apiKey: "serp" }, 1, anyPolicy)
     const [url, init] = fetchMock.mock.calls[0]
     const parsed = new URL(String(url))
 
@@ -75,6 +84,7 @@ describe("webSearch", () => {
         },
       },
       5,
+      anyPolicy,
     )
     const parsed = new URL(String(fetchMock.mock.calls[0][0]))
 
@@ -88,12 +98,26 @@ describe("webSearch", () => {
   it("surfaces SerpApi JSON errors", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Invalid API key" }))
 
-    await expect(webSearch("x", { provider: "serpapi", apiKey: "bad" }, 5))
+    await expect(webSearch("x", { provider: "serpapi", apiKey: "bad" }, 5, anyPolicy))
       .rejects.toThrow("SerpApi search failed: Invalid API key")
   })
 
   it("requires a configured search provider and key", async () => {
     await expect(webSearch("x", { provider: "none", apiKey: "" }, 5))
       .rejects.toThrow("Tavily or SerpApi API key")
+  })
+
+  it("blocks Tavily in local-only mode before issuing a request", async () => {
+    await expect(webSearch("alpha", { provider: "tavily", apiKey: "tvly" }, 3, localOnlyPolicy))
+      .rejects.toThrow("blocked by local-only network policy")
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("blocks SerpApi in local-only mode before issuing a request", async () => {
+    await expect(webSearch("alpha", { provider: "serpapi", apiKey: "serp" }, 3, localOnlyPolicy))
+      .rejects.toThrow("blocked by local-only network policy")
+
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

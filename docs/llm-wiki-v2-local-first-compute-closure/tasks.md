@@ -268,9 +268,9 @@ graph TD
 
 **目标**: 把所有现有出网点迁移到 policy gate。
 **依赖**: M2
-**状态**: ⏳
+**状态**: ✅
 
-### Task 3.1 ⏳ 迁移 LLM provider 请求
+### Task 3.1 ✅ 迁移 LLM provider 请求
 
 **关联文件 / 模块**:
 - `src/lib/llm-client.ts`
@@ -279,20 +279,20 @@ graph TD
 - `src/lib/llm-client.test.ts`
 
 **验收**:
-- [ ] OpenAI/Anthropic/Google/custom/Minimax/Ollama HTTP 请求都有 egress metadata。
-- [ ] Ollama local 在 local-only 下可用。
-- [ ] cloud provider 在 local-only 下被 block。
-- [ ] Claude CLI 记录为 subprocess/cloud-dependent，不伪装成本地 HTTP。
+- [x] OpenAI/Anthropic/Google/custom/Minimax/Ollama HTTP 请求都有 egress metadata。
+- [x] Ollama local 在 local-only 下可用。
+- [x] cloud provider 在 local-only 下被 block。
+- [x] Claude CLI 记录为 subprocess/cloud-dependent，不伪装成本地 HTTP。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `streamChat` 调用点很多，如果全链路显式传参会扩散到 chat、ingest、lint、review、deep research、vision caption 等模块；同时 `RequestOverrides` 会进入 provider body，新增控制字段必须避免被透传到模型 API。
+- 🔧 **最终实现逻辑**: `streamChat` 内部统一从 `requestOverrides.networkPolicy` 或 `useWikiStore.getState().networkPolicyConfig` 取当前策略，并调用 `policyFetch`，metadata 使用 `feature=llm`、`provider=config.provider`、`reason=chat completion`。`RequestOverrides` 新增测试用 `fetchImpl` / `networkPolicy`，provider body 构造时通过 `stripWireAgnosticOverrides` 去除。
+- 🎯 **关键决策**: 不逐个改所有 `streamChat` 调用点；先在统一 LLM transport 层读取当前 store policy，保证真实 LLM 出网立即受 gate 约束，同时保留显式注入能力用于测试和后续更严格的调用链治理。
 
 ---
 
-### Task 3.2 ⏳ 迁移 embedding 请求
+### Task 3.2 ✅ 迁移 embedding 请求
 
 **关联文件 / 模块**:
 - `src/lib/embedding.ts`
@@ -300,19 +300,19 @@ graph TD
 - `src/components/settings/sections/embedding-section.tsx`
 
 **验收**:
-- [ ] embedding endpoint 走 policy gate。
-- [ ] local-only 下 public embedding endpoint 被 block，错误在 Settings 可见。
-- [ ] `getLastEmbeddingError()` 不泄漏 secret。
+- [x] embedding endpoint 走 policy gate。
+- [x] local-only 下 public embedding endpoint 被 block，错误在 Settings 可见。
+- [x] `getLastEmbeddingError()` 不泄漏 secret。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: embedding 测试原本 mock `getHttpFetch`，如果直接替换生产代码但不调整 mock，会测不到 policy gate；此外 embedding 错误需要进入 `lastEmbeddingError`，供 Settings 展示 fallback 原因。
+- 🔧 **最终实现逻辑**: `fetchEmbedding`、`embedPage`、`embedAllPages`、`searchByEmbedding` 增加可选 `NetworkPolicyConfig`，默认从 `wiki-store` 读取；HTTP 请求改走 `policyFetch`，metadata 使用 `feature=embedding`、`provider=openai-compatible`、`reason=embedding request`。测试 mock 轻量实现 `policyFetch`，验证 public endpoint 在 local-only 下 block 前不会调用 fetch，loopback endpoint 可用。
+- 🎯 **关键决策**: block 错误只写 hostname / endpoint policy 信息，不写 Authorization、payload 或 embedding input，保持 Settings 可见但不泄漏 secret。
 
 ---
 
-### Task 3.3 ⏳ 迁移 web-search 请求
+### Task 3.3 ✅ 迁移 web-search 请求
 
 **关联文件 / 模块**:
 - `src/lib/web-search.ts`
@@ -320,19 +320,19 @@ graph TD
 - `src/components/settings/sections/web-search-section.tsx`
 
 **验收**:
-- [ ] Tavily/SerpApi 请求带 `feature=web-search`。
-- [ ] local-only 下 Tavily/SerpApi disabled 或 block。
-- [ ] 错误提示区分“未配置”和“被 local-only policy 阻止”。
+- [x] Tavily/SerpApi 请求带 `feature=web-search`。
+- [x] local-only 下 Tavily/SerpApi disabled 或 block。
+- [x] 错误提示区分“未配置”和“被 local-only policy 阻止”。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 默认 store policy 是 allowlist，旧测试不显式传 policy 时会被新 gate 正确阻断；因此测试里的“真实请求归一化”用 `any` policy，阻断测试用 `local-only` policy，避免把 policy 默认值和 parser 行为绑死。
+- 🔧 **最终实现逻辑**: `webSearch` 增加可选 `NetworkPolicyConfig`，默认读取 `wiki-store`；Tavily 与 SerpApi 均改走 `policyFetch`，metadata 使用 `feature=web-search`、`provider=tavily|serpapi`、`reason=web search`。local-only public endpoint 在构造完 URL 后、发出 fetch 前被阻断。
+- 🎯 **关键决策**: “未配置 provider/key”仍使用原有配置错误；policy block 单独抛出包含 provider 与 hostname 的用户可读错误，不包含 query、API key 或 response body。
 
 ---
 
-### Task 3.4 ⏳ 迁移 update-check 请求
+### Task 3.4 ✅ 迁移 update-check 请求
 
 **关联文件 / 模块**:
 - `src/lib/update-check.ts`
@@ -341,19 +341,19 @@ graph TD
 - `src/lib/update-check.test.ts`
 
 **验收**:
-- [ ] local-only 启动不请求 GitHub。
-- [ ] 手动 check 需要用户确认或显示 blocked reason。
-- [ ] update-check 状态持久化与 policy 一致。
+- [x] local-only 启动不请求 GitHub。
+- [x] 手动 check 需要用户确认或显示 blocked reason。
+- [x] update-check 状态持久化与 policy 一致。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: `fetchLatestRelease` 设计为“失败返回 null、不 throw”，如果只在内部吞掉 policy block，About 手动检查仍会显示泛化的 GitHub unreachable，无法区分策略阻断。
+- 🔧 **最终实现逻辑**: `fetchLatestRelease` 改走 `policyFetch`，metadata 使用 `feature=update-check`、`provider=github`、`reason=release check`；`checkForUpdates` 在 fetch 前执行同一 policy preflight，local-only 下直接返回 `UpdateStatus.kind="error"` 与 blocked reason。About 时间戳行对 network-policy 错误显示具体 reason，对普通网络失败继续显示 muted unreachable。
+- 🎯 **关键决策**: 不改变 update-check 持久化结构，只保存 enabled / lastCheckedAt / dismissedVersion；blocked 结果仍按一次检查尝试记录时间，避免启动循环里反复重试 GitHub。
 
 ---
 
-### Task 3.5 ⏳ 迁移 vision caption 请求
+### Task 3.5 ✅ 迁移 vision caption 请求
 
 **关联文件 / 模块**:
 - `src/lib/vision-caption.ts`
@@ -362,15 +362,15 @@ graph TD
 - `src/components/settings/sections/multimodal-section.tsx`
 
 **验收**:
-- [ ] caption 请求带 `feature=vision-caption`。
-- [ ] local-only 下 cloud vision provider 被 block。
-- [ ] 失败仍保持 per-image fault tolerance，不中断 ingest 主流程。
+- [x] caption 请求带 `feature=vision-caption`。
+- [x] local-only 下 cloud vision provider 被 block。
+- [x] 失败仍保持 per-image fault tolerance，不中断 ingest 主流程。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: vision caption 复用 `streamChat`，如果只依赖 LLM 默认 metadata，未来 egress report 会把图片 caption 混成普通 chat；同时新增 metadata 不能泄漏进 OpenAI/Gemini/Anthropic 请求体。
+- 🔧 **最终实现逻辑**: `RequestOverrides` 增加 `networkFeature/networkProvider/networkReason`，`streamChat` 将其传给 `policyFetch`，provider body 构造统一剥离这些 wire-agnostic 字段；`captionImage` 传入 `vision-caption / <llm provider> / image caption` metadata。既有 `captionImage` error rethrow 与 batch 调用方 try/catch 路径保持不变。
+- 🎯 **关键决策**: 不为 vision caption 复制一套 policy gate；只在共享 LLM transport 上打标签，保证 cloud VLM 被 local-only 阻断，本地 VLM 仍按 loopback 策略放行。
 
 ---
 
@@ -720,13 +720,13 @@ graph TD
 |--------|------|------|------|------|
 | M1 | 文档与产品边界 | 1 | 4 | 🚧 |
 | M2 | Network Policy Kernel | 3 | 4 | 🚧 |
-| M3 | Existing Egress Migration | 0 | 5 | ⏳ |
+| M3 | Existing Egress Migration | 5 | 5 | ✅ |
 | M4 | Local Defaults | 0 | 3 | ⏳ |
 | M5 | Offline UX | 0 | 2 | ⏳ |
 | M6 | Egress Report | 0 | 3 | ⏳ |
 | M7 | Chat Privacy and Auto Git | 0 | 4 | ⏳ |
 | M8 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **4** | **28** | **🚧** |
+| **总计** | | **9** | **28** | **🚧** |
 
 ## 变更记录
 
@@ -735,3 +735,4 @@ graph TD
 | 2026-05-10 | 初稿，按 comment 建立 local-first compute / egress closure 路线图，Phase 3 暂缓 |
 | 2026-05-10 | 完成 Task 1.1 comment triage 建档：直接采纳 / 修正后采纳 / Non-Goal 分级 |
 | 2026-05-10 | 完成 M2 内核切片：network policy 类型/持久化、URL 分类、policy-aware fetch wrapper；Settings UI 与现有出网迁移后续执行 |
+| 2026-05-11 | 完成 M3 既有出网迁移：LLM、embedding、web-search、update-check、vision-caption 均接入 `policyFetch` 或共享 transport metadata |

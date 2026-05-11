@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest"
-import { isFetchNetworkError } from "./llm-client"
+import { describe, it, expect, vi } from "vitest"
+import { DEFAULT_NETWORK_POLICY } from "./network-policy"
+import { NetworkPolicyBlockedError } from "./tauri-fetch"
+import { isFetchNetworkError, streamChat } from "./llm-client"
+import type { LlmConfig } from "@/stores/wiki-store"
 
 /**
  * Guards for cross-webview error detection. Tauri renders the frontend
@@ -50,3 +53,82 @@ describe("isFetchNetworkError — cross-webview fetch failures", () => {
     expect(isFetchNetworkError({ message: "Load failed" })).toBe(false)
   })
 })
+
+describe("streamChat network policy", () => {
+  it("blocks public cloud providers in local-only mode before fetch", async () => {
+    const fetchImpl = vi.fn<typeof globalThis.fetch>()
+    const error = await runStreamChat(openAiConfig(), fetchImpl, {
+      ...DEFAULT_NETWORK_POLICY,
+      mode: "local-only",
+    })
+
+    expect(error).toBeInstanceOf(NetworkPolicyBlockedError)
+    expect(error?.message).toContain("local-only")
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it("allows loopback Ollama in local-only mode", async () => {
+    const fetchImpl = vi.fn<typeof globalThis.fetch>(async () =>
+      streamResponse("data: {\"message\":{\"content\":\"ok\"}}\n\ndata: [DONE]\n\n"),
+    )
+    const error = await runStreamChat(ollamaConfig(), fetchImpl, {
+      ...DEFAULT_NETWORK_POLICY,
+      mode: "local-only",
+    })
+
+    expect(error).toBeNull()
+    expect(fetchImpl).toHaveBeenCalledOnce()
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("http://localhost:11434/v1/chat/completions")
+  })
+})
+
+async function runStreamChat(
+  config: LlmConfig,
+  fetchImpl: typeof globalThis.fetch,
+  policy: typeof DEFAULT_NETWORK_POLICY,
+): Promise<Error | null> {
+  let error: Error | null = null
+  await streamChat(
+    config,
+    [{ role: "user", content: "hello" }],
+    {
+      onToken: () => {},
+      onDone: () => {},
+      onError: (err) => {
+        error = err
+      },
+    },
+    undefined,
+    {
+      networkPolicy: policy,
+      fetchImpl,
+    },
+  )
+  return error
+}
+
+function streamResponse(body: string): Response {
+  return new Response(new TextEncoder().encode(body), { status: 200 })
+}
+
+function openAiConfig(): LlmConfig {
+  return {
+    provider: "openai",
+    apiKey: "sk-test",
+    model: "gpt-test",
+    ollamaUrl: "http://localhost:11434",
+    customEndpoint: "",
+    maxContextSize: 204800,
+  }
+}
+
+function ollamaConfig(): LlmConfig {
+  return {
+    provider: "ollama",
+    apiKey: "",
+    model: "llama3",
+    ollamaUrl: "http://localhost:11434",
+    customEndpoint: "",
+    maxContextSize: 204800,
+  }
+}

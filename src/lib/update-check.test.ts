@@ -3,8 +3,32 @@
  * (`fetchLatestRelease`) is covered via `checkForUpdates` mocking the
  * fetch layer — we don't exercise it against real GitHub in CI.
  */
-import { describe, it, expect } from "vitest"
-import { isNewer, toLatestReleaseUrl } from "./update-check"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { DEFAULT_NETWORK_POLICY, type NetworkPolicyConfig } from "@/lib/network-policy"
+import { checkForUpdates, fetchLatestRelease, isNewer, toLatestReleaseUrl } from "./update-check"
+
+const fetchMock = vi.fn<typeof fetch>()
+const localOnlyPolicy: NetworkPolicyConfig = {
+  ...DEFAULT_NETWORK_POLICY,
+  mode: "local-only",
+}
+const anyPolicy: NetworkPolicyConfig = {
+  ...DEFAULT_NETWORK_POLICY,
+  mode: "any",
+}
+
+function jsonResponse(body: unknown, init?: ResponseInit): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  })
+}
+
+beforeEach(() => {
+  fetchMock.mockReset()
+  vi.stubGlobal("fetch", fetchMock)
+})
 
 describe("isNewer — semver comparison", () => {
   it("remote > local on patch", () => {
@@ -118,5 +142,54 @@ describe("toLatestReleaseUrl — canonical /releases/latest mapping", () => {
     expect(toLatestReleaseUrl("https://github.com/nashsu/llm_wiki")).toBe(
       "https://github.com/nashsu/llm_wiki",
     )
+  })
+})
+
+describe("update-check network policy", () => {
+  it("blocks GitHub release fetches in local-only mode before issuing a request", async () => {
+    const out = await fetchLatestRelease("nashsu/llm_wiki", localOnlyPolicy)
+
+    expect(out).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("returns an explicit blocked status for manual/update-store callers", async () => {
+    const out = await checkForUpdates({
+      currentVersion: "0.4.7",
+      repo: "nashsu/llm_wiki",
+      networkPolicy: localOnlyPolicy,
+    })
+
+    expect(out).toEqual({
+      kind: "error",
+      local: "0.4.7",
+      message: "Update check blocked by local-only network policy: api.github.com",
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("fetches and compares GitHub releases when the policy allows public egress", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      tag_name: "v0.4.8",
+      name: "v0.4.8",
+      body: "release notes",
+      html_url: "https://github.com/nashsu/llm_wiki/releases/tag/v0.4.8",
+      published_at: "2026-05-11T00:00:00Z",
+    }))
+
+    const out = await checkForUpdates({
+      currentVersion: "0.4.7",
+      repo: "nashsu/llm_wiki",
+      networkPolicy: anyPolicy,
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/nashsu/llm_wiki/releases/latest",
+      expect.objectContaining({ method: "GET" }),
+    )
+    expect(out.kind).toBe("available")
+    if (out.kind === "available") {
+      expect(out.remote).toBe("v0.4.8")
+    }
   })
 })

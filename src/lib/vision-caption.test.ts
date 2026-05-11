@@ -103,7 +103,22 @@ describe("captionImage", () => {
     })
 
     const overrides = mockStreamChat.mock.calls[0][4]
-    expect(overrides).toEqual({ temperature: 0.3, max_tokens: 256 })
+    expect(overrides).toEqual(expect.objectContaining({ temperature: 0.3, max_tokens: 256 }))
+  })
+
+  it("labels outbound LLM traffic as vision-caption for network policy reporting", async () => {
+    mockStreamChat.mockImplementation(async (_c, _m, cb) => {
+      cb.onDone()
+    })
+
+    await captionImage(TINY_B64, "image/png", cfg)
+
+    const overrides = mockStreamChat.mock.calls[0][4]
+    expect(overrides).toEqual(expect.objectContaining({
+      networkFeature: "vision-caption",
+      networkProvider: "custom",
+      networkReason: "image caption",
+    }))
   })
 
   it("uses defaults (temp=0, max_tokens=4096) when no options passed", async () => {
@@ -114,7 +129,7 @@ describe("captionImage", () => {
     await captionImage(TINY_B64, "image/png", cfg)
 
     const overrides = mockStreamChat.mock.calls[0][4]
-    expect(overrides).toEqual({ temperature: 0, max_tokens: 4096 })
+    expect(overrides).toEqual(expect.objectContaining({ temperature: 0, max_tokens: 4096 }))
   })
 
   it("forwards the AbortSignal to streamChat (lets callers cancel batch captioning)", async () => {

@@ -1,6 +1,7 @@
 import type { LlmConfig } from "@/stores/wiki-store"
+import { useWikiStore } from "@/stores/wiki-store"
 import { getProviderConfig, type RequestOverrides } from "./llm-providers"
-import { getHttpFetch, isFetchNetworkError } from "./tauri-fetch"
+import { isFetchNetworkError, policyFetch } from "./tauri-fetch"
 import { countReasoningCharsInLine, extractReasoningTextFromLine } from "./reasoning-detector"
 
 export type { ChatMessage, RequestOverrides } from "./llm-providers"
@@ -91,13 +92,23 @@ export async function streamChat(
   let response: Response
   try {
     const body = providerConfig.buildBody(messages, requestOverrides)
-    const httpFetch = await getHttpFetch()
-    response = await httpFetch(providerConfig.url, {
-      method: "POST",
-      headers: providerConfig.headers,
-      body: JSON.stringify(body),
-      signal: combinedSignal,
-    })
+    const policy = requestOverrides?.networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+    response = await policyFetch(
+      providerConfig.url,
+      {
+        method: "POST",
+        headers: providerConfig.headers,
+        body: JSON.stringify(body),
+        signal: combinedSignal,
+      },
+      {
+        feature: requestOverrides?.networkFeature ?? "llm",
+        provider: requestOverrides?.networkProvider ?? config.provider,
+        reason: requestOverrides?.networkReason ?? "chat completion",
+        policy,
+        fetchImpl: requestOverrides?.fetchImpl,
+      },
+    )
   } catch (err) {
     if (signal?.aborted) {
       onDone()
