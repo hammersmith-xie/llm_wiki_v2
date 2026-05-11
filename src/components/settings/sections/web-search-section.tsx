@@ -10,6 +10,8 @@ import {
   type SearchProviderOverride,
 } from "@/stores/wiki-store"
 import { SERPAPI_ENGINE_OPTIONS, resolveSearchConfig } from "@/lib/web-search"
+import { describeWebSearchPolicy } from "@/lib/network-policy-preview"
+import { NetworkPolicyPreviewNote } from "./network-policy-preview-note"
 
 const SEARCH_PROVIDERS = [
   {
@@ -29,6 +31,7 @@ const SEARCH_PROVIDERS = [
 export function WebSearchSection() {
   const { t } = useTranslation()
   const searchApiConfig = useWikiStore((s) => s.searchApiConfig)
+  const networkPolicyConfig = useWikiStore((s) => s.networkPolicyConfig)
   const setSearchApiConfig = useWikiStore((s) => s.setSearchApiConfig)
   const resolvedConfig = resolveSearchConfig(searchApiConfig)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -73,6 +76,8 @@ export function WebSearchSection() {
           const isActive = resolvedConfig.provider === provider.id
           const hasConfig = !!override?.apiKey
           const isExpanded = !!expanded[provider.id]
+          const policyPreview = describeWebSearchPolicy(provider.id, networkPolicyConfig)
+          const policyBlocked = policyPreview.kind === "blocked"
           return (
             <div
               key={provider.id}
@@ -118,13 +123,18 @@ export function WebSearchSection() {
 
                 <button
                   type="button"
-                  onClick={() => toggleActive(provider.id)}
+                  onClick={() => {
+                    if (policyBlocked) return
+                    toggleActive(provider.id)
+                  }}
+                  disabled={policyBlocked}
                   className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${
                     isActive
                       ? "border-primary bg-primary"
                       : "border-muted-foreground/30 bg-muted-foreground/20 hover:bg-muted-foreground/30"
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
                   aria-label={isActive ? "Deactivate" : "Activate"}
+                  title={policyBlocked ? policyPreview.message : undefined}
                 >
                   <span
                     className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform ${
@@ -136,6 +146,7 @@ export function WebSearchSection() {
 
               {isExpanded && (
                 <div className="space-y-4 border-t bg-background/50 px-4 py-3">
+                  <NetworkPolicyPreviewNote preview={policyPreview} />
                   <div className="space-y-2">
                     <Label>API Key</Label>
                     <Input

@@ -4,14 +4,20 @@ import { useTranslation } from "react-i18next"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import { clipServerStatus } from "@/commands/fs"
 import { Button } from "@/components/ui/button"
+import { useWikiStore } from "@/stores/wiki-store"
 import { useUpdateStore, hasAvailableUpdate } from "@/stores/update-store"
 import { checkForUpdates, toLatestReleaseUrl } from "@/lib/update-check"
 import { saveUpdateCheckState } from "@/lib/project-store"
+import { describeUpdateCheckPolicy } from "@/lib/network-policy-preview"
+import { NetworkPolicyPreviewNote } from "./network-policy-preview-note"
 
 export function AboutSection() {
   const { t } = useTranslation()
   const [clipStatus, setClipStatus] = useState<string>("...")
+  const networkPolicyConfig = useWikiStore((s) => s.networkPolicyConfig)
   const updateStore = useUpdateStore()
+  const updatePolicyPreview = describeUpdateCheckPolicy(networkPolicyConfig)
+  const updateBlocked = updatePolicyPreview.kind === "blocked"
 
   useEffect(() => {
     let alive = true
@@ -28,6 +34,7 @@ export function AboutSection() {
   }, [])
 
   const handleCheckNow = useCallback(async () => {
+    if (updateBlocked) return
     useUpdateStore.getState().setChecking(true)
     const result = await checkForUpdates({
       currentVersion: __APP_VERSION__,
@@ -44,7 +51,7 @@ export function AboutSection() {
       lastCheckedAt: now,
       dismissedVersion: null,
     })
-  }, [])
+  }, [updateBlocked])
 
   const handleDismiss = useCallback(async () => {
     const result = useUpdateStore.getState().lastResult
@@ -127,8 +134,9 @@ export function AboutSection() {
             variant="outline"
             size="sm"
             onClick={handleCheckNow}
-            disabled={updateStore.checking}
+            disabled={updateStore.checking || updateBlocked}
             className="shrink-0 gap-1.5"
+            title={updateBlocked ? updatePolicyPreview.message : undefined}
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${updateStore.checking ? "animate-spin" : ""}`}
@@ -138,6 +146,8 @@ export function AboutSection() {
               : t("settings.sections.about.checkNow")}
           </Button>
         </div>
+
+        <NetworkPolicyPreviewNote preview={updatePolicyPreview} />
 
         {showAvailable && updateStore.lastResult?.kind === "available" && (
           <UpdateAvailableBanner

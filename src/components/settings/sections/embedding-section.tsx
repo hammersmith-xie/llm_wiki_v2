@@ -11,7 +11,9 @@ import {
   getLastEmbeddingError,
   legacyVectorRowCount,
 } from "@/lib/embedding"
+import { describeEmbeddingPolicy } from "@/lib/network-policy-preview"
 import type { SettingsDraft, DraftSetter } from "../settings-types"
+import { NetworkPolicyPreviewNote } from "./network-policy-preview-note"
 
 interface Props {
   draft: SettingsDraft
@@ -74,6 +76,14 @@ export function EmbeddingSection({ draft, setDraft }: Props) {
 
   const showLegacyMigration =
     legacyCount > 0 && (chunkCount === null || chunkCount === 0)
+  const policyPreview = describeEmbeddingPolicy(
+    {
+      enabled: draft.embeddingEnabled,
+      endpoint: draft.embeddingEndpoint,
+    },
+    networkPolicyConfig,
+  )
+  const policyBlocked = policyPreview.kind === "blocked"
 
   return (
     <div className="space-y-6">
@@ -108,6 +118,8 @@ export function EmbeddingSection({ draft, setDraft }: Props) {
 
       {draft.embeddingEnabled && (
         <>
+          <NetworkPolicyPreviewNote preview={policyPreview} />
+
           <div className="space-y-2">
             <Label>{t("settings.sections.embedding.endpoint")}</Label>
             <Input
@@ -208,7 +220,8 @@ export function EmbeddingSection({ draft, setDraft }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={handleReindex}
-                disabled={reindex.kind === "running" || !project}
+                disabled={reindex.kind === "running" || !project || policyBlocked}
+                title={policyBlocked ? policyPreview.message : undefined}
               >
                 {reindex.kind === "running"
                   ? t("settings.sections.embedding.reindexing", {

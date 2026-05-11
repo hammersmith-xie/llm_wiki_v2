@@ -2,6 +2,9 @@ import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { SettingsDraft, DraftSetter } from "../settings-types"
+import { useWikiStore } from "@/stores/wiki-store"
+import { describeVisionPolicy } from "@/lib/network-policy-preview"
+import { NetworkPolicyPreviewNote } from "./network-policy-preview-note"
 
 interface Props {
   draft: SettingsDraft
@@ -18,6 +21,17 @@ const PROVIDER_OPTIONS: Array<{ value: SettingsDraft["multimodalProvider"]; labe
 
 export function MultimodalSection({ draft, setDraft }: Props) {
   const { t } = useTranslation()
+  const networkPolicyConfig = useWikiStore((s) => s.networkPolicyConfig)
+  const policyPreview = describeVisionPolicy(
+    {
+      enabled: draft.multimodalEnabled,
+      useMainLlm: draft.multimodalUseMainLlm,
+      provider: draft.multimodalProvider,
+      customEndpoint: draft.multimodalCustomEndpoint,
+      ollamaUrl: draft.multimodalOllamaUrl,
+    },
+    networkPolicyConfig,
+  )
 
   return (
     <div className="space-y-6">
@@ -93,6 +107,8 @@ export function MultimodalSection({ draft, setDraft }: Props) {
 
       {draft.multimodalEnabled && (
         <>
+          <NetworkPolicyPreviewNote preview={policyPreview} />
+
           {/* "Use main LLM" toggle. Lets users with a single VL-capable
               model in their main config save the trouble of typing
               everything twice. The dedicated fields below show only

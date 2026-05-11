@@ -2,8 +2,8 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 超大 (审核轮数：10+)
-**总体进度**: 🚧 14 / 30
-**执行状态**: 已完成 Network Policy kernel、主 HTTP 出网迁移、egress 证据层以及升级 disclosure/blocked error 脱敏；后续按 strict local-only UX / local presets / chat privacy 路线推进
+**总体进度**: 🚧 16 / 30
+**执行状态**: 已完成 Network Policy kernel、主 HTTP 出网迁移、egress 证据层、升级 disclosure/blocked error 脱敏以及 Settings 侧 strict local-only 预检提示；后续按 wiki-only deep dive / local presets / chat privacy 路线推进
 
 ---
 
@@ -152,7 +152,7 @@ graph TD
 
 **目标**: 建立 transparent cloud compute 的 policy 执行边界。
 **依赖**: M1
-**状态**: 🚧
+**状态**: ✅
 
 ### Task 2.1 ✅ 新增 network policy 类型和持久化
 
@@ -225,13 +225,13 @@ graph TD
 - [x] 调用方必须传 `feature/provider/reason`。
 - [x] local-only 阻止 public URL。
 - [x] block 抛出 `NetworkPolicyBlockedError`。
-- [ ] allow/block 都能调用 egress logger 的 safe stub。
+- [x] allow/block 都能调用 egress logger 的 safe stub。
 
 #### 备注
 
-- 🐛 **遇到的问题**: egress logger 属于 M6，当前还没有 `egress-log.ts`；本切片先建立 block/allow 执行点，避免为了 stub 提前引入半成品日志格式。
-- 🔧 **最终实现逻辑**: 在 `tauri-fetch.ts` 新增 `policyFetch` 和 `NetworkPolicyBlockedError`，调用方必须传 `feature`、`provider`、`reason`、`policy`；测试用 injectable `fetchImpl` 验证 block 前不触发真实请求。
-- 🎯 **关键决策**: 这次不迁移现有出网调用，避免一次性改动 LLM/embedding/web/update/vision；迁移放在 M3。
+- 🐛 **遇到的问题**: 最初切片早于 M6，因此 egress stub 验收曾暂缓；M6 落地后 tasks.md 没同步勾选，造成状态滞后。
+- 🔧 **最终实现逻辑**: `policyFetch` 在 policy decision 之后、真实 fetch 之前 best-effort 调用 `appendEgressEvent`，allow 和 block 都写入 feature/provider/reason/transport/decision metadata；测试 mock `appendEgressEvent` 覆盖 allow/block 两条路径。
+- 🎯 **关键决策**: egress 写盘失败不能阻断业务请求；它是透明证据层，不是业务成功条件。
 
 ---
 
@@ -447,9 +447,9 @@ graph TD
 
 **目标**: `local-only` 严格模式下不要运行时才失败，而是提前禁用或降级。
 **依赖**: M3, M4
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 5.1 ⏳ Cloud-dependent disabled states
+### Task 5.1 ✅ Cloud-dependent disabled states
 
 **关联文件 / 模块**:
 - `src/components/settings/sections/web-search-section.tsx`
@@ -460,15 +460,15 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] local-only 下 Tavily/SerpApi/update-check/cloud embedding/cloud vision 显示 disabled reason。
-- [ ] allowlist 下未匹配 host 显示配置入口。
-- [ ] any 下显示 cloud egress disclosure。
+- [x] local-only 下 Tavily/SerpApi/update-check/cloud embedding/cloud vision 显示 disabled reason。
+- [x] allowlist 下未匹配 host 显示配置入口。
+- [x] any 下显示 cloud egress disclosure。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 各 Settings 面板原本只在实际调用时暴露 `NetworkPolicyBlockedError`，用户会点到运行中才知道 Tavily/SerpApi、cloud embedding、cloud vision 或 GitHub update-check 被 `local-only`/allowlist 拦截。
+- 🔧 **最终实现逻辑**: 新增 `network-policy-preview.ts` 纯函数，复用 `evaluateNetworkPolicy` 对 Tavily、SerpApi、embedding endpoint、dedicated vision endpoint 和 GitHub update-check 做预检。Web Search 的 cloud provider toggle 在 blocked 时禁用并显示 reason；Embedding 的 reindex 在 blocked 时禁用；Multimodal 和 About 显示 policy note，About 的 manual check 在 blocked 时禁用。`any`/allowlist 放行公网 host 时显示 cloud egress disclosure。
+- 🎯 **关键决策**: UI 只预检明确可解析的 provider endpoint；vision caption 若复用 main LLM，则提示用户看 LLM provider 的 policy 结果，不伪造一个不一定真实的 host。Clip bridge 保持 README 披露的 loopback exception，不写高频 egress heartbeat，避免每 3 秒 poll 污染报告。
 
 ---
 
@@ -758,14 +758,14 @@ graph TD
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
 | M1 | 文档与产品边界 | 3 | 4 | 🚧 |
-| M2 | Network Policy Kernel | 3 | 4 | 🚧 |
+| M2 | Network Policy Kernel | 4 | 4 | ✅ |
 | M3 | Existing Egress Migration | 5 | 5 | ✅ |
 | M4 | Local Defaults | 0 | 3 | ⏳ |
-| M5 | Strict Local-Only UX | 0 | 2 | ⏳ |
+| M5 | Strict Local-Only UX | 1 | 2 | 🚧 |
 | M6 | Egress Report | 3 | 5 | 🚧 |
 | M7 | Chat Privacy and Auto Git | 0 | 4 | ⏳ |
 | M8 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **14** | **30** | **🚧** |
+| **总计** | | **16** | **30** | **🚧** |
 
 ## 变更记录
 
@@ -778,3 +778,4 @@ graph TD
 | 2026-05-11 | 根据用户确认修正产品定位：Local-first storage + transparent cloud compute；README / README_CN 增加 Local Storage vs Cloud Compute 表格 |
 | 2026-05-11 | 启动 transparent cloud compute 证据层：新增 `.llm-wiki/egress.jsonl` append-only metadata log、Settings 7 天聚合面板、Claude CLI subprocess preflight 与升级 allowlist seeding；首启 disclosure UI 仍留后续任务 |
 | 2026-05-11 | 完成 egress 证据层收尾：`NetworkPolicyBlockedError` invalid URL 脱敏、升级 allowlist seed 写入 activity disclosure；clip bridge 保持 README 披露的 loopback exception，不增加高频 egress heartbeat |
+| 2026-05-11 | 完成 M5.1 strict local-only Settings 预检：Web Search / Embedding / Multimodal / Update Check 根据当前 Network Policy 显示 disabled reason 或 cloud egress disclosure；同步修正 T2.3/M2 任务状态 |
