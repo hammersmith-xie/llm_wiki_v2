@@ -2,8 +2,8 @@
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 超大 (审核轮数：10+)
-**总体进度**: 🚧 10 / 28
-**执行状态**: 已完成 Network Policy kernel 和主 HTTP 出网迁移；后续按 transparent cloud compute 路线推进
+**总体进度**: 🚧 14 / 30
+**执行状态**: 已完成 Network Policy kernel、主 HTTP 出网迁移、egress 证据层以及升级 disclosure/blocked error 脱敏；后续按 strict local-only UX / local presets / chat privacy 路线推进
 
 ---
 
@@ -564,6 +564,45 @@ graph TD
 
 ---
 
+### Task 6.4 ✅ NetworkPolicyBlockedError 脱敏
+
+**关联文件 / 模块**:
+- `src/lib/tauri-fetch.ts`
+- `src/lib/tauri-fetch.test.ts`
+
+**验收**:
+- [x] invalid URL 的原始 input 不进入错误消息。
+- [x] error 暴露的 `decision.url.input` 不包含 query/path secret。
+- [x] 正常 URL 仍展示 origin/host，便于用户定位被阻止的 endpoint。
+
+#### 备注
+
+- 🐛 **遇到的问题**: `NetworkPolicyBlockedError` 旧消息在 `hostname` 为空时回退到原始 `url.input`，invalid URL 若包含 `?api_key=...` 会被 UI/console/error boundary 泄漏。
+- 🔧 **最终实现逻辑**: 构造 error 时先生成脱敏 decision：优先暴露 `origin`，其次 `hostname[:port]`，invalid URL 只显示 `<unparseable>`，`decision.url.input` 改为 `<redacted>`。`policyFetch` 写 egress 仍使用原始 decision 生成已脱敏 schema，避免影响报告字段。
+- 🎯 **关键决策**: 不改变 `evaluateNetworkPolicy` 的纯函数返回值；脱敏放在跨 UI/log 边界的 error 对象上，保持内核可测且不扩散 raw input。
+
+---
+
+### Task 6.5 ✅ 升级 allowlist seed disclosure
+
+**关联文件 / 模块**:
+- `src/lib/startup-settings.ts`
+- `src/lib/startup-settings.test.ts`
+- `src/App.tsx`
+
+**验收**:
+- [x] 只有无显式保存 policy 且 seed 出 cloud allowlist 时显示 disclosure。
+- [x] disclosure 展示被加入 allowlist 的 host/origin。
+- [x] 不把 API key、path、query 或 payload 写入 activity。
+
+#### 备注
+
+- 🐛 **遇到的问题**: 升级迁移会从旧 LLM/search/embedding/multimodal 配置 seed allowlist，但用户只能在 Settings 里被动看到 allowlist 改变，启动阶段没有一次性说明。
+- 🔧 **最终实现逻辑**: `hydrateStartupSettings` 新增可注入 `addStartupNotice` 回调；当 `savedNetworkPolicy === null` 且 seed 后 `allowedHosts.length > 0` 时发出 `Network allowlist seeded` notice。`App.tsx` 将该 notice 写入现有 activity store，复用既有 activity panel。
+- 🎯 **关键决策**: 不新增 toast/banner 基建，也不持久化“已读”状态；这条 notice 只在冷启动 hydration 期间出现，且只列 host/origin，符合 transparent cloud compute 的可解释性边界。
+
+---
+
 ## Milestone 7: Chat Privacy and Auto Git
 
 **目标**: 补齐本地敏感状态和可回滚 bulk operation。
@@ -723,10 +762,10 @@ graph TD
 | M3 | Existing Egress Migration | 5 | 5 | ✅ |
 | M4 | Local Defaults | 0 | 3 | ⏳ |
 | M5 | Strict Local-Only UX | 0 | 2 | ⏳ |
-| M6 | Egress Report | 1 | 3 | 🚧 |
+| M6 | Egress Report | 3 | 5 | 🚧 |
 | M7 | Chat Privacy and Auto Git | 0 | 4 | ⏳ |
 | M8 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **12** | **28** | **🚧** |
+| **总计** | | **14** | **30** | **🚧** |
 
 ## 变更记录
 
@@ -738,3 +777,4 @@ graph TD
 | 2026-05-11 | 完成 M3 既有出网迁移：LLM、embedding、web-search、update-check、vision-caption 均接入 `policyFetch` 或共享 transport metadata |
 | 2026-05-11 | 根据用户确认修正产品定位：Local-first storage + transparent cloud compute；README / README_CN 增加 Local Storage vs Cloud Compute 表格 |
 | 2026-05-11 | 启动 transparent cloud compute 证据层：新增 `.llm-wiki/egress.jsonl` append-only metadata log、Settings 7 天聚合面板、Claude CLI subprocess preflight 与升级 allowlist seeding；首启 disclosure UI 仍留后续任务 |
+| 2026-05-11 | 完成 egress 证据层收尾：`NetworkPolicyBlockedError` invalid URL 脱敏、升级 allowlist seed 写入 activity disclosure；clip bridge 保持 README 披露的 loopback exception，不增加高频 egress heartbeat |

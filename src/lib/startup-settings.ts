@@ -41,6 +41,10 @@ export interface HydrateStartupSettingsOptions {
     fallback: LlmConfig,
   ) => Promise<LlmConfig | null>
   saveResolvedLlmConfig?: (config: LlmConfig) => Promise<void>
+  addStartupNotice?: (notice: {
+    title: string
+    detail: string
+  }) => void
 }
 
 export async function hydrateStartupSettings({
@@ -48,6 +52,7 @@ export async function hydrateStartupSettings({
   store,
   resolveActivePreset,
   saveResolvedLlmConfig,
+  addStartupNotice,
 }: HydrateStartupSettingsOptions): Promise<void> {
   let currentLlmConfig = store.llmConfig
   let currentSearchConfig: SearchApiConfig | null = null
@@ -113,5 +118,13 @@ export async function hydrateStartupSettings({
   })
   if (savedNetworkPolicy || networkPolicy.allowedHosts.length > 0) {
     store.setNetworkPolicyConfig(networkPolicy)
+  }
+  if (!savedNetworkPolicy && networkPolicy.allowedHosts.length > 0) {
+    addStartupNotice?.({
+      title: "Network allowlist seeded",
+      detail:
+        "Existing cloud provider hosts were added to Settings -> Network so the upgrade keeps working: " +
+        networkPolicy.allowedHosts.join(", "),
+    })
   }
 }

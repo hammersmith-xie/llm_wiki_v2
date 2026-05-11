@@ -4,6 +4,7 @@ import i18n from "@/i18n"
 import { useWikiStore } from "@/stores/wiki-store"
 import { useReviewStore } from "@/stores/review-store"
 import { useChatStore } from "@/stores/chat-store"
+import { useActivityStore } from "@/stores/activity-store"
 import { listDirectory, openProject } from "@/commands/fs"
 import { getLastProject, getRecentProjects, saveLastProject, loadLlmConfig, loadLanguage, loadSearchApiConfig, loadEmbeddingConfig, loadMultimodalConfig, loadOutputLanguage, loadProviderConfigs, loadActivePresetId, loadProxyConfig, loadNetworkPolicyConfig } from "@/lib/project-store"
 import { hydrateStartupSettings } from "@/lib/startup-settings"
@@ -211,6 +212,15 @@ function App() {
           saveResolvedLlmConfig: async (resolved) => {
             const { saveLlmConfig } = await import("@/lib/project-store")
             await saveLlmConfig(resolved)
+          },
+          addStartupNotice: (notice) => {
+            useActivityStore.getState().addItem({
+              type: "maintenance",
+              title: notice.title,
+              status: "done",
+              detail: notice.detail,
+              filesWritten: [],
+            })
           },
         })
         const savedLang = await loadLanguage()

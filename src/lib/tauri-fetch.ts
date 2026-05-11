@@ -21,6 +21,7 @@ import {
   evaluateNetworkPolicy,
   type NetworkPolicyConfig,
   type NetworkPolicyDecision,
+  type NetworkUrlInfo,
 } from "@/lib/network-policy"
 import { appendEgressEvent } from "@/lib/egress-log"
 
@@ -80,15 +81,42 @@ export class NetworkPolicyBlockedError extends Error {
     provider: string
     reason: string
   }) {
+    const safeDecision = redactBlockedDecision(input.decision)
     super(
-      `Network request blocked by ${input.decision.policy.mode} policy: ${input.decision.url.hostname || input.decision.url.input}`,
+      `Network request blocked by ${safeDecision.policy.mode} policy: ${networkUrlDisplayLabel(safeDecision.url)}`,
     )
     this.name = "NetworkPolicyBlockedError"
-    this.decision = input.decision
+    this.decision = safeDecision
     this.feature = input.feature
     this.provider = input.provider
     this.reason = input.reason
   }
+}
+
+function redactBlockedDecision(decision: NetworkPolicyDecision): NetworkPolicyDecision {
+  return {
+    ...decision,
+    url: redactNetworkUrlInfo(decision.url),
+  }
+}
+
+function redactNetworkUrlInfo(url: NetworkUrlInfo): NetworkUrlInfo {
+  if (url.origin) {
+    return { ...url, input: url.origin }
+  }
+  if (url.hostname) {
+    return {
+      ...url,
+      input: url.port ? `${url.hostname}:${url.port}` : url.hostname,
+    }
+  }
+  return { ...url, input: "<redacted>" }
+}
+
+function networkUrlDisplayLabel(url: NetworkUrlInfo): string {
+  if (url.origin) return url.origin
+  if (url.hostname) return url.port ? `${url.hostname}:${url.port}` : url.hostname
+  return "<unparseable>"
 }
 
 export async function policyFetch(

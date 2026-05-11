@@ -159,4 +159,35 @@ describe("policyFetch", () => {
       }),
     )
   })
+
+  it("redacts unparseable URL input from blocked errors", async () => {
+    const fetchImpl = vi.fn()
+    let thrown: unknown
+
+    try {
+      await policyFetch(
+        "not a url?api_key=sk-secret&token=secret-token",
+        { method: "GET" },
+        {
+          policy: { ...DEFAULT_NETWORK_POLICY, mode: "allowlist" },
+          feature: "web-search",
+          provider: "custom",
+          reason: "web search",
+          projectPath: "/project",
+          fetchImpl,
+        },
+      )
+    } catch (err) {
+      thrown = err
+    }
+
+    expect(thrown).toBeInstanceOf(NetworkPolicyBlockedError)
+    expect(thrown).toBeTruthy()
+    const error = thrown as NetworkPolicyBlockedError
+    expect(error.message).toContain("<unparseable>")
+    expect(error.message).not.toContain("sk-secret")
+    expect(error.message).not.toContain("secret-token")
+    expect(error.decision.url.input).toBe("<redacted>")
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
 })
