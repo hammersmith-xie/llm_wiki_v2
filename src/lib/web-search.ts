@@ -60,12 +60,14 @@ export async function webSearch(
     throw new Error("Web search not configured. Add a Tavily or SerpApi API key in Settings.")
   }
 
-  const policy = networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+  const state = useWikiStore.getState()
+  const policy = networkPolicy ?? state.networkPolicyConfig
+  const projectPath = state.project?.path
   switch (resolved.provider) {
     case "tavily":
-      return tavilySearch(query, resolved.apiKey, maxResults, policy)
+      return tavilySearch(query, resolved.apiKey, maxResults, policy, projectPath)
     case "serpapi":
-      return serpApiSearch(query, resolved.apiKey, maxResults, resolved.serpApiEngine ?? "google", policy)
+      return serpApiSearch(query, resolved.apiKey, maxResults, resolved.serpApiEngine ?? "google", policy, projectPath)
     default:
       throw new Error(`Unknown search provider: ${resolved.provider}`)
   }
@@ -84,6 +86,7 @@ async function tavilySearch(
   apiKey: string,
   maxResults: number,
   policy: NetworkPolicyConfig,
+  projectPath?: string,
 ): Promise<WebSearchResult[]> {
   // Route through the Tauri HTTP plugin so future non-Tavily search
   // providers (Serper, Exa, Brave, Google CSE, ...) with less friendly
@@ -109,6 +112,7 @@ async function tavilySearch(
         provider: "tavily",
         reason: "web search",
         policy,
+        projectPath,
       },
     )
   } catch (err) {
@@ -144,6 +148,7 @@ async function serpApiSearch(
   maxResults: number,
   engine: SerpApiEngine,
   policy: NetworkPolicyConfig,
+  projectPath?: string,
 ): Promise<WebSearchResult[]> {
   const params = new URLSearchParams({
     engine,
@@ -166,6 +171,7 @@ async function serpApiSearch(
         provider: "serpapi",
         reason: "web search",
         policy,
+        projectPath,
       },
     )
   } catch (err) {

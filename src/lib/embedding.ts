@@ -94,7 +94,8 @@ export async function fetchEmbedding(
   while (attempts <= maxRetries) {
     attempts++
     try {
-      const policy = networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+      const state = useWikiStore.getState()
+      const policy = networkPolicy ?? state.networkPolicyConfig
       const resp = await policyFetch(
         cfg.endpoint,
         {
@@ -107,6 +108,7 @@ export async function fetchEmbedding(
           provider: "openai-compatible",
           reason: "embedding request",
           policy,
+          projectPath: state.project?.path,
         },
       )
 

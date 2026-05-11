@@ -75,8 +75,8 @@ export const LLM_PRESETS: LlmPreset[] = [
   },
   {
     id: "claude-code-cli",
-    label: "Claude Code CLI (local)",
-    hint: "Uses the local `claude` binary — no API key needed",
+    label: "Claude Code CLI (local process, remote model)",
+    hint: "Uses the local `claude` binary, then routes inference through Claude Code's remote backend",
     provider: "claude-code",
     defaultModel: "claude-sonnet-4-6",
     // Mirrors anthropic preset; the CLI forwards to the same Anthropic

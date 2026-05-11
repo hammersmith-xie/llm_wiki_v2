@@ -23,6 +23,7 @@ import {
   type SettingsCategoryId,
 } from "@/stores/settings-navigation-store"
 import { saveLanguage } from "@/lib/project-store"
+import type { EgressReport } from "@/lib/egress-log"
 import type { SettingsDraft, DraftSetter } from "./settings-types"
 import { LlmProviderSection } from "./sections/llm-provider-section"
 import { EmbeddingSection } from "./sections/embedding-section"
@@ -133,6 +134,8 @@ export function SettingsView() {
 
   const [active, setActive] = useState<SettingsCategoryId>("llm")
   const [saved, setSaved] = useState(false)
+  const [egressReport, setEgressReport] = useState<EgressReport | null>(null)
+  const [egressLoading, setEgressLoading] = useState(false)
   const [draft, setDraftState] = useState<SettingsDraft>(() =>
     initialDraft(
       llmConfig,
@@ -186,6 +189,25 @@ export function SettingsView() {
   const setDraft: DraftSetter = useCallback((key, value) => {
     setDraftState((prev) => ({ ...prev, [key]: value }))
   }, [])
+
+  const refreshEgressReport = useCallback(async () => {
+    if (!project) {
+      setEgressReport(null)
+      return
+    }
+    setEgressLoading(true)
+    try {
+      const { readEgressReport } = await import("@/lib/egress-log")
+      setEgressReport(await readEgressReport(project.path, { days: 7 }))
+    } finally {
+      setEgressLoading(false)
+    }
+  }, [project])
+
+  useEffect(() => {
+    if (active !== "network") return
+    void refreshEgressReport()
+  }, [active, refreshEgressReport])
 
   const handleSave = useCallback(async () => {
     const {
@@ -295,7 +317,16 @@ export function SettingsView() {
       case "web-search":
         return <WebSearchSection />
       case "network":
-        return <NetworkSection draft={draft} setDraft={setDraft} />
+        return (
+          <NetworkSection
+            draft={draft}
+            setDraft={setDraft}
+            projectReady={!!project}
+            egressReport={egressReport}
+            egressLoading={egressLoading}
+            onRefreshEgress={refreshEgressReport}
+          />
+        )
       case "output":
         return <OutputSection draft={draft} setDraft={setDraft} />
       case "interface":
@@ -307,7 +338,7 @@ export function SettingsView() {
       case "about":
         return <AboutSection />
     }
-  }, [active, draft, setDraft])
+  }, [active, draft, egressLoading, egressReport, project, refreshEgressReport, setDraft])
 
   return (
     <div className="flex h-full overflow-hidden">

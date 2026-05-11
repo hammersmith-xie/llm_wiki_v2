@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest"
+import { DEFAULT_NETWORK_POLICY } from "../network-policy"
 import {
   createClaudeCodeStreamParser,
   buildExitError,
+  evaluateClaudeCodeCliPolicy,
 } from "../claude-cli-transport"
 
 describe("createClaudeCodeStreamParser", () => {
@@ -180,5 +182,28 @@ describe("buildExitError", () => {
     expect(msg).toMatch(/silently/)
     expect(msg).toMatch(/terminal/)
     expect(msg).toMatch(/Anthropic API/)
+  })
+})
+
+describe("evaluateClaudeCodeCliPolicy", () => {
+  it("blocks the subprocess transport in local-only mode before spawn", () => {
+    const result = evaluateClaudeCodeCliPolicy({
+      ...DEFAULT_NETWORK_POLICY,
+      mode: "local-only",
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.url.hostname).toBe("api.anthropic.com")
+    expect(result.reason).toBe("blocked-public")
+  })
+
+  it("allows Claude Code CLI when the representative cloud host is allowlisted", () => {
+    const result = evaluateClaudeCodeCliPolicy({
+      ...DEFAULT_NETWORK_POLICY,
+      allowedHosts: ["https://api.anthropic.com"],
+    })
+
+    expect(result.allowed).toBe(true)
+    expect(result.reason).toBe("allowed-allowlist")
   })
 })

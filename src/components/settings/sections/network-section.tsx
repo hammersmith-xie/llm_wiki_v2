@@ -12,15 +12,28 @@ import {
   type NetworkPolicyMode,
 } from "@/lib/network-policy"
 import type { SettingsDraft, DraftSetter } from "../settings-types"
+import type { EgressReport } from "@/lib/egress-log"
+import { EgressReportPanel } from "./egress-report-panel"
 
 interface Props {
   draft: SettingsDraft
   setDraft: DraftSetter
+  projectReady?: boolean
+  egressReport?: EgressReport | null
+  egressLoading?: boolean
+  onRefreshEgress?: () => void
 }
 
 const POLICY_MODES: NetworkPolicyMode[] = ["local-only", "allowlist", "any"]
 
-export function NetworkSection({ draft, setDraft }: Props) {
+export function NetworkSection({
+  draft,
+  setDraft,
+  projectReady = false,
+  egressReport = null,
+  egressLoading = false,
+  onRefreshEgress = () => {},
+}: Props) {
   const { t } = useTranslation()
   const [allowlistInput, setAllowlistInput] = useState("")
 
@@ -69,7 +82,7 @@ export function NetworkSection({ draft, setDraft }: Props) {
           <p className="text-xs text-muted-foreground">
             {t("settings.sections.network.policyDescription", {
               defaultValue:
-                "Policy-aware HTTP requests check this before egress. Existing integrations are being migrated in the next milestone, so this UI does not claim full-app enforcement yet.",
+                "Policy-aware outbound integrations check this before egress. Tauri capability remains broad for custom hosts; enforcement is at the app transport layer.",
             })}
           </p>
         </div>
@@ -164,6 +177,12 @@ export function NetworkSection({ draft, setDraft }: Props) {
             </p>
           ) : (
             <div className="space-y-1">
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                {t("settings.sections.network.seedDisclosure", {
+                  defaultValue:
+                    "Configured cloud providers may seed this allowlist during upgrade so existing OpenAI/Anthropic/search/embedding workflows keep working. Review or remove hosts you do not want.",
+                })}
+              </p>
               {policy.allowedHosts.map((host) => (
                 <div
                   key={host}
@@ -210,6 +229,13 @@ export function NetworkSection({ draft, setDraft }: Props) {
           </div>
         </label>
       </section>
+
+      <EgressReportPanel
+        projectReady={projectReady}
+        report={egressReport}
+        loading={egressLoading}
+        onRefresh={onRefreshEgress}
+      />
 
       <section className="space-y-4 rounded-lg border border-border p-4">
         <div className="space-y-1">

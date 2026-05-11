@@ -13,8 +13,14 @@
 import { invoke } from "@tauri-apps/api/core"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import type { LlmConfig } from "@/stores/wiki-store"
+import { useWikiStore } from "@/stores/wiki-store"
+import { evaluateNetworkPolicy, type NetworkPolicyConfig, type NetworkPolicyDecision } from "@/lib/network-policy"
+import { appendEgressEvent } from "@/lib/egress-log"
 import type { ChatMessage, RequestOverrides } from "./llm-providers"
 import type { StreamCallbacks } from "./llm-client"
+import { NetworkPolicyBlockedError } from "./tauri-fetch"
+
+const CLAUDE_CODE_CLOUD_URL = "https://api.anthropic.com/v1/messages"
 
 /**
  * Public parse entry point. Given one stream-json line from claude's
@@ -98,6 +104,12 @@ export function createClaudeCodeStreamParser() {
   }
 }
 
+export function evaluateClaudeCodeCliPolicy(
+  policy: NetworkPolicyConfig,
+): NetworkPolicyDecision {
+  return evaluateNetworkPolicy(CLAUDE_CODE_CLOUD_URL, policy)
+}
+
 // Tauri's `invoke` typing requires the payload object to satisfy
 // `Record<string, unknown>` (an index signature). Plain interfaces
 // don't provide one, so we use a `type` alias with the explicit
@@ -122,6 +134,25 @@ export async function streamClaudeCodeCli(
   overrides?: RequestOverrides,
 ): Promise<void> {
   const { onToken, onDone, onError } = callbacks
+  const state = useWikiStore.getState()
+  const policy = overrides?.networkPolicy ?? state.networkPolicyConfig
+  const decision = evaluateClaudeCodeCliPolicy(policy)
+  void appendEgressEvent(state.project?.path, {
+    feature: overrides?.networkFeature ?? "llm",
+    provider: overrides?.networkProvider ?? "claude-code",
+    reason: overrides?.networkReason ?? "chat completion",
+    transport: "subprocess",
+    decision,
+  })
+  if (!decision.allowed) {
+    onError(new NetworkPolicyBlockedError({
+      decision,
+      feature: overrides?.networkFeature ?? "llm",
+      provider: overrides?.networkProvider ?? "claude-code",
+      reason: overrides?.networkReason ?? "chat completion",
+    }))
+    return
+  }
 
   // Sampling knobs aren't wired through the Claude Code CLI (no flag
   // equivalents for temperature/top_p/max_tokens/stop). Warn loudly in

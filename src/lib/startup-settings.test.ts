@@ -95,4 +95,51 @@ describe("hydrateStartupSettings", () => {
       savedLlm,
     )
   })
+
+  it("seeds the default allowlist from existing cloud provider config when no policy was saved", async () => {
+    const setNetworkPolicyConfig = vi.fn()
+
+    await hydrateStartupSettings({
+      loaders: {
+        loadLlmConfig: async () => ({
+          provider: "openai",
+          apiKey: "sk-test",
+          model: "gpt-4o",
+          ollamaUrl: "http://localhost:11434",
+          customEndpoint: "",
+          maxContextSize: 204800,
+        }),
+        loadProviderConfigs: async () => null,
+        loadActivePresetId: async () => null,
+        loadSearchApiConfig: async () => ({ provider: "tavily", apiKey: "tvly" }),
+        loadEmbeddingConfig: async () => null,
+        loadMultimodalConfig: async () => null,
+        loadProxyConfig: async () => null,
+        loadNetworkPolicyConfig: async () => null,
+      },
+      store: {
+        setLlmConfig: vi.fn(),
+        setProviderConfigs: vi.fn(),
+        setActivePresetId: vi.fn(),
+        setSearchApiConfig: vi.fn(),
+        setEmbeddingConfig: vi.fn(),
+        setMultimodalConfig: vi.fn(),
+        setProxyConfig: vi.fn(),
+        setNetworkPolicyConfig,
+        llmConfig: {
+          provider: "openai",
+          apiKey: "",
+          model: "",
+          ollamaUrl: "http://localhost:11434",
+          customEndpoint: "",
+          maxContextSize: 204800,
+        },
+      },
+    })
+
+    expect(setNetworkPolicyConfig).toHaveBeenCalledWith({
+      ...DEFAULT_NETWORK_POLICY,
+      allowedHosts: ["https://api.openai.com", "https://api.tavily.com"],
+    })
+  })
 })

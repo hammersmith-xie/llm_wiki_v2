@@ -92,7 +92,8 @@ export async function streamChat(
   let response: Response
   try {
     const body = providerConfig.buildBody(messages, requestOverrides)
-    const policy = requestOverrides?.networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+    const state = useWikiStore.getState()
+    const policy = requestOverrides?.networkPolicy ?? state.networkPolicyConfig
     response = await policyFetch(
       providerConfig.url,
       {
@@ -106,6 +107,7 @@ export async function streamChat(
         provider: requestOverrides?.networkProvider ?? config.provider,
         reason: requestOverrides?.networkReason ?? "chat completion",
         policy,
+        projectPath: state.project?.path,
         fetchImpl: requestOverrides?.fetchImpl,
       },
     )

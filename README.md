@@ -70,7 +70,7 @@
 | Web Search / Deep Research | Cloud-dependent unless configured local | Tavily/SerpApi are cloud providers; local SearXNG support is planned. |
 | Vision caption | Configurable compute | Image bytes are sent to the selected vision provider; local VLM presets are planned. |
 | Update check | Cloud-dependent, policy-gated | Uses GitHub Releases when enabled and allowed by Network Policy. |
-| Clip server / maintenance daemon | Local app runtime | Clip server binds to `127.0.0.1`; maintenance checks run only while the app process is alive. |
+| Clip server / maintenance daemon | Local app runtime | Clip server binds to `127.0.0.1`; maintenance checks run only while the app process is alive. The `127.0.0.1:19827` clip bridge is a documented policy exception, not cloud egress. |
 
 ## What is this?
 

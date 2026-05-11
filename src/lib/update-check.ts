@@ -116,7 +116,8 @@ export async function fetchLatestRelease(
   networkPolicy?: NetworkPolicyConfig,
 ): Promise<GithubRelease | null> {
   const url = latestReleaseApiUrl(repo)
-  const policy = networkPolicy ?? useWikiStore.getState().networkPolicyConfig
+  const state = useWikiStore.getState()
+  const policy = networkPolicy ?? state.networkPolicyConfig
   try {
     const resp = await policyFetch(
       url,
@@ -132,6 +133,7 @@ export async function fetchLatestRelease(
         provider: "github",
         reason: "release check",
         policy,
+        projectPath: state.project?.path,
       },
     )
     if (!resp.ok) return null

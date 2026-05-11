@@ -26,6 +26,7 @@ type ReindexState =
 export function EmbeddingSection({ draft, setDraft }: Props) {
   const { t } = useTranslation()
   const project = useWikiStore((s) => s.project)
+  const networkPolicyConfig = useWikiStore((s) => s.networkPolicyConfig)
   const embeddingConfig = useWikiStore((s) => s.embeddingConfig)
 
   const [chunkCount, setChunkCount] = useState<number | null>(null)
@@ -56,12 +57,13 @@ export function EmbeddingSection({ draft, setDraft }: Props) {
   const handleReindex = useCallback(async () => {
     if (!project) return
     setReindex({ kind: "running", done: 0, total: 0 })
+    const policySnapshot = networkPolicyConfig
     const count = await embedAllPages(project.path, embeddingConfig, (done, total) => {
       setReindex({ kind: "running", done, total })
-    })
+    }, policySnapshot)
     setReindex({ kind: "done", count })
     await refreshStats()
-  }, [project, embeddingConfig, refreshStats])
+  }, [project, embeddingConfig, networkPolicyConfig, refreshStats])
 
   const handleDropLegacy = useCallback(async () => {
     if (!project) return

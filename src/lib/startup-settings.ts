@@ -7,6 +7,7 @@ import type {
   ProxyConfig,
   SearchApiConfig,
 } from "@/stores/wiki-store"
+import { seedNetworkPolicyFromConfiguredCloud } from "@/lib/network-policy-migration"
 
 export interface StartupSettingsLoaders {
   loadLlmConfig: () => Promise<LlmConfig | null>
@@ -49,6 +50,9 @@ export async function hydrateStartupSettings({
   saveResolvedLlmConfig,
 }: HydrateStartupSettingsOptions): Promise<void> {
   let currentLlmConfig = store.llmConfig
+  let currentSearchConfig: SearchApiConfig | null = null
+  let currentEmbeddingConfig: EmbeddingConfig | null = null
+  let currentMultimodalConfig: MultimodalConfig | null = null
 
   const savedConfig = await loaders.loadLlmConfig()
   if (savedConfig) {
@@ -79,16 +83,19 @@ export async function hydrateStartupSettings({
   const savedSearchConfig = await loaders.loadSearchApiConfig()
   if (savedSearchConfig) {
     store.setSearchApiConfig(savedSearchConfig)
+    currentSearchConfig = savedSearchConfig
   }
 
   const savedEmbeddingConfig = await loaders.loadEmbeddingConfig()
   if (savedEmbeddingConfig) {
     store.setEmbeddingConfig(savedEmbeddingConfig)
+    currentEmbeddingConfig = savedEmbeddingConfig
   }
 
   const savedMultimodalConfig = await loaders.loadMultimodalConfig()
   if (savedMultimodalConfig) {
     store.setMultimodalConfig(savedMultimodalConfig)
+    currentMultimodalConfig = savedMultimodalConfig
   }
 
   const savedProxy = await loaders.loadProxyConfig()
@@ -97,7 +104,14 @@ export async function hydrateStartupSettings({
   }
 
   const savedNetworkPolicy = await loaders.loadNetworkPolicyConfig()
-  if (savedNetworkPolicy) {
-    store.setNetworkPolicyConfig(savedNetworkPolicy)
+  const networkPolicy = seedNetworkPolicyFromConfiguredCloud({
+    savedNetworkPolicy,
+    llmConfig: currentLlmConfig,
+    searchConfig: currentSearchConfig,
+    embeddingConfig: currentEmbeddingConfig,
+    multimodalConfig: currentMultimodalConfig,
+  })
+  if (savedNetworkPolicy || networkPolicy.allowedHosts.length > 0) {
+    store.setNetworkPolicyConfig(networkPolicy)
   }
 }

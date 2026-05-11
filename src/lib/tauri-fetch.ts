@@ -22,6 +22,7 @@ import {
   type NetworkPolicyConfig,
   type NetworkPolicyDecision,
 } from "@/lib/network-policy"
+import { appendEgressEvent } from "@/lib/egress-log"
 
 let pluginFetchPromise: Promise<typeof globalThis.fetch> | null = null
 
@@ -63,6 +64,7 @@ export interface PolicyFetchMetadata {
   provider: string
   reason: string
   policy: NetworkPolicyConfig
+  projectPath?: string | null
   fetchImpl?: typeof globalThis.fetch
 }
 
@@ -95,6 +97,14 @@ export async function policyFetch(
   metadata: PolicyFetchMetadata,
 ): Promise<Response> {
   const decision = evaluateNetworkPolicy(input, metadata.policy)
+  void appendEgressEvent(metadata.projectPath, {
+    feature: metadata.feature,
+    provider: metadata.provider,
+    reason: metadata.reason,
+    transport: "http",
+    decision,
+    requestBytes: estimateRequestBytes(init),
+  })
   if (!decision.allowed) {
     throw new NetworkPolicyBlockedError({
       decision,
@@ -106,6 +116,14 @@ export async function policyFetch(
 
   const httpFetch = metadata.fetchImpl ?? await getHttpFetch()
   return httpFetch(input, init)
+}
+
+function estimateRequestBytes(init: RequestInit | undefined): number | undefined {
+  const body = init?.body
+  if (typeof body === "string") return new TextEncoder().encode(body).byteLength
+  if (body instanceof ArrayBuffer) return body.byteLength
+  if (ArrayBuffer.isView(body)) return body.byteLength
+  return undefined
 }
 
 /**

@@ -223,7 +223,7 @@
         "title": "网络",
         "description": "控制应用层出站策略和代理路由。策略点击保存即时生效；代理配置重启应用后生效。",
         "policyTitle": "出站策略",
-        "policyDescription": "已接入策略的 HTTP 请求会在出站前检查这里的配置。现有集成会在下一个里程碑迁移，因此这里不宣称已经完成全应用强制拦截。",
+        "policyDescription": "已接入策略的出站集成会在出站前检查这里的配置。Tauri capability 仍为自定义 host 保持宽松；强制执行发生在应用 transport 层。",
         "modes": {
           "local-only": {
             "label": "仅本地",
@@ -246,6 +246,7 @@
         "addAllowedHost": "添加",
         "removeAllowedHost": "移除 {{host}}",
         "emptyAllowlist": "尚未允许任何公网 host。",
+        "seedDisclosure": "升级时，已配置的云 provider 可能会自动加入这里的允许列表，避免既有 OpenAI/Anthropic/search/embedding 工作流突然断开。请审阅并移除不想允许的 host。",
         "allowLan": "允许局域网地址",
         "allowLanHelp": "允许 10.x.x.x、172.16-31.x.x、192.168.x.x 等 RFC1918 地址。除非你的本地模型或服务跑在另一台设备上，否则建议关闭。",
         "proxyTitle": "代理",

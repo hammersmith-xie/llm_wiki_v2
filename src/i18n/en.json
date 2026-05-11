@@ -223,7 +223,7 @@
         "title": "Network",
         "description": "Control app-layer outbound policy and proxy routing. Policy changes apply on Save; proxy changes apply on app restart.",
         "policyTitle": "Outbound policy",
-        "policyDescription": "Policy-aware HTTP requests check this before egress. Existing integrations are being migrated in the next milestone, so this UI does not claim full-app enforcement yet.",
+        "policyDescription": "Policy-aware outbound integrations check this before egress. Tauri capability remains broad for custom hosts; enforcement is at the app transport layer.",
         "modes": {
           "local-only": {
             "label": "Local only",
@@ -246,6 +246,7 @@
         "addAllowedHost": "Add",
         "removeAllowedHost": "Remove {{host}}",
         "emptyAllowlist": "No public hosts are allowlisted.",
+        "seedDisclosure": "Configured cloud providers may seed this allowlist during upgrade so existing OpenAI/Anthropic/search/embedding workflows keep working. Review or remove hosts you do not want.",
         "allowLan": "Allow LAN addresses",
         "allowLanHelp": "Allows RFC1918 addresses such as 10.x.x.x, 172.16-31.x.x, and 192.168.x.x. Keep off unless your local models or services run on another device.",
         "proxyTitle": "Proxy",

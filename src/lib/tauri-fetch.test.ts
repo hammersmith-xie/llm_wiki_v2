@@ -13,7 +13,7 @@
  * fallback doesn't regress silently (you'd only notice via a vitest
  * run crash with "window is not defined").
  */
-import { describe, it, expect, vi } from "vitest"
+import { beforeEach, describe, it, expect, vi } from "vitest"
 import {
   getHttpFetch,
   isFetchNetworkError,
@@ -21,6 +21,18 @@ import {
   policyFetch,
 } from "./tauri-fetch"
 import { DEFAULT_NETWORK_POLICY } from "./network-policy"
+
+vi.mock("./egress-log", () => ({
+  appendEgressEvent: vi.fn(async () => {}),
+}))
+
+import { appendEgressEvent } from "./egress-log"
+
+const mockAppendEgressEvent = vi.mocked(appendEgressEvent)
+
+beforeEach(() => {
+  mockAppendEgressEvent.mockClear()
+})
 
 describe("getHttpFetch — Node fallback", () => {
   it("returns a callable function under Node (typeof window === undefined)", async () => {
@@ -97,6 +109,7 @@ describe("policyFetch", () => {
         feature: "llm",
         provider: "ollama",
         reason: "chat completion",
+        projectPath: "/project",
         fetchImpl,
       },
     )
@@ -105,6 +118,15 @@ describe("policyFetch", () => {
     expect(fetchImpl).toHaveBeenCalledWith(
       "http://127.0.0.1:11434/v1/chat/completions",
       { method: "POST" },
+    )
+    expect(mockAppendEgressEvent).toHaveBeenCalledWith(
+      "/project",
+      expect.objectContaining({
+        feature: "llm",
+        provider: "ollama",
+        reason: "chat completion",
+        transport: "http",
+      }),
     )
   })
 
@@ -120,11 +142,21 @@ describe("policyFetch", () => {
           feature: "llm",
           provider: "openai",
           reason: "chat completion",
+          projectPath: "/project",
           fetchImpl,
         },
       ),
     ).rejects.toBeInstanceOf(NetworkPolicyBlockedError)
 
     expect(fetchImpl).not.toHaveBeenCalled()
+    expect(mockAppendEgressEvent).toHaveBeenCalledWith(
+      "/project",
+      expect.objectContaining({
+        feature: "llm",
+        provider: "openai",
+        reason: "chat completion",
+        transport: "http",
+      }),
+    )
   })
 })

@@ -70,7 +70,7 @@
 | Web Search / Deep Research | 默认依赖云，后续可本地化 | Tavily/SerpApi 是云 provider；计划支持本地 SearXNG。 |
 | Vision caption | 计算可配置 | 图片 bytes 会发送给所选 vision provider；计划提供本地 VLM preset。 |
 | Update check | 依赖云，受 policy 管控 | 启用且 Network Policy 允许时访问 GitHub Releases。 |
-| Clip server / maintenance daemon | app 运行期本地 | Clip server 绑定 `127.0.0.1`；维护检查只在 app 进程运行时存在。 |
+| Clip server / maintenance daemon | app 运行期本地 | Clip server 绑定 `127.0.0.1`；维护检查只在 app 进程运行时存在。`127.0.0.1:19827` clip bridge 是明确披露的 policy 例外，不是云端出站。 |
 
 ## 这是什么？
 

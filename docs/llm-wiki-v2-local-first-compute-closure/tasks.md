@@ -97,7 +97,7 @@ graph TD
 
 ---
 
-### Task 1.3 ⏳ 修正 Claude Code CLI 标签
+### Task 1.3 ✅ 修正 Claude Code CLI 标签
 
 **描述**: 将 “Claude Code CLI (local)” 改成更准确的 “Claude Code CLI (local process, remote model)”。
 
@@ -111,15 +111,15 @@ graph TD
 - `src/components/settings/preset-resolver.test.ts`
 
 **验收**:
-- [ ] UI 不再暗示 Claude CLI 是本机推理。
-- [ ] hint 明确本地 `claude` 进程仍会请求 Anthropic/Claude Code backend。
-- [ ] 相关 preset 测试通过。
+- [x] UI 不再暗示 Claude CLI 是本机推理。
+- [x] hint 明确本地 `claude` 进程仍会请求 Anthropic/Claude Code backend。
+- [x] 相关 preset 测试通过。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 旧 label 写成 `Claude Code CLI (local)`，容易把“本地进程”误读成本机推理。
+- 🔧 **最终实现逻辑**: 将 preset label 改为 `Claude Code CLI (local process, remote model)`，hint 明确本机 `claude` binary 会通过 Claude Code 远端后端推理。
+- 🎯 **关键决策**: 保留 Claude CLI 作为可用 provider，但不再归入本地推理语境；policy/egress 层按 subprocess cloud-dependent 处理。
 
 ---
 
@@ -287,8 +287,8 @@ graph TD
 #### 备注
 
 - 🐛 **遇到的问题**: `streamChat` 调用点很多，如果全链路显式传参会扩散到 chat、ingest、lint、review、deep research、vision caption 等模块；同时 `RequestOverrides` 会进入 provider body，新增控制字段必须避免被透传到模型 API。
-- 🔧 **最终实现逻辑**: `streamChat` 内部统一从 `requestOverrides.networkPolicy` 或 `useWikiStore.getState().networkPolicyConfig` 取当前策略，并调用 `policyFetch`，metadata 使用 `feature=llm`、`provider=config.provider`、`reason=chat completion`。`RequestOverrides` 新增测试用 `fetchImpl` / `networkPolicy`，provider body 构造时通过 `stripWireAgnosticOverrides` 去除。
-- 🎯 **关键决策**: 不逐个改所有 `streamChat` 调用点；先在统一 LLM transport 层读取当前 store policy，保证真实 LLM 出网立即受 gate 约束，同时保留显式注入能力用于测试和后续更严格的调用链治理。
+- 🔧 **最终实现逻辑**: `streamChat` 内部统一从 `requestOverrides.networkPolicy` 或 `useWikiStore.getState().networkPolicyConfig` 取当前策略，并调用 `policyFetch`，metadata 使用 `feature=llm`、`provider=config.provider`、`reason=chat completion`。`RequestOverrides` 新增测试用 `fetchImpl` / `networkPolicy`，provider body 构造时通过 `stripWireAgnosticOverrides` 去除。Claude Code CLI 在 subprocess spawn 前用代表性 Anthropic host 做 policy preflight，并写 `transport=subprocess` 的 egress event。
+- 🎯 **关键决策**: 不逐个改所有 `streamChat` 调用点；先在统一 LLM transport 层读取当前 store policy，保证真实 LLM 出网立即受 gate 约束，同时保留显式注入能力用于测试和后续更严格的调用链治理。Claude CLI 子进程无法被 `policyFetch` 包裹，因此用 spawn 前 preflight 明确阻止 strict local-only。
 
 ---
 
@@ -499,9 +499,9 @@ graph TD
 
 **目标**: transparent cloud compute 可证明，用户能看出 app 连过哪里、为什么连、是否被 policy 允许。
 **依赖**: M2, M3
-**状态**: ⏳
+**状态**: 🚧
 
-### Task 6.1 ⏳ Egress append-only log
+### Task 6.1 ✅ Egress append-only log
 
 **关联文件 / 模块**:
 - `src/lib/egress-log.ts` (新建)
@@ -509,20 +509,20 @@ graph TD
 - `.llm-wiki/egress.jsonl`
 
 **验收**:
-- [ ] append-only JSONL。
-- [ ] 记录 host/scheme/feature/provider/reason/decision/policyMode。
-- [ ] 不记录 headers、payload、query secret。
-- [ ] malformed line 读取时跳过。
+- [x] append-only JSONL。
+- [x] 记录 host/scheme/feature/provider/reason/decision/policyMode。
+- [x] 不记录 headers、payload、query secret。
+- [x] malformed line 读取时跳过。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: SerpApi 等 provider 会把 API key 放在 query string，如果直接记录完整 URL 会把 secret 写入 `.llm-wiki/egress.jsonl`。
+- 🔧 **最终实现逻辑**: 新增 `egress-log.ts`，`buildEgressEvent` 只保存 protocol/hostname/port/origin/kind、feature/provider/reason、policy decision 和粗略 request bytes；`policyFetch` allow/block 都 best-effort append；读取报告时跳过 malformed line。
+- 🎯 **关键决策**: egress log 是透明计算证据，不是 payload 级网络审计；不保存 path、query、headers、body，也不保存响应内容。
 
 ---
 
-### Task 6.2 ⏳ Egress report UI
+### Task 6.2 🚧 Egress report UI
 
 **关联文件 / 模块**:
 - `src/components/settings/sections/egress-report-panel.tsx` (新建)
@@ -531,16 +531,16 @@ graph TD
 - `src/i18n/zh.json`
 
 **验收**:
-- [ ] 展示过去 7 天 host/provider/reason 聚合。
-- [ ] 区分 allowed 和 blocked。
+- [x] 展示过去 7 天 host/provider/reason 聚合。
+- [x] 区分 allowed 和 blocked。
 - [ ] 支持清理 derived egress log。
-- [ ] 不显示敏感 path/query。
+- [x] 不显示敏感 path/query。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: NetworkSection 原文案仍说“现有集成下个里程碑迁移”，与 M3 已完成主 HTTP 出网迁移不一致。
+- 🔧 **最终实现逻辑**: 新增 `EgressReportPanel` 并接入 Settings -> Network，读取最近 7 天 `.llm-wiki/egress.jsonl` 聚合，显示 host/provider/reason 以及 allowed/blocked 次数；同步更新中英文 policy 文案。
+- 🎯 **关键决策**: 本轮先提供 read-only 透明面板，清理 derived egress log 留在 T6.2 剩余项，不阻塞 evidence layer 可见。
 
 ---
 
@@ -718,15 +718,15 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 文档与产品边界 | 2 | 4 | 🚧 |
+| M1 | 文档与产品边界 | 3 | 4 | 🚧 |
 | M2 | Network Policy Kernel | 3 | 4 | 🚧 |
 | M3 | Existing Egress Migration | 5 | 5 | ✅ |
 | M4 | Local Defaults | 0 | 3 | ⏳ |
 | M5 | Strict Local-Only UX | 0 | 2 | ⏳ |
-| M6 | Egress Report | 0 | 3 | ⏳ |
+| M6 | Egress Report | 1 | 3 | 🚧 |
 | M7 | Chat Privacy and Auto Git | 0 | 4 | ⏳ |
 | M8 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **10** | **28** | **🚧** |
+| **总计** | | **12** | **28** | **🚧** |
 
 ## 变更记录
 
@@ -737,3 +737,4 @@ graph TD
 | 2026-05-10 | 完成 M2 内核切片：network policy 类型/持久化、URL 分类、policy-aware fetch wrapper；Settings UI 与现有出网迁移后续执行 |
 | 2026-05-11 | 完成 M3 既有出网迁移：LLM、embedding、web-search、update-check、vision-caption 均接入 `policyFetch` 或共享 transport metadata |
 | 2026-05-11 | 根据用户确认修正产品定位：Local-first storage + transparent cloud compute；README / README_CN 增加 Local Storage vs Cloud Compute 表格 |
+| 2026-05-11 | 启动 transparent cloud compute 证据层：新增 `.llm-wiki/egress.jsonl` append-only metadata log、Settings 7 天聚合面板、Claude CLI subprocess preflight 与升级 allowlist seeding；首启 disclosure UI 仍留后续任务 |
