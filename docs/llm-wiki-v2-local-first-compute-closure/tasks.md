@@ -1,9 +1,9 @@
-# 任务列表 — LLM Wiki v2 Local-First Compute Closure
+# 任务列表 — LLM Wiki v2 Local-First Storage + Transparent Cloud Compute
 
 **关联需求**: [`requirements.md`](./requirements.md)
 **估算量级**: 超大 (审核轮数：10+)
-**总体进度**: 🚧 4 / 28
-**执行状态**: 先建档，Phase 3 暂缓；后续按批次推进
+**总体进度**: 🚧 10 / 28
+**执行状态**: 已完成 Network Policy kernel 和主 HTTP 出网迁移；后续按 transparent cloud compute 路线推进
 
 ---
 
@@ -20,10 +20,10 @@
 ## 执行纪律
 
 - 每个行为变更必须先写 failing test，再实现，再跑 focused test。
-- 所有出网路径必须通过带 metadata 的 policy-aware fetch wrapper；禁止新增裸 `fetch` / 裸 `getHttpFetch()`。
+- 所有 HTTP 出网路径必须通过带 metadata 的 policy-aware fetch wrapper；禁止新增裸公网 `fetch` / 裸 `getHttpFetch()`。明确绑定 loopback 的本地桥接例外必须在文档中披露。
 - 每个任务完成后更新本文件状态和备注块。
 - 每个任务完成后单独 commit + push。
-- local-first 边界不可破：不引入远程 memory server、多用户 sync、自动 Markdown 重写或 payload 级网络审计。
+- local-first storage 边界不可破：不引入远程 memory server、多用户 sync、自动 Markdown 重写或 payload 级网络审计。云 LLM / 搜索可以作为 transparent compute backend 存在，但必须受 policy 和后续 egress report 约束。
 - `docs/` 被 gitignore；提交文档时必须 `git add -f docs/llm-wiki-v2-local-first-compute-closure/...`。
 
 ## 里程碑依赖图
@@ -33,7 +33,7 @@ graph TD
   M1[M1: 文档与产品边界] --> M2[M2: Network Policy Kernel]
   M2 --> M3[M3: Existing Egress Migration]
   M3 --> M4[M4: Local Defaults]
-  M3 --> M5[M5: Offline UX]
+  M3 --> M5[M5: Strict Local-Only UX]
   M3 --> M6[M6: Egress Report]
   M4 --> M7[M7: Chat Privacy and Auto Git]
   M5 --> M7
@@ -62,20 +62,20 @@ graph TD
 
 **验收**:
 - [x] 文档引用真实代码路径，不把 comment 原文当成事实。
-- [x] 明确存储 local-first 已完成，计算/出网 local-first 未完成。
+- [x] 明确存储 local-first 已完成，云端 compute 需要 transparent / governed / auditable。
 - [x] 明确 Phase 3 暂缓，不在本任务里改 runtime。
 
 #### 备注
 
 - 🐛 **遇到的问题**: comment 大方向成立，但个别点需要按代码修正：update-check 已有开关但默认启用；vision caption 已有独立 config 但默认复用 main LLM；embedding 默认 disabled，不会自动倒向云端。
 - 🔧 **最终实现逻辑**: 新建 `requirements.md` 和 `tasks.md`，把 10 个缺口按直接采纳、修正后采纳、Non-Goal 分级，并把后续实现拆成 8 个里程碑 / 28 个任务。
-- 🎯 **关键决策**: 先建档不改 runtime；后续优先 P0 network policy + fetch gate，再推进 local presets、offline UX、egress report、chat privacy 和 auto-git。
+- 🎯 **关键决策**: 不把云 LLM / 搜索本身视为缺口；后续优先 Network Policy、egress report、strict local-only UX、local presets、chat privacy 和 auto-git。
 
 ---
 
-### Task 1.2 ⏳ README / README_CN 增加 Local vs Cloud 表格
+### Task 1.2 ✅ README / README_CN 增加 Local Storage vs Cloud Compute 表格
 
-**描述**: 在设计哲学附近补一张清晰表格，说明哪些能力纯本地、哪些可选本地、哪些云依赖。
+**描述**: 在设计哲学附近补一张清晰表格，把产品定位从旧版“计算本地化”解读修正为 “Local-first storage + transparent cloud compute”。
 
 **依赖**: T1.1
 **阻塞**: T5.1
@@ -85,15 +85,15 @@ graph TD
 - `README_CN.md`
 
 **验收**:
-- [ ] 表格包含 LLM chat、embedding、vector store、web search、deep research、vision caption、update check、clip server、maintenance daemon。
-- [ ] Web Search / Deep Research / Update Check 标为 cloud-dependent 或 policy-gated。
-- [ ] README_CN 同步。
+- [x] 表格包含 LLM chat、embedding、vector store、web search、deep research、vision caption、update check、clip server、maintenance daemon。
+- [x] Web Search / Deep Research / Update Check 标为 cloud-dependent 或 policy-gated。
+- [x] README_CN 同步。
 
 #### 备注
 
-- 🐛 **遇到的问题**:
-- 🔧 **最终实现逻辑**:
-- 🎯 **关键决策**:
+- 🐛 **遇到的问题**: 原文容易把 local-first 解读为 “OpenAI/Anthropic 也是缺口”，与实际产品定位不符；用户确认目标是 local-first storage + transparent cloud LLM。
+- 🔧 **最终实现逻辑**: README / README_CN 的 Design Philosophy 增加 local-first storage + transparent cloud compute 定位，并补 Local Storage vs Cloud Compute 表格，区分本地事实源、派生状态、本地搜索、可配置计算、cloud-dependent 功能和 loopback-only 本地桥。
+- 🎯 **关键决策**: 不把云 provider 本身视为问题；问题是出网必须 explicit、governed、auditable。`local-only` 只是严格模式，不是默认产品承诺。
 
 ---
 
@@ -150,7 +150,7 @@ graph TD
 
 ## Milestone 2: Network Policy Kernel
 
-**目标**: 建立 local-first compute 的硬执行边界。
+**目标**: 建立 transparent cloud compute 的 policy 执行边界。
 **依赖**: M1
 **状态**: 🚧
 
@@ -376,7 +376,7 @@ graph TD
 
 ## Milestone 4: Local Defaults
 
-**目标**: 让“选本地”比“选云”更容易。
+**目标**: 降低选择本地 compute 的摩擦；云 compute 仍是受控、透明的正常路径。
 **依赖**: M3
 **状态**: ⏳
 
@@ -443,9 +443,9 @@ graph TD
 
 ---
 
-## Milestone 5: Offline UX
+## Milestone 5: Strict Local-Only UX
 
-**目标**: local-only 下不要运行时才失败，而是提前禁用或降级。
+**目标**: `local-only` 严格模式下不要运行时才失败，而是提前禁用或降级。
 **依赖**: M3, M4
 **状态**: ⏳
 
@@ -497,7 +497,7 @@ graph TD
 
 ## Milestone 6: Egress Report
 
-**目标**: local-first 可证明，用户能看出 app 连过哪里。
+**目标**: transparent cloud compute 可证明，用户能看出 app 连过哪里、为什么连、是否被 policy 允许。
 **依赖**: M2, M3
 **状态**: ⏳
 
@@ -718,21 +718,22 @@ graph TD
 
 | 里程碑 | 任务 | 完成 | 总数 | 状态 |
 |--------|------|------|------|------|
-| M1 | 文档与产品边界 | 1 | 4 | 🚧 |
+| M1 | 文档与产品边界 | 2 | 4 | 🚧 |
 | M2 | Network Policy Kernel | 3 | 4 | 🚧 |
 | M3 | Existing Egress Migration | 5 | 5 | ✅ |
 | M4 | Local Defaults | 0 | 3 | ⏳ |
-| M5 | Offline UX | 0 | 2 | ⏳ |
+| M5 | Strict Local-Only UX | 0 | 2 | ⏳ |
 | M6 | Egress Report | 0 | 3 | ⏳ |
 | M7 | Chat Privacy and Auto Git | 0 | 4 | ⏳ |
 | M8 | Verification and Final Review | 0 | 2 | ⏳ |
-| **总计** | | **9** | **28** | **🚧** |
+| **总计** | | **10** | **28** | **🚧** |
 
 ## 变更记录
 
 | 日期 | 变更 |
 |------|------|
-| 2026-05-10 | 初稿，按 comment 建立 local-first compute / egress closure 路线图，Phase 3 暂缓 |
+| 2026-05-10 | 初稿，按当时 comment 建立计算收口 / egress closure 路线图；后续已修正为 local-first storage + transparent cloud compute |
 | 2026-05-10 | 完成 Task 1.1 comment triage 建档：直接采纳 / 修正后采纳 / Non-Goal 分级 |
 | 2026-05-10 | 完成 M2 内核切片：network policy 类型/持久化、URL 分类、policy-aware fetch wrapper；Settings UI 与现有出网迁移后续执行 |
 | 2026-05-11 | 完成 M3 既有出网迁移：LLM、embedding、web-search、update-check、vision-caption 均接入 `policyFetch` 或共享 transport metadata |
+| 2026-05-11 | 根据用户确认修正产品定位：Local-first storage + transparent cloud compute；README / README_CN 增加 Local Storage vs Cloud Compute 表格 |

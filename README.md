@@ -47,13 +47,30 @@
 
 ## Design Philosophy
 
-**Markdown-first, human-gated, local-first.** This is an opinionated LLM wiki: `wiki/` remains the source of truth, and `.llm-wiki/` stores derived local state such as indexes, audit logs, maintenance state, and review suggestions.
+**Markdown-first, human-gated, local-first storage with transparent cloud compute.** This is an opinionated LLM wiki: `wiki/` remains the source of truth, and `.llm-wiki/` stores derived local state such as indexes, audit logs, maintenance state, and review suggestions. LLMs, embeddings, web search, and vision captioning can run against local endpoints or cloud APIs; those outbound compute calls should be explicit, governed by Network Policy, and auditable rather than hidden.
 
 - **Markdown is the source of truth.** Graphs, indexes, and derived records can be rebuilt from local files. Your wiki stays readable without the app, diffable in Git, and portable to tools like Obsidian.
 - **Humans approve risky writes.** The app may suggest updates, supersessions, and maintenance actions, but it does not silently rewrite Markdown behind your back.
+- **Cloud LLMs are optional compute, not remote storage.** OpenAI, Anthropic, Google, Claude Code CLI, Tavily, SerpApi, and similar providers may be used when you choose them, while project files and derived state remain local-first.
 - **A local app daemon keeps maintenance visible.** While the app process is running, a lightweight local maintenance loop checks due state every 15 minutes by default. It can remind you, and when policy allows it can schedule deterministic patrol. It stops when the app fully quits.
+- **Network Policy governs outbound calls.** `local-only` is a strict mode for offline-sensitive users; `allowlist` and `any` support transparent cloud compute when that is the desired workflow.
 - **No remote memory server or mesh sync.** This phase deliberately excludes a hosted backend, auth system, multi-user ACL, and cross-device mesh sync.
 - **Explicit beats auto-magic.** Confidence, contradictions, and crystallization are designed to be inspectable and reviewable rather than invisible background mutations.
+
+### Local Storage vs Cloud Compute
+
+| Area | Default posture | Notes |
+|------|-----------------|-------|
+| Wiki pages | Local-first | Markdown in `wiki/` is the source of truth. |
+| Derived state | Local-first | `.llm-wiki/` stores rebuildable indexes, audit, claims, chats, and maintenance state. |
+| Lexical/BM25/graph search | Local | Runs over local Markdown and derived indexes. |
+| Vector store | Local storage, configurable compute | LanceDB is local; embedding generation uses the configured endpoint. |
+| LLM chat / ingest / lint | Configurable compute | Can use Ollama/local endpoints or cloud LLM APIs. |
+| Claude Code CLI | Local process, remote model | Uses the local `claude` binary, but inference happens through Claude Code's remote backend. |
+| Web Search / Deep Research | Cloud-dependent unless configured local | Tavily/SerpApi are cloud providers; local SearXNG support is planned. |
+| Vision caption | Configurable compute | Image bytes are sent to the selected vision provider; local VLM presets are planned. |
+| Update check | Cloud-dependent, policy-gated | Uses GitHub Releases when enabled and allowed by Network Policy. |
+| Clip server / maintenance daemon | Local app runtime | Clip server binds to `127.0.0.1`; maintenance checks run only while the app process is alive. |
 
 ## What is this?
 

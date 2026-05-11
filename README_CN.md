@@ -47,13 +47,30 @@
 
 ## 设计哲学
 
-**Markdown-first、human-gated、local-first。** 这是一个有明确取舍的 LLM wiki：`wiki/` 里的 Markdown 始终是事实源，`.llm-wiki/` 保存本地派生索引、审计、维护状态和 review 建议。
+**Markdown-first、human-gated、本地优先存储 + 透明云端计算。** 这是一个有明确取舍的 LLM wiki：`wiki/` 里的 Markdown 始终是事实源，`.llm-wiki/` 保存本地派生索引、审计、维护状态和 review 建议。LLM、embedding、网络搜索和视觉 caption 可以走本地端点，也可以走云端 API；这些计算型出网请求应当显式、受 Network Policy 管控，并且可审计，而不是隐藏发生。
 
 - **Markdown 是事实源。** 图谱、索引和派生记录都可以从本地文件重建；wiki 离开 app 也能读、能进 Git diff，也能被 Obsidian 这类工具消费。
 - **高风险写入需要人确认。** app 可以提出更新、supersession 和维护建议，但不会在你背后静默改 Markdown。
+- **云端 LLM 是可选计算后端，不是远程存储。** 当你选择 OpenAI、Anthropic、Google、Claude Code CLI、Tavily、SerpApi 等 provider 时，项目文件和派生状态仍保持本地优先。
 - **app 内本地 daemon 让维护可见。** 只要 app 进程仍在运行，本地维护循环默认每 15 分钟做一次轻量 due check；它可以提醒你，也可以在 policy 允许时调度确定性 patrol。app 完全退出后它就停止。
+- **Network Policy 管控出网调用。** `local-only` 是给严格离线/敏感场景的模式；`allowlist` 和 `any` 支持透明、可控地使用云端计算。
 - **不做远程 memory server 或 mesh sync。** 本阶段明确不引入远程后端、登录鉴权、多用户 ACL 或跨设备协作同步。
 - **显式优于魔法。** Confidence、contradiction 和 crystallization 都应该可检查、可审阅，而不是隐形后台突变。
+
+### 本地存储 vs 云端计算
+
+| 维度 | 默认姿态 | 说明 |
+|------|----------|------|
+| Wiki 页面 | 本地优先 | `wiki/` 中的 Markdown 是事实源。 |
+| 派生状态 | 本地优先 | `.llm-wiki/` 保存可重建的索引、audit、claims、chat 和维护状态。 |
+| Lexical/BM25/graph 搜索 | 本地 | 基于本地 Markdown 和派生索引运行。 |
+| 向量库 | 本地存储，计算可配置 | LanceDB 在本地；embedding 生成取决于你配置的 endpoint。 |
+| LLM chat / ingest / lint | 计算可配置 | 可以使用 Ollama/本地端点，也可以使用云端 LLM API。 |
+| Claude Code CLI | 本地进程，远程模型 | 使用本机 `claude` 二进制，但推理发生在 Claude Code 远端后端。 |
+| Web Search / Deep Research | 默认依赖云，后续可本地化 | Tavily/SerpApi 是云 provider；计划支持本地 SearXNG。 |
+| Vision caption | 计算可配置 | 图片 bytes 会发送给所选 vision provider；计划提供本地 VLM preset。 |
+| Update check | 依赖云，受 policy 管控 | 启用且 Network Policy 允许时访问 GitHub Releases。 |
+| Clip server / maintenance daemon | app 运行期本地 | Clip server 绑定 `127.0.0.1`；维护检查只在 app 进程运行时存在。 |
 
 ## 这是什么？
 

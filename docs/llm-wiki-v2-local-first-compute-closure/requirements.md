@@ -1,9 +1,9 @@
-# 需求文档 — LLM Wiki v2 Local-First Compute Closure
+# 需求文档 — LLM Wiki v2 Local-First Storage + Transparent Cloud Compute
 
-**版本**: v0.1  
-**日期**: 2026-05-10  
-**作者**: user + AI  
-**状态**: Phase 2 建档完成，Phase 3 暂缓  
+**版本**: v0.1
+**日期**: 2026-05-10
+**作者**: user + AI
+**状态**: Phase 3 部分执行中；定位已修正为 local-first storage + transparent cloud compute
 **关联任务列表**: [`tasks.md`](./tasks.md)
 
 ---
@@ -12,49 +12,49 @@
 
 上一轮 `llm-wiki-v2-rohit-local-first` 已经把 **存储层 local-first** 收口：`wiki/` 是 Markdown source of truth，`.llm-wiki/` 保存可重建的派生状态，app-resident local maintenance daemon 只在 app 运行期每 15 分钟做轻量 due check，并保持 human-gated 写入。
 
-这次 comment 提出了一个更高层的问题：**存储 local-first 不等于计算 local-first**。当前代码已经有不少本地能力，但出网边界、云依赖标注、默认模型预设、update check、web/deep research、vision caption、chat 持久化、git 快照和 egress 可证明性还没有形成一套统一产品契约。
+这次 comment 提出了一个更高层的问题：**local-first storage 不等于 offline-only compute**。本项目的目标不是排除 OpenAI、Anthropic、Google、Tavily 等云端能力，而是确保知识库、索引、审计、维护状态和 chat 状态本地优先，同时让云端 LLM / 搜索 / vision / update-check 作为可选计算后端变得透明、可控、可关闭、可审计。
 
-本规格不推翻上一轮结论，而是把 local-first 从“数据放本地”推进到“计算和出网可解释、可约束、可审计”。Rohit gist 里的 lifecycle、automation、hybrid search、privacy/audit、collaboration 仍作为参考，但 mesh sync、远程 memory server、多用户 ACL 不进入本期实现。
+本规格不推翻上一轮结论，而是把产品契约明确为 **Local-first storage + transparent cloud compute**。`local-only` 是严格离线/敏感场景的模式，不是默认产品承诺；默认产品承诺是用户能明确选择 provider，并知道哪些请求会出网、为什么出网、能否被 Network Policy 阻断，以及后续能否在 Egress Report 中审计。Rohit gist 里的 lifecycle、automation、hybrid search、privacy/audit、collaboration 仍作为参考，但 mesh sync、远程 memory server、多用户 ACL 不进入本期实现。
 
 ## 2. Phase 1 代码证据摘要
 
 | 维度 | 当前证据 | 判断 |
 |------|----------|------|
-| 统一 HTTP 入口 | `src/lib/tauri-fetch.ts` 是 LLM、embedding、web search、update check、captioning 共享的 Tauri HTTP helper | 有良好收口点，但缺 network policy gate |
+| 统一 HTTP 入口 | `src/lib/tauri-fetch.ts` 是 LLM、embedding、web search、update check、captioning 共享的 Tauri HTTP helper | 有良好收口点；policy gate 是透明云计算治理的执行点 |
 | Tauri 出网能力 | `src-tauri/capabilities/default.json` 允许 `http://**` 和 `https://**` | capability 层是全开放，必须在 app 层约束 |
 | Proxy | `src-tauri/src/proxy.rs` / `src/lib/proxy-config.ts` 已集中配置 HTTP_PROXY / HTTPS_PROXY | 是路由配置，不是 offline/allowlist 策略 |
 | Update check | `src/stores/update-store.ts` 默认 `enabled: true`；`src/App.tsx` 启动 1.5 秒后请求 GitHub Releases API；About 面板已有 toggle | comment 的“未披露/默认联网”基本成立，但“没有开关”不准确 |
-| Web search | `src/lib/web-search.ts` 只支持 Tavily / SerpApi / none | 缺 local SearXNG，offline 下应禁用云 provider |
-| Deep Research | `src/lib/deep-research.ts` 强依赖 `webSearch`，无 wiki-only fallback | local-first 下需要降级路线 |
-| Embedding | `src/lib/embedding.ts` 是 OpenAI-compatible HTTP client；默认 disabled，endpoint 为空 | 默认不出网，但缺本地 Ollama 一键预设 |
-| Vector store | LanceDB 在 Rust/Tauri 本地侧，embedding 生成取决于 endpoint | 存储本地，计算不一定本地 |
+| Web search | `src/lib/web-search.ts` 只支持 Tavily / SerpApi / none | 云 provider 合理，但需要 policy、披露和后续本地 SearXNG 选项 |
+| Deep Research | `src/lib/deep-research.ts` 强依赖 `webSearch`，无 wiki-only fallback | 云研究合理，但 local-only 模式需要 wiki-only 降级路线 |
+| Embedding | `src/lib/embedding.ts` 是 OpenAI-compatible HTTP client；默认 disabled，endpoint 为空 | 默认不发请求，但缺本地 Ollama 一键预设 |
+| Vector store | LanceDB 在 Rust/Tauri 本地侧，embedding 生成取决于 endpoint | 存储本地，embedding compute 可本地也可云端 |
 | Vision caption | `src/stores/wiki-store.ts` 有独立 `multimodalConfig`，但默认 `useMainLlm: true` | comment 的“没有独立 provider”不准确；应改为“已有但默认和标注不足” |
 | Claude Code CLI | `src/components/settings/llm-presets.ts` 标注 “Claude Code CLI (local)”；`claude-cli-transport.ts` 说明本地 `claude` 进程转发到 Claude CLI | UI 需要改成 “local process, remote model” |
 | Chat history | `.llm-wiki/conversations.json` 和 `.llm-wiki/chats/<id>.json` 持久化；`audit-redaction.ts` 只处理 audit 事件 | chat 隐私策略需要单独声明和可选 redaction |
 | Audit redaction | `src/lib/audit-redaction.ts` 脱敏 secret、private block、private scope | 可复用，但目前没有覆盖 chat persist / egress log |
 | Scope | `memory-ops-executor.ts` 支持 `scope?: private/shared`；README 已写 no mesh sync | 需要明确 sync 依赖用户自带 git/Syncthing/iCloud，app 不内建 mesh |
 | Git | fs 侧跳过 `.git` 防止误摄入，但没有 git init/commit UI 或 audit commit hash | auto-git 是新系统，适合 P2 |
-| Egress report | 未发现 `.llm-wiki/egress.jsonl` 或出网审计 UI | comment 成立，适合 P1/P2 交界 |
+| Egress report | 未发现 `.llm-wiki/egress.jsonl` 或出网审计 UI | transparent cloud compute 的核心缺口，优先级高于单纯增加本地替代 provider |
 
 ## 3. Comment 采纳分级
 
 ### 3.1 直接采纳
 
-- 缺一个全局 `offlineMode` / `networkPolicy`，统一约束 LLM、embedding、web-search、update-check、deep-research、vision caption 等出网点。
+- 缺一个全局 `networkPolicy`，统一约束并解释 LLM、embedding、web-search、update-check、deep-research、vision caption 等出网点。
 - `tauri-fetch.ts` 是最合适的执行点，但现状只是 HTTP helper，没有 allowlist/denylist。
-- embedding 需要本地 Ollama 一键预设，降低用户选择 local compute 的摩擦。
-- update-check 默认启用且走 GitHub，应纳入 offline policy，并在 README 的 local-first 表格里披露。
-- Web search / Deep Research 是 cloud-dependent 功能，README 和 UI 应明确标注。
+- embedding 需要本地 Ollama 一键预设，降低用户选择 local compute 的摩擦，但云 embedding 不是缺口，只要透明受控即可。
+- update-check 默认启用且走 GitHub，应纳入 Network Policy，并在 README 的 local/cloud 表格里披露。
+- Web search / Deep Research 是 cloud-dependent 功能，README 和 UI 应明确标注；local-only 下提供禁用或 wiki-only 降级。
 - Claude Code CLI 当前“local”标签容易误导，应改成 “Local process, remote model”。
 - mesh sync 不内建不是 bug，但 README 应说清楚 sync 依赖用户自带 git/Syncthing/iCloud。
-- auto-git、egress report、chat 隐私策略是 local-first 可证明性的关键后续。
+- egress report、chat 隐私策略、auto-git 是 local-first storage + transparent cloud compute 可证明性的关键后续。
 
 ### 3.2 修正后采纳
 
 - “Embedding 会静默倒向 OpenAI”需要修正：当前默认 `enabled=false` 且 endpoint 为空，不会默认出网；真实问题是没有本地默认预设。
-- “Update check 没有设置开关”需要修正：About 面板已有开关；真实问题是默认启用且不受 offline policy 约束。
+- “Update check 没有设置开关”需要修正：About 面板已有开关；真实问题是默认启用且此前未受 Network Policy 约束。
 - “Vision caption 没有独立 provider”需要修正：代码已有独立 `multimodalConfig`；真实问题是默认 `useMainLlm=true`、UI/README 对隐私边界说明不足。
-- “网络边界只靠 Rust HTTP”需要修正：Rust proxy 和 Tauri plugin 只是通道；真正的 policy 应在前端 typed wrapper + Tauri command 两层同时约束。
+- “网络边界只靠 Rust HTTP”需要修正：Rust proxy 和 Tauri plugin 只是通道；真正的 policy 应在前端 typed wrapper 约束 HTTP 调用，并对 Claude CLI 这类 subprocess 传输做单独披露或 gating。
 
 ### 3.3 保留为 Non-Goal
 
@@ -67,12 +67,12 @@
 
 ### 4.1 范围内
 
-- 设计并实现 `networkPolicy: "local-only" | "allowlist" | "any"`，默认建议 `allowlist` 或首启显式选择。
-- 在 `tauri-fetch.ts` 入口执行 host/scheme allowlist，统一拦截 cloud egress。
-- 将 update-check、web-search、deep-research、embedding、vision caption、LLM provider 请求纳入同一 policy。
-- 给 cloud-dependent 功能加 UI/README 标注，offline/local-only 下禁用或降级。
-- 提供本地默认预设：Ollama embedding、local SearXNG、local VLM/Ollama vision。
-- 增加 egress audit/report：记录 host、provider、reason、timestamp、policy decision、粗略 bytes，不记录 secret 或 payload。
+- 设计并实现 `networkPolicy: "local-only" | "allowlist" | "any"`：`local-only` 是严格模式，`allowlist` 和 `any` 支持透明云计算。
+- 在 `tauri-fetch.ts` 入口执行 host/scheme policy gate，让云 API 调用可控、可阻断、可解释。
+- 将 update-check、web-search、deep-research、embedding、vision caption、LLM provider 请求纳入同一 policy/metadata 体系。
+- 给 cloud-dependent 功能加 UI/README 标注；local-only 下禁用、阻断或降级。
+- 提供本地默认预设：Ollama embedding、local SearXNG、local VLM/Ollama vision，作为云 compute 的低摩擦替代，而不是唯一正确路径。
+- 增加 egress audit/report：记录 host、provider、reason、timestamp、policy decision、粗略 bytes，不记录 secret 或 payload，使云调用可验证。
 - 明确 chat history 的本地持久化和 redaction 策略，提供可配置选项。
 - 增加可选 auto-git 快照设计：ingest / memory-op 后可生成 Git commit，并把 commit hash 写入 audit。
 - 补 README / README_CN 的 “Local vs Cloud” 表格和 sync 边界说明。
@@ -87,12 +87,12 @@
 
 ### 4.3 成功标准
 
-- 用户能一眼看到当前项目的网络策略，并知道哪些功能会出网。
+- 用户能一眼看到当前项目的网络策略，并知道哪些功能会出网、走哪个 provider、为什么出网。
 - `local-only` 下默认只允许 loopback / localhost / 用户明确 allowlist 的 LAN 地址，不允许 GitHub、Tavily、SerpApi、OpenAI、Anthropic、Google 等云 host。
 - 所有通过 `getHttpFetch()` 的请求都带上 `egress reason`，无法归类的调用在 typecheck 或测试中失败。
 - update-check 不再 silent egress；默认策略、设置项和 README 表格一致。
-- Deep Research 在 offline/local-only 下不再直接失败，至少提供 wiki-only deep dive 或清晰 disabled state。
-- Embedding 和 vision caption 优先给本地 preset，云 provider 明确标注。
+- Deep Research 在 local-only 下不再直接失败，至少提供 wiki-only deep dive 或清晰 disabled state。
+- Embedding 和 vision caption 提供本地 preset，同时云 provider 明确标注并受 policy 管控。
 - `.llm-wiki/egress.jsonl` 能让用户回答“过去 7 天 app 连过哪些 host、为什么连、是否被 policy 允许”。
 - `npm run typecheck`、`npm run test:mocks`、相关 Rust tests 通过。
 
@@ -100,7 +100,7 @@
 
 ### 5.1 场景 1：严格离线用户
 
-用户在 Settings → Network 选择 `local-only`。之后：
+用户在 Settings → Network 选择 `local-only`。这是严格模式，用于不希望 app 访问公网的场景。之后：
 
 1. LLM provider 只能选择 Ollama/local custom loopback。
 2. Embedding 一键使用 `http://localhost:11434/v1/embeddings` + `nomic-embed-text`。
@@ -120,9 +120,9 @@
 
 ### 5.3 场景 3：普通云用户但需要透明披露
 
-用户选择 `any`。所有 cloud provider 可用，但：
+用户选择 `any`，或在 `allowlist` 中加入明确 cloud host。所有已配置 cloud provider 可用，但：
 
-1. README 和 Settings 显示 cloud-dependent 标识。
+1. README 和 Settings 显示 cloud-dependent / remote model 标识。
 2. 每次 web search、update-check、embedding、vision caption 都写 egress log。
 3. Egress report 按 host/provider/reason 聚合。
 
@@ -170,13 +170,13 @@
 - [ ] `any` 允许但记录 egress reason。
 - [ ] 现有直接 `getHttpFetch()` 调用全部迁移到带 metadata 的 wrapper。
 
-### F3: Update Check 收紧
+### F3: Update Check 透明化
 
-**描述**: update-check 默认和 offline policy 对齐，避免 silent GitHub egress。
+**描述**: update-check 默认和 Network Policy 对齐，避免 silent GitHub egress。
 
 **行为**:
 - 首启或升级后明确显示 update-check 状态。
-- `local-only` 下自动禁用自动 update-check，保留手动按钮但点击前提示。
+- `local-only` 下自动禁用或 block 自动 update-check，保留手动按钮但显示 blocked reason。
 - About 面板写明 GitHub Releases API host。
 
 **验收标准**:
@@ -196,7 +196,7 @@
 
 ### F5: Embedding Local Preset
 
-**描述**: Settings → Embedding 提供本地 Ollama preset。
+**描述**: Settings → Embedding 提供本地 Ollama preset，降低选择本地 embedding compute 的成本；云 embedding 仍可用但必须透明受 policy 管控。
 
 **默认建议**:
 - endpoint: `http://localhost:11434/v1/embeddings`
@@ -222,9 +222,9 @@
 - [ ] local-only 下只允许 loopback/allowlist SearXNG。
 - [ ] Tavily/SerpApi 在 local-only 下禁用。
 
-### F7: Offline Deep Research 降级
+### F7: Strict Local-Only Deep Research 降级
 
-**描述**: Deep Research 在 offline/local-only 下提供 wiki-only deep dive。
+**描述**: Deep Research 在 local-only 下提供 wiki-only deep dive；默认模式仍允许透明 cloud search + cloud LLM compute。
 
 **行为**:
 - 不调用 web search。
@@ -252,7 +252,7 @@
 
 ### F9: Egress Audit and Report
 
-**描述**: 增加 `.llm-wiki/egress.jsonl` 和 Settings 可视化。
+**描述**: 增加 `.llm-wiki/egress.jsonl` 和 Settings 可视化。这是 transparent cloud compute 的核心证据层。
 
 **字段**:
 - `timestamp`
@@ -315,7 +315,7 @@
 
 ### 7.1 安全与隐私
 
-- Policy gate 必须默认拒绝未知外联，除非用户选择 `any`。
+- Policy gate 必须按用户选择执行：`local-only` 拒绝公网，`allowlist` 只允许明确 host，`any` 允许配置的云 compute 但仍记录 reason。
 - Egress log 不记录 API key、Authorization、cookies、prompt 全文、response 正文、image bytes。
 - 所有错误提示不得回显 secret。
 - `private` scope 不应被 auto-git 默认提交。
@@ -329,7 +329,7 @@
 ### 7.3 可用性
 
 - local-only 不能让 UI 变成一堆运行时错误；按钮应提前 disabled 或给出明确替代路径。
-- 本地 preset 必须一键可用，不能让用户手填长 URL 才算 local-first。
+- 本地 preset 必须一键可用，降低不使用云 compute 的门槛；但云 compute 是被支持的正常路径。
 - 新策略对老用户要温和迁移：保留现有配置，但提示确认网络策略。
 
 ### 7.4 i18n
@@ -351,7 +351,7 @@ graph TD
   Feature[LLM / Embedding / Web Search / Update / Vision] --> Gate[Network Policy Gate]
   Gate -->|allowed| Fetch[Tauri HTTP Plugin]
   Gate -->|allowed/blocked metadata| Egress[.llm-wiki/egress.jsonl]
-  Fetch --> Remote[Cloud or Local HTTP Endpoint]
+  Fetch --> Remote[Cloud API or Local HTTP Endpoint]
   Settings[Settings -> Network] --> Gate
   Report[Settings -> Egress Report] --> Egress
   Wiki[wiki Markdown Source of Truth] --> LocalSearch[Lexical/BM25/Graph/RRF]
@@ -362,14 +362,14 @@ graph TD
 
 | 阶段 | 目标 | 说明 |
 |------|------|------|
-| P0 | 硬边界 | networkPolicy + tauri-fetch gate + update-check 约束 + cloud labels |
-| P1 | 本地默认 | Ollama embedding、SearXNG、local VLM、wiki-only deep dive |
-| P2 | 可证明性 | egress report、chat privacy controls、auto-git snapshot、sync docs |
-| P3 | 深水区 | private/shared 目录策略、Git UI、egress export、策略迁移 polish |
+| P0 | 产品边界 | README/Settings 明确 local-first storage + transparent cloud compute；Cloud labels；Network Policy 执行点 |
+| P1 | 可证明性 | egress report、provider/reason 聚合、blocked/allowed 可视化 |
+| P2 | 严格本地体验 | local-only disabled states、wiki-only deep dive、本地 preset |
+| P3 | 本地能力增强 | SearXNG、local VLM、chat privacy controls、auto-git snapshot、sync docs、egress export |
 
 ## 10. 开放问题
 
-- 默认策略选 `allowlist` 还是首启 wizard 让用户选择？
+- 默认策略继续 `allowlist`，还是首启 wizard 让用户明确选择 cloud compute posture？
 - 是否把 `any` 明确命名成 `cloud-enabled`，降低误解？
 - `allowLan` 是否默认关闭，还是把 LAN Ollama 作为常见 local compute 场景允许？
 - auto-git 是否只对 `wiki/` 生效，还是同时提交 `.llm-wiki/audit.jsonl`？
