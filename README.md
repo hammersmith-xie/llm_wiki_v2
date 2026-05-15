@@ -34,7 +34,7 @@
 - **Two-Step Chain-of-Thought Ingest** — LLM analyzes first, then generates wiki pages with source traceability and incremental cache
 - **Multimodal Image Ingestion** — extract embedded images from PDFs, generate factual captions with a vision LLM, surface them in image-aware search results with lightbox preview and jump-to-source
 - **4-Signal Knowledge Graph** — relevance model with direct links, source overlap, Adamic-Adar, and type affinity
-- **Louvain Community Detection** — automatic knowledge cluster discovery with cohesion scoring
+- **Leiden Community Detection** — automatic knowledge cluster discovery with cohesion scoring
 - **Graph Insights** — surprising connections and knowledge gaps with one-click Deep Research
 - **Vector Semantic Search** — optional embedding-based retrieval via LanceDB, supports any OpenAI-compatible endpoint
 - **LLM Wiki v2 Local Slice** — page-level lifecycle metadata, fact-level claim evidence, confidence signals, typed relationship fields, graph-aware RRF retrieval, BM25 evidence, pre-write conflict gates, historical conflict patrol, and append-only audit events
@@ -177,9 +177,9 @@ The original mentions `[[wikilinks]]` for cross-references but has no graph anal
 - Position caching prevents layout jumps when data updates
 - Legend switches between type counts and community info based on coloring mode
 
-### 5. Louvain Community Detection
+### 5. Leiden Community Detection
 
-Not in the original. Automatic discovery of knowledge clusters using the **Louvain algorithm** (graphology-communities-louvain):
+Not in the original. Automatic discovery of knowledge clusters using the **Leiden algorithm** (@aflsolutions/graphology-communities-leiden):
 
 - **Auto-clustering** — discovers which pages naturally group together based on link topology, independent of predefined page types
 - **Type / Community toggle** — switch between coloring nodes by page type (entity, concept, source...) or by discovered knowledge cluster
@@ -188,7 +188,7 @@ Not in the original. Automatic discovery of knowledge clusters using the **Louva
 - **Community legend** — shows top node label, member count, and cohesion per cluster
 
 <p align="center">
-  <img src="assets/kg_community.jpg" width="100%" alt="Louvain Community Detection">
+  <img src="assets/kg_community.jpg" width="100%" alt="Leiden Community Detection">
 </p>
 
 ### 6. Graph Insights — Surprising Connections & Knowledge Gaps

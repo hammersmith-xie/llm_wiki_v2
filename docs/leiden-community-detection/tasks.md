@@ -2,7 +2,7 @@
 
 **Requirements**: [requirements.md](./requirements.md)
 **Estimated Scope**: Small (final review rounds: 1)
-**Overall Progress**: 🚧 2 / 4
+**Overall Progress**: 🚧 3 / 4
 
 ---
 
@@ -124,7 +124,7 @@ graph TD
 
 ---
 
-### Task 3.2 ⏳ Update README references
+### Task 3.2 ✅ Update README references
 
 **Description**: Replace Louvain references with Leiden in English and Chinese project documentation.
 
@@ -175,9 +175,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**:
-- 🔧 **Implementation**:
-- 🎯 **Decisions**:
+- 🐛 **Issues**: None; a final global search confirmed no Louvain references remain.
+- 🔧 **Implementation**: Updated English and Chinese README feature bullets, section titles, algorithm package references, and image alt text. Also aligned two planning notes that described the current graph baseline.
+- 🎯 **Decisions**: Kept the existing screenshot asset path unchanged because the visual asset still represents the same community-coloring feature.
 
 ---
 
@@ -187,9 +187,9 @@ graph TD
 |---|---|---:|---:|---|
 | M1 | Dependency Swap | 1 | 1 | ✅ |
 | M2 | Implementation | 1 | 1 | ✅ |
-| M3 | Tests and Documentation | 0 | 2 | 🚧 |
+| M3 | Tests and Documentation | 1 | 2 | 🚧 |
 | M4 | Final Review | 0 | 1 | ⏳ |
-| **Total** | | **2** | **4** | **🚧** |
+| **Total** | | **3** | **4** | **🚧** |
 
 ---
 

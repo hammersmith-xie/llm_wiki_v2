@@ -34,7 +34,7 @@
 - **两步思维链摄入** — LLM 先分析再生成 Wiki 页面，来源可追溯，支持增量缓存
 - **多模态图片摄入** — 自动提取 PDF 内嵌图片，调用视觉模型生成事实性描述，搜索结果按图文分区，支持 lightbox 预览与跳转到原始文档对应位置
 - **四信号知识图谱** — 直接链接、来源重叠、Adamic-Adar、类型亲和四维关联度模型
-- **Louvain 社区检测** — 自动发现知识聚类，内聚度评分
+- **Leiden 社区检测** — 自动发现知识聚类，内聚度评分
 - **图谱洞察** — 惊奇连接与知识空白检测，一键触发 Deep Research
 - **向量语义搜索** — 可选的 embedding 检索，基于 LanceDB，支持任意 OpenAI 兼容端点
 - **LLM Wiki v2 本地切片** — 页面级生命周期、事实级 claim evidence、置信度信号、typed relationship 字段、图谱感知 RRF 检索、BM25 证据、写入前冲突 gate、历史冲突巡检和 append-only audit
@@ -177,9 +177,9 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - 位置缓存防止数据更新时布局跳动
 - 图例根据着色模式自动切换类型计数或社区信息
 
-### 5. Louvain 社区检测
+### 5. Leiden 社区检测
 
-原始设计中没有。基于 **Louvain 算法**（graphology-communities-louvain）自动发现知识聚类：
+原始设计中没有。基于 **Leiden 算法**（@aflsolutions/graphology-communities-leiden）自动发现知识聚类：
 
 - **自动聚类** —— 根据链接拓扑发现哪些页面自然归为一组，独立于预定义的页面类型
 - **类型 / 社区 一键切换** —— 按页面类型（实体、概念、资料...）或按发现的知识集群着色
@@ -188,7 +188,7 @@ LLM Wiki 是一个跨平台桌面应用，能将你的文档自动转化为有�
 - **社区图例** —— 显示核心节点标签、成员数和内聚度
 
 <p align="center">
-  <img src="assets/kg_community.jpg" width="100%" alt="Louvain 社区检测">
+  <img src="assets/kg_community.jpg" width="100%" alt="Leiden 社区检测">
 </p>
 
 ### 6. 图谱洞察 —— 惊奇连接与知识空白

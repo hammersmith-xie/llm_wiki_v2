@@ -121,7 +121,7 @@ Start by reading, at minimum:
   guard, image/caption pipeline, embedding after ingest.
 - `src/lib/search.ts`: current token search plus LanceDB vector search fused with
   RRF. It is hybrid, but not true BM25 and does not include graph traversal.
-- `src/lib/wiki-graph.ts`: page graph from wikilinks, Louvain communities, simple
+- `src/lib/wiki-graph.ts`: page graph from wikilinks, Leiden communities, simple
   relevance weighting. It is not a typed relationship graph.
 - `src/lib/graph-relevance.ts` and `src/lib/graph-filters.ts`: existing graph
   scoring/visibility helpers.
