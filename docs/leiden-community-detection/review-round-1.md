@@ -40,13 +40,21 @@ None.
 - **Impact**: Low. Installs would still work, but it creates avoidable churn and can confuse future lockfile updates.
 - **Fix**: Changed the new package `resolved` URL to `https://registry.npmjs.org/...` while preserving the same integrity hash.
 
+#### Finding #2: Leiden test did not directly verify weighted input
+
+- **Location**: `src/lib/wiki-graph.test.ts`
+- **Observation**: The new community fixture described a weak bridge, but the default relevance mock returned weight `1` for every edge. This still tested semantic grouping, but it did not prove `weighted: true` receives the intended relevance weights.
+- **Impact**: Low. Runtime code passed weights to Leiden, but the regression test could miss a future change that dropped or disabled weighted clustering.
+- **Fix**: Wrapped the Leiden import in the test to capture options and graph edge weights, then configured the relevance mock to return strong intra-cluster weights and a weak bridge weight.
+
 ---
 
 ## Fixes
 
 | Finding | Commit | Status | Notes |
 |---|---|---|---|
-| #1 | Pending final-review commit | ✅ | Lockfile URL normalized to npmjs. |
+| #1 | `f726885` | ✅ | Lockfile URL normalized to npmjs. |
+| #2 | Pending follow-up review commit | ✅ | Test now asserts `weighted: true` and observes both strong and weak edge weights. |
 
 ---
 
@@ -54,6 +62,7 @@ None.
 
 - [x] `npm run typecheck` passed.
 - [x] `npm run test:mocks` passed: 155 files, 1474 tests.
+- [x] `npm run build` passed; existing chunk-size and ineffective dynamic-import warnings are unrelated to this change.
 - [x] `git diff --check` passed.
 - [x] Global Louvain search returned no matches.
 
@@ -61,4 +70,4 @@ None.
 
 ## Summary
 
-This review found 1 low-severity metadata issue and fixed it. No functional, type-safety, or test coverage issues remain from the Leiden migration.
+This review found 2 low-severity issues and fixed both. No functional, type-safety, build, or test coverage issues remain from the Leiden migration.
