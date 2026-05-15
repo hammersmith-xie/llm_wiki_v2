@@ -2,7 +2,7 @@
 
 **Requirements**: [requirements.md](./requirements.md)
 **Estimated Scope**: Small (final review rounds: 1)
-**Overall Progress**: 🚧 3 / 4
+**Overall Progress**: ✅ 4 / 4
 
 ---
 
@@ -55,9 +55,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**:
-- 🔧 **Implementation**:
-- 🎯 **Decisions**:
+- 🐛 **Issues**: Initial concurrent npm commands left both Louvain and Leiden in `package.json`; resolved by manually removing Louvain and rerunning `npm install`.
+- 🔧 **Implementation**: Added `@aflsolutions/graphology-communities-leiden@1.1.1`, removed `graphology-communities-louvain`, and regenerated `package-lock.json`.
+- 🎯 **Decisions**: Kept the Leiden package exact-pinned because this is a new algorithm dependency and community partitions may shift across versions.
 
 ---
 
@@ -87,9 +87,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**: Initial concurrent npm commands left both Louvain and Leiden in `package.json`; resolved by manually removing Louvain and rerunning `npm install`.
-- 🔧 **Implementation**: Added `@aflsolutions/graphology-communities-leiden@1.1.1`, removed `graphology-communities-louvain`, and regenerated `package-lock.json`.
-- 🎯 **Decisions**: Kept the Leiden package exact-pinned because this is a new algorithm dependency and community partitions may shift across versions.
+- 🐛 **Issues**: None after dependency update; the Leiden package exposes the expected default function and TypeScript declarations.
+- 🔧 **Implementation**: Replaced the Louvain import/call in `src/lib/wiki-graph.ts` with `@aflsolutions/graphology-communities-leiden`, preserving the existing undirected graph construction and community metadata pipeline.
+- 🎯 **Decisions**: Enabled `weighted: true` so existing relevance weights continue to affect clustering, and supplied a fixed-seed RNG to make repeated graph builds deterministic for a given input.
 
 ---
 
@@ -97,7 +97,7 @@ graph TD
 
 **Goal**: Verify behavior and align public documentation.
 **Dependencies**: M2
-**Status**: 🚧
+**Status**: ✅
 
 ### Task 3.1 ✅ Update graph tests
 
@@ -118,9 +118,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**: None after dependency update; the Leiden package exposes the expected default function and TypeScript declarations.
-- 🔧 **Implementation**: Replaced the Louvain import/call in `src/lib/wiki-graph.ts` with `@aflsolutions/graphology-communities-leiden`, preserving the existing undirected graph construction and community metadata pipeline.
-- 🎯 **Decisions**: Enabled `weighted: true` so existing relevance weights continue to affect clustering, and supplied a fixed-seed RNG to make repeated graph builds deterministic for a given input.
+- 🐛 **Issues**: None; the semantic fixture produced the expected two-community partition.
+- 🔧 **Implementation**: Added a six-page wiki fixture with two dense neighborhoods connected by one weak bridge and asserted Leiden groups each neighborhood while preserving sequential community ids and cohesion metadata.
+- 🎯 **Decisions**: Asserted semantic partition relationships instead of raw algorithm community labels so tests remain robust to equivalent id assignments.
 
 ---
 
@@ -144,9 +144,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**: None; the semantic fixture produced the expected two-community partition.
-- 🔧 **Implementation**: Added a six-page wiki fixture with two dense neighborhoods connected by one weak bridge and asserted Leiden groups each neighborhood while preserving sequential community ids and cohesion metadata.
-- 🎯 **Decisions**: Asserted semantic partition relationships instead of raw algorithm community labels so tests remain robust to equivalent id assignments.
+- 🐛 **Issues**: None; a final global search confirmed no Louvain references remain.
+- 🔧 **Implementation**: Updated English and Chinese README feature bullets, section titles, algorithm package references, and image alt text. Also aligned two planning notes that described the current graph baseline.
+- 🎯 **Decisions**: Kept the existing screenshot asset path unchanged because the visual asset still represents the same community-coloring feature.
 
 ---
 
@@ -154,9 +154,9 @@ graph TD
 
 **Goal**: Run verification and document one final review round.
 **Dependencies**: M3
-**Status**: ⏳
+**Status**: ✅
 
-### Task 4.1 ⏳ Verify and final review
+### Task 4.1 ✅ Verify and final review
 
 **Description**: Run typecheck and relevant tests, inspect diffs, fix issues, and write final review report.
 
@@ -175,9 +175,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**: None; a final global search confirmed no Louvain references remain.
-- 🔧 **Implementation**: Updated English and Chinese README feature bullets, section titles, algorithm package references, and image alt text. Also aligned two planning notes that described the current graph baseline.
-- 🎯 **Decisions**: Kept the existing screenshot asset path unchanged because the visual asset still represents the same community-coloring feature.
+- 🐛 **Issues**: Final review found one low-severity lockfile metadata issue: the new dependency `resolved` URL used the local npm mirror. It was normalized to npmjs.
+- 🔧 **Implementation**: Ran typecheck, full mock test suite, global Louvain search, diff review, and wrote `review-round-1.md`.
+- 🎯 **Decisions**: Treated the registry URL as a final-review fix because it affects repository consistency but not runtime behavior.
 
 ---
 
@@ -187,9 +187,9 @@ graph TD
 |---|---|---:|---:|---|
 | M1 | Dependency Swap | 1 | 1 | ✅ |
 | M2 | Implementation | 1 | 1 | ✅ |
-| M3 | Tests and Documentation | 1 | 2 | 🚧 |
-| M4 | Final Review | 0 | 1 | ⏳ |
-| **Total** | | **3** | **4** | **🚧** |
+| M3 | Tests and Documentation | 2 | 2 | ✅ |
+| M4 | Final Review | 1 | 1 | ✅ |
+| **Total** | | **4** | **4** | **✅** |
 
 ---
 
@@ -205,4 +205,4 @@ graph TD
 
 | Round | Focus | Status | Report |
 |---|---|---|---|
-| 1 | Functional + type/test/docs | ⏳ | - |
+| 1 | Functional + type/test/docs | ✅ | [review-round-1.md](./review-round-1.md) |
