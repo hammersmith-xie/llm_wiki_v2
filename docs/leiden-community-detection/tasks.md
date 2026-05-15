@@ -2,7 +2,7 @@
 
 **Requirements**: [requirements.md](./requirements.md)
 **Estimated Scope**: Small (final review rounds: 1)
-**Overall Progress**: 🚧 1 / 4
+**Overall Progress**: 🚧 2 / 4
 
 ---
 
@@ -65,9 +65,9 @@ graph TD
 
 **Goal**: Run Leiden in the existing graph build path without changing downstream data shapes.
 **Dependencies**: M1
-**Status**: ⏳
+**Status**: ✅
 
-### Task 2.1 ⏳ Replace graph community algorithm
+### Task 2.1 ✅ Replace graph community algorithm
 
 **Description**: Update `src/lib/wiki-graph.ts` to import Leiden, call it on the existing `graphology` graph, and keep current community metadata behavior.
 
@@ -118,9 +118,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**:
-- 🔧 **Implementation**:
-- 🎯 **Decisions**:
+- 🐛 **Issues**: None after dependency update; the Leiden package exposes the expected default function and TypeScript declarations.
+- 🔧 **Implementation**: Replaced the Louvain import/call in `src/lib/wiki-graph.ts` with `@aflsolutions/graphology-communities-leiden`, preserving the existing undirected graph construction and community metadata pipeline.
+- 🎯 **Decisions**: Enabled `weighted: true` so existing relevance weights continue to affect clustering, and supplied a fixed-seed RNG to make repeated graph builds deterministic for a given input.
 
 ---
 
@@ -186,10 +186,10 @@ graph TD
 | Milestone | Task | Done | Total | Status |
 |---|---|---:|---:|---|
 | M1 | Dependency Swap | 1 | 1 | ✅ |
-| M2 | Implementation | 0 | 1 | ⏳ |
+| M2 | Implementation | 1 | 1 | ✅ |
 | M3 | Tests and Documentation | 0 | 2 | ⏳ |
 | M4 | Final Review | 0 | 1 | ⏳ |
-| **Total** | | **1** | **4** | **🚧** |
+| **Total** | | **2** | **4** | **🚧** |
 
 ---
 

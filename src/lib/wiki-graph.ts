@@ -4,7 +4,7 @@ import { buildRetrievalGraph, calculateRelevance } from "./graph-relevance"
 import { extractTypedGraphFromPages, type TypedEdgeType } from "./typed-graph"
 import { normalizePath } from "@/lib/path-utils"
 import Graph from "graphology"
-import louvain from "graphology-communities-louvain"
+import leiden from "@aflsolutions/graphology-communities-leiden"
 
 export interface GraphNode {
   id: string
@@ -12,7 +12,7 @@ export interface GraphNode {
   type: string
   path: string
   linkCount: number // inbound + outbound
-  community: number // community id from Louvain detection
+  community: number // community id from Leiden detection
 }
 
 export interface GraphEdge {
@@ -29,7 +29,15 @@ export interface CommunityInfo {
   topNodes: string[] // top nodes by linkCount (labels)
 }
 
-/** Run Louvain community detection and compute cohesion per community */
+function seededRandom(seed = 42): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0
+    return state / 0x100000000
+  }
+}
+
+/** Run Leiden community detection and compute cohesion per community */
 function detectCommunities(
   nodes: { id: string; label: string; linkCount: number }[],
   edges: GraphEdge[],
@@ -51,8 +59,12 @@ function detectCommunities(
     }
   }
 
-  // Run Louvain — returns { nodeId: communityId }
-  const communityMap: Record<string, number> = louvain(g, { resolution: 1 })
+  // Run Leiden — returns { nodeId: communityId }
+  const communityMap: Record<string, number> = leiden(g, {
+    resolution: 1,
+    rng: seededRandom(),
+    weighted: true,
+  })
   const assignments = new Map(Object.entries(communityMap).map(([k, v]) => [k, v as number]))
 
   // Group nodes by community
