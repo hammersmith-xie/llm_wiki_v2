@@ -97,9 +97,9 @@ graph TD
 
 **Goal**: Verify behavior and align public documentation.
 **Dependencies**: M2
-**Status**: ⏳
+**Status**: 🚧
 
-### Task 3.1 ⏳ Update graph tests
+### Task 3.1 ✅ Update graph tests
 
 **Description**: Update or add tests for Leiden-backed community detection while avoiding fragile exact community id assertions.
 
@@ -144,9 +144,9 @@ graph TD
 
 #### Notes
 
-- 🐛 **Issues**:
-- 🔧 **Implementation**:
-- 🎯 **Decisions**:
+- 🐛 **Issues**: None; the semantic fixture produced the expected two-community partition.
+- 🔧 **Implementation**: Added a six-page wiki fixture with two dense neighborhoods connected by one weak bridge and asserted Leiden groups each neighborhood while preserving sequential community ids and cohesion metadata.
+- 🎯 **Decisions**: Asserted semantic partition relationships instead of raw algorithm community labels so tests remain robust to equivalent id assignments.
 
 ---
 
@@ -187,7 +187,7 @@ graph TD
 |---|---|---:|---:|---|
 | M1 | Dependency Swap | 1 | 1 | ✅ |
 | M2 | Implementation | 1 | 1 | ✅ |
-| M3 | Tests and Documentation | 0 | 2 | ⏳ |
+| M3 | Tests and Documentation | 0 | 2 | 🚧 |
 | M4 | Final Review | 0 | 1 | ⏳ |
 | **Total** | | **2** | **4** | **🚧** |
 
