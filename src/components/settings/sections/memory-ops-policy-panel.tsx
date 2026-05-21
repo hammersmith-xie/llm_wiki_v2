@@ -7,29 +7,17 @@ import {
   SlidersHorizontal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   DEFAULT_MEMORY_OPS_POLICY,
   normalizeMemoryOpsPolicy,
   type MemoryOpsPolicy,
 } from "@/lib/memory-ops-policy"
-
-type NumericPolicyKey =
-  | "halfLives.working"
-  | "halfLives.episodic"
-  | "halfLives.semantic"
-  | "halfLives.procedural"
-  | "halfLives.archived"
-  | "staleMultiplier"
-  | "lowConfidenceThreshold"
-  | "promotion.minSources"
-  | "promotion.minReinforcement"
-  | "automation.eventThreshold"
-  | "automation.reminderCooldownMinutes"
-  | "automation.minPatrolIntervalMinutes"
-  | "automation.timeIntervalHours"
-  | "automation.maintenanceCheckIntervalMinutes"
+import {
+  memoryOpsPolicyEquals,
+  setNumericPolicyValue,
+  type NumericPolicyKey,
+} from "./memory-ops-policy-draft"
+import { CheckboxRow, NumberField } from "./memory-ops-policy-fields"
 
 interface MemoryOpsPolicyPanelProps {
   projectReady: boolean
@@ -318,6 +306,81 @@ export function MemoryOpsPolicyPanel({
         />
       </div>
 
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="space-y-2 rounded border border-border/60 bg-background/80 p-3">
+          <div className="text-xs font-medium">
+            {t("settings.sections.maintenance.policy.research")}
+          </div>
+          <NumberField
+            label={t("settings.sections.maintenance.policy.maxResearchCandidates")}
+            value={draft.research.maxCandidates}
+            min={1}
+            step={1}
+            onChange={(value) => setNumber("research.maxCandidates", value)}
+          />
+          <NumberField
+            label={t("settings.sections.maintenance.policy.maxEvidencePerCandidate")}
+            value={draft.research.maxEvidencePerCandidate}
+            min={1}
+            step={1}
+            onChange={(value) => setNumber("research.maxEvidencePerCandidate", value)}
+          />
+          <NumberField
+            label={t("settings.sections.maintenance.policy.staleReportDays")}
+            value={draft.research.staleReportDays}
+            min={0}
+            step={1}
+            onChange={(value) => setNumber("research.staleReportDays", value)}
+          />
+          <NumberField
+            label={t("settings.sections.maintenance.policy.researchMinConfidence")}
+            value={draft.research.minConfidence}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(value) => setNumber("research.minConfidence", value)}
+          />
+          <NumberField
+            label={t("settings.sections.maintenance.policy.contradictionEscalation")}
+            value={draft.research.contradictionEscalationThreshold}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(value) => setNumber("research.contradictionEscalationThreshold", value)}
+          />
+        </div>
+
+        <div className="space-y-2 rounded border border-border/60 bg-background/80 p-3">
+          <div className="text-xs font-medium">
+            {t("settings.sections.maintenance.policy.eval")}
+          </div>
+          <NumberField
+            label={t("settings.sections.maintenance.policy.minPrecision")}
+            value={draft.eval.minPrecision}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(value) => setNumber("eval.minPrecision", value)}
+          />
+          <NumberField
+            label={t("settings.sections.maintenance.policy.minRecall")}
+            value={draft.eval.minRecall}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(value) => setNumber("eval.minRecall", value)}
+          />
+          <NumberField
+            label={t("settings.sections.maintenance.policy.minF1")}
+            value={draft.eval.minF1}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(value) => setNumber("eval.minF1", value)}
+          />
+        </div>
+      </div>
+
       <div className="text-xs text-muted-foreground">
         {t("settings.sections.maintenance.policy.defaultSummary", {
           working: DEFAULT_MEMORY_OPS_POLICY.halfLives.working,
@@ -327,113 +390,5 @@ export function MemoryOpsPolicyPanel({
         })}
       </div>
     </div>
-  )
-}
-
-function NumberField({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string
-  value: number
-  min: number
-  max?: number
-  step: number
-  onChange: (value: string) => void
-}) {
-  return (
-    <Label className="flex min-w-0 flex-col items-stretch gap-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <Input
-        type="number"
-        value={Number.isFinite(value) ? value : ""}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-7 text-xs"
-      />
-    </Label>
-  )
-}
-
-function CheckboxRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <Label className="flex items-center gap-2 text-xs text-muted-foreground">
-      <input
-        type="checkbox"
-        className="h-3.5 w-3.5"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span>{label}</span>
-    </Label>
-  )
-}
-
-function setNumericPolicyValue(
-  policy: MemoryOpsPolicy,
-  key: NumericPolicyKey,
-  value: number,
-): MemoryOpsPolicy {
-  if (key.startsWith("halfLives.")) {
-    const halfLife = key.split(".")[1] as keyof MemoryOpsPolicy["halfLives"]
-    return {
-      ...policy,
-      halfLives: { ...policy.halfLives, [halfLife]: value },
-    }
-  }
-  if (key.startsWith("promotion.")) {
-    const promotionKey = key.split(".")[1] as keyof MemoryOpsPolicy["promotion"]
-    return {
-      ...policy,
-      promotion: { ...policy.promotion, [promotionKey]: value },
-    }
-  }
-  if (key.startsWith("automation.")) {
-    const automationKey = key.split(".")[1] as keyof MemoryOpsPolicy["automation"]
-    return {
-      ...policy,
-      automation: { ...policy.automation, [automationKey]: value },
-    }
-  }
-  return { ...policy, [key]: value }
-}
-
-function memoryOpsPolicyEquals(a: MemoryOpsPolicy, b: MemoryOpsPolicy): boolean {
-  return (
-    a.version === b.version &&
-    a.name === b.name &&
-    a.halfLives.working === b.halfLives.working &&
-    a.halfLives.episodic === b.halfLives.episodic &&
-    a.halfLives.semantic === b.halfLives.semantic &&
-    a.halfLives.procedural === b.halfLives.procedural &&
-    a.halfLives.archived === b.halfLives.archived &&
-    a.staleMultiplier === b.staleMultiplier &&
-    a.lowConfidenceThreshold === b.lowConfidenceThreshold &&
-    a.promotion.minSources === b.promotion.minSources &&
-    a.promotion.minReinforcement === b.promotion.minReinforcement &&
-    a.archive.requireNoSourceSupport === b.archive.requireNoSourceSupport &&
-    a.archive.requireNoReinforcement === b.archive.requireNoReinforcement &&
-    a.archive.requireNoRecentUse === b.archive.requireNoRecentUse &&
-    a.automation.autoPatrolEnabled === b.automation.autoPatrolEnabled &&
-    a.automation.eventThreshold === b.automation.eventThreshold &&
-    a.automation.reminderCooldownMinutes === b.automation.reminderCooldownMinutes &&
-    a.automation.minPatrolIntervalMinutes === b.automation.minPatrolIntervalMinutes &&
-    a.automation.timeIntervalHours === b.automation.timeIntervalHours &&
-    a.automation.maintenanceDaemonEnabled === b.automation.maintenanceDaemonEnabled &&
-    a.automation.maintenanceCheckIntervalMinutes === b.automation.maintenanceCheckIntervalMinutes
   )
 }

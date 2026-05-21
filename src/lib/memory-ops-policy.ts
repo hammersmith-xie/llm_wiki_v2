@@ -32,6 +32,21 @@ export interface MemoryOpsAutomationPolicy {
   maintenanceCheckIntervalMinutes: number
 }
 
+export interface MemoryOpsResearchPolicy {
+  maxCandidates: number
+  maxEvidencePerCandidate: number
+  staleReportDays: number
+  minConfidence: number
+  contradictionEscalationThreshold: number
+  defaultProviders: Array<"local" | "web-search" | "deep-research">
+}
+
+export interface MemoryOpsEvalPolicy {
+  minPrecision: number
+  minRecall: number
+  minF1: number
+}
+
 export interface MemoryOpsPolicy {
   version: 1
   name: string
@@ -41,6 +56,8 @@ export interface MemoryOpsPolicy {
   promotion: MemoryOpsPromotionPolicy
   archive: MemoryOpsArchivePolicy
   automation: MemoryOpsAutomationPolicy
+  research: MemoryOpsResearchPolicy
+  eval: MemoryOpsEvalPolicy
 }
 
 export interface MemoryOpsPolicyLoadResult {
@@ -77,6 +94,19 @@ export const DEFAULT_MEMORY_OPS_POLICY: MemoryOpsPolicy = {
     timeIntervalHours: 24,
     maintenanceDaemonEnabled: true,
     maintenanceCheckIntervalMinutes: 15,
+  },
+  research: {
+    maxCandidates: 8,
+    maxEvidencePerCandidate: 8,
+    staleReportDays: 7,
+    minConfidence: 0.55,
+    contradictionEscalationThreshold: 0.35,
+    defaultProviders: ["local", "web-search"],
+  },
+  eval: {
+    minPrecision: 0.9,
+    minRecall: 0.9,
+    minF1: 0.9,
   },
 }
 
@@ -116,6 +146,19 @@ export function normalizeMemoryOpsPolicy(input: unknown): MemoryOpsPolicyLoadRes
       timeIntervalHours: nonNegativeNumber(recordAt(record.automation, "timeIntervalHours"), DEFAULT_MEMORY_OPS_POLICY.automation.timeIntervalHours, "automation.timeIntervalHours", warnings),
       maintenanceDaemonEnabled: booleanValue(recordAt(record.automation, "maintenanceDaemonEnabled"), DEFAULT_MEMORY_OPS_POLICY.automation.maintenanceDaemonEnabled),
       maintenanceCheckIntervalMinutes: positiveNumber(recordAt(record.automation, "maintenanceCheckIntervalMinutes"), DEFAULT_MEMORY_OPS_POLICY.automation.maintenanceCheckIntervalMinutes, "automation.maintenanceCheckIntervalMinutes", warnings),
+    },
+    research: {
+      maxCandidates: positiveInteger(recordAt(record.research, "maxCandidates"), DEFAULT_MEMORY_OPS_POLICY.research.maxCandidates, "research.maxCandidates", warnings),
+      maxEvidencePerCandidate: positiveInteger(recordAt(record.research, "maxEvidencePerCandidate"), DEFAULT_MEMORY_OPS_POLICY.research.maxEvidencePerCandidate, "research.maxEvidencePerCandidate", warnings),
+      staleReportDays: nonNegativeNumber(recordAt(record.research, "staleReportDays"), DEFAULT_MEMORY_OPS_POLICY.research.staleReportDays, "research.staleReportDays", warnings),
+      minConfidence: scoreNumber(recordAt(record.research, "minConfidence"), DEFAULT_MEMORY_OPS_POLICY.research.minConfidence, "research.minConfidence", warnings),
+      contradictionEscalationThreshold: scoreNumber(recordAt(record.research, "contradictionEscalationThreshold"), DEFAULT_MEMORY_OPS_POLICY.research.contradictionEscalationThreshold, "research.contradictionEscalationThreshold", warnings),
+      defaultProviders: providerArray(recordAt(record.research, "defaultProviders"), DEFAULT_MEMORY_OPS_POLICY.research.defaultProviders, "research.defaultProviders", warnings),
+    },
+    eval: {
+      minPrecision: scoreNumber(recordAt(record.eval, "minPrecision"), DEFAULT_MEMORY_OPS_POLICY.eval.minPrecision, "eval.minPrecision", warnings),
+      minRecall: scoreNumber(recordAt(record.eval, "minRecall"), DEFAULT_MEMORY_OPS_POLICY.eval.minRecall, "eval.minRecall", warnings),
+      minF1: scoreNumber(recordAt(record.eval, "minF1"), DEFAULT_MEMORY_OPS_POLICY.eval.minF1, "eval.minF1", warnings),
     },
   }
 
@@ -223,4 +266,30 @@ function nonNegativeNumber(
 
 function booleanValue(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback
+}
+
+function providerArray(
+  value: unknown,
+  fallback: MemoryOpsResearchPolicy["defaultProviders"],
+  field: string,
+  warnings: string[],
+): MemoryOpsResearchPolicy["defaultProviders"] {
+  if (value === undefined) return [...fallback]
+  if (!Array.isArray(value)) {
+    warnings.push(`${field} must be an array of providers; using ${fallback.join(", ")}.`)
+    return [...fallback]
+  }
+  const valid = new Set<MemoryOpsResearchPolicy["defaultProviders"][number]>([
+    "local",
+    "web-search",
+    "deep-research",
+  ])
+  const providers = value.filter((item): item is MemoryOpsResearchPolicy["defaultProviders"][number] =>
+    typeof item === "string" && valid.has(item as MemoryOpsResearchPolicy["defaultProviders"][number])
+  )
+  if (providers.length === 0) {
+    warnings.push(`${field} must contain at least one supported provider; using ${fallback.join(", ")}.`)
+    return [...fallback]
+  }
+  return [...new Set(providers)]
 }

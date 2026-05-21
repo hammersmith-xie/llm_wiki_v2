@@ -76,4 +76,15 @@ describe("memory ops eval", () => {
     expect(evalReport.metrics.passedCaseCount).toBe(1)
     expect(evalReport.id).toBe("eval_20260521000000")
   })
+
+  it("runs built-in AutoResearch fixtures without an injected runner", async () => {
+    const evalReport = await runMemoryOpsEval("/project", {
+      now: new Date("2026-05-21T00:00:00.000Z"),
+    })
+
+    expect(evalReport.metrics.caseCount).toBeGreaterThan(8)
+    expect(evalReport.metrics.failedCaseCount).toBe(0)
+    expect(evalReport.metrics.precision).toBe(1)
+    expect(evalReport.metrics.recall).toBe(1)
+  })
 })

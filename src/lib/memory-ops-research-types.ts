@@ -109,6 +109,11 @@ export interface MemoryOpsResearchSuggestionSummary {
   providerCount: number
   reportId: string
   createdAt: string
+  supportScore?: number
+  contradictionScore?: number
+  neutralScore?: number
+  recommendation?: "apply" | "review" | "defer" | "research" | "ignore"
+  reasons?: string[]
 }
 
 export function emptyResearchVerdictCounts(): MemoryOpsResearchVerdictCounts {

@@ -1,18 +1,24 @@
 import type { MemoryOpsPatrolReport } from "@/lib/memory-ops-types"
+import { buildMemoryOpsPatrolReportFromSnapshot } from "@/lib/memory-ops-engine"
+import { attachPageEvidence, summarizeEvidenceStats } from "@/lib/memory-ops-evidence"
 import {
   BUILT_IN_MEMORY_OPS_EVAL_CASES,
 } from "@/lib/memory-ops-eval-fixtures"
+import type { MemoryOpsPolicy } from "@/lib/memory-ops-policy"
 import type {
   MemoryOpsEvalCase,
   MemoryOpsEvalCaseResult,
   MemoryOpsEvalMetrics,
   MemoryOpsEvalPatrolRunner,
+  MemoryOpsEvalPolicyVariant,
   MemoryOpsEvalReport,
+  MemoryOpsEvalVariantResult,
 } from "@/lib/memory-ops-eval-types"
 
 export interface RunMemoryOpsEvalOptions {
   cases?: readonly MemoryOpsEvalCase[]
   runner?: MemoryOpsEvalPatrolRunner
+  variants?: readonly MemoryOpsEvalPolicyVariant[]
   now?: Date
 }
 
@@ -26,18 +32,22 @@ export async function runMemoryOpsEval(
 
   for (const evalCase of cases) {
     const startedAt = performance.now()
-    const report = await runner(evalCase)
+    const report = await runEvalCase(evalCase, runner)
     results.push(evaluateCase(evalCase, report, elapsedMs(startedAt)))
   }
 
   const createdAt = (options.now ?? new Date()).toISOString()
+  const metrics = summarizeEvalMetrics(results)
   return {
     schemaVersion: 1,
     id: evalReportId(createdAt),
     createdAt,
     projectPath,
-    metrics: summarizeEvalMetrics(results),
+    metrics,
     cases: results,
+    variants: options.variants && options.variants.length > 0
+      ? await runVariantComparisons(cases, options.variants, metrics)
+      : undefined,
   }
 }
 
@@ -80,6 +90,48 @@ function evaluateCase(
     unexpectedSuggestionIds: unexpected,
     durationMs,
   }
+}
+
+async function runEvalCase(
+  evalCase: MemoryOpsEvalCase,
+  runner: MemoryOpsEvalPatrolRunner,
+): Promise<MemoryOpsPatrolReport> {
+  if (evalCase.snapshot) {
+    return buildMemoryOpsPatrolReportFromSnapshot(evalCase.snapshot, {
+      today: "2026-05-22",
+    })
+  }
+  return runner(evalCase)
+}
+
+async function runVariantComparisons(
+  cases: readonly MemoryOpsEvalCase[],
+  variants: readonly MemoryOpsEvalPolicyVariant[],
+  baseline: MemoryOpsEvalMetrics,
+): Promise<MemoryOpsEvalVariantResult[]> {
+  const results: MemoryOpsEvalVariantResult[] = []
+  for (const variant of variants) {
+    const caseResults: MemoryOpsEvalCaseResult[] = []
+    for (const evalCase of cases) {
+      if (!evalCase.snapshot) continue
+      const startedAt = performance.now()
+      const snapshot = snapshotWithPolicy(evalCase.snapshot, variant.policy)
+      const report = buildMemoryOpsPatrolReportFromSnapshot(snapshot, {
+        today: "2026-05-22",
+      })
+      caseResults.push(evaluateCase(evalCase, report, elapsedMs(startedAt)))
+    }
+    const metrics = summarizeEvalMetrics(caseResults)
+    results.push({
+      id: variant.id,
+      title: variant.title,
+      metrics,
+      precisionDelta: roundMetric(metrics.precision - baseline.precision),
+      recallDelta: roundMetric(metrics.recall - baseline.recall),
+      f1Delta: roundMetric(metrics.f1 - baseline.f1),
+    })
+  }
+  return results
 }
 
 export function summarizeEvalMetrics(
@@ -160,4 +212,32 @@ async function unsupportedRunner(): Promise<MemoryOpsPatrolReport> {
   throw new Error(
     "Memory Ops eval requires a patrol runner. The UI runner supplies the current project patrol; tests can inject fixtures.",
   )
+}
+
+function snapshotWithPolicy(
+  snapshot: NonNullable<MemoryOpsEvalCase["snapshot"]>,
+  policy: MemoryOpsPolicy,
+): NonNullable<MemoryOpsEvalCase["snapshot"]> {
+  const pages = attachPageEvidence(snapshot.pages, {
+    projectPath: snapshot.projectPath,
+    graph: snapshot.graph,
+    auditEvents: snapshot.audit.events,
+    reviewItems: snapshot.reviewItems,
+    today: "2026-05-22",
+    policy,
+  })
+  const evidenceStats = summarizeEvidenceStats(pages)
+  return {
+    ...snapshot,
+    policy,
+    pages,
+    stats: {
+      ...snapshot.stats,
+      ...evidenceStats,
+    },
+  }
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 1000) / 1000
 }

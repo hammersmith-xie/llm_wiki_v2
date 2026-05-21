@@ -3,19 +3,13 @@ import {
   scheduleAutoMemoryOpsPatrol as scheduleAutoMemoryOpsPatrolWithRunner,
 } from "@/lib/memory-ops-autopatrol"
 import {
-  evaluateClaimSuggestions,
-  evaluateLifecycleSuggestions,
-  evaluateRelationCleanupSuggestions,
-} from "@/lib/memory-ops-rules"
-import {
   previewMemoryOpsHistoricalConflicts,
-  type MemoryOpsHistoricalConflictResult,
 } from "@/lib/memory-ops-conflicts"
 import {
-  enrichMemoryOpsSuggestionsWithResearch,
-  selectMemoryOpsResearchCandidates,
-  summarizeMemoryOpsResearchIntegration,
-} from "@/lib/memory-ops-research-integration"
+  buildMemoryOpsPatrolReportFromSnapshot,
+  emptyMemoryOpsHistoricalConflicts,
+  summarizeMemoryOpsPatrolResearch,
+} from "@/lib/memory-ops-engine"
 import { loadLatestMemoryOpsResearchReport } from "@/lib/memory-ops-research-store"
 import {
   completeMemoryOpsPatrolCooldown,
@@ -38,7 +32,6 @@ import type {
   MemoryOpsMaintenanceStatus,
   MemoryOpsPatrolOptions,
   MemoryOpsPatrolReport,
-  MemoryOpsPatrolStats,
 } from "@/lib/memory-ops-types"
 
 export type {
@@ -78,6 +71,10 @@ export {
 } from "@/lib/memory-ops-maintenance"
 export { autoMemoryOpsPatrolInFlightCount } from "@/lib/memory-ops-autopatrol"
 export { scanMemoryOpsProject } from "@/lib/memory-ops-scan"
+export {
+  buildMemoryOpsPatrolReportFromSnapshot,
+  emptyMemoryOpsHistoricalConflicts,
+} from "@/lib/memory-ops-engine"
 
 export async function runMemoryOpsPatrol(
   projectPath: string,
@@ -102,46 +99,27 @@ export async function runMemoryOpsPatrol(
       maxChatConversations: options.maxChatConversations,
     })
     const historicalConflicts = options.includeHistoricalConflicts === false
-      ? emptyHistoricalConflicts()
+      ? emptyMemoryOpsHistoricalConflicts()
       : await previewMemoryOpsHistoricalConflicts(
           snapshot.projectPath,
           snapshot.pages,
         )
-    const baseSuggestions = [
-      ...evaluateLifecycleSuggestions(snapshot, {
-        today: options.today,
-        policy: snapshot.policy,
-      }),
-      ...evaluateClaimSuggestions(snapshot, {
-        today: options.today,
-      }),
-      ...evaluateRelationCleanupSuggestions(snapshot),
-      ...historicalConflicts.suggestions,
-    ]
     const latestResearchReport = await loadLatestMemoryOpsResearchReport(snapshot.projectPath)
-    const suggestions = enrichMemoryOpsSuggestionsWithResearch(
-      baseSuggestions,
+    const report = buildMemoryOpsPatrolReportFromSnapshot(snapshot, {
+      today: options.today,
+      trigger: options.trigger,
+      historicalConflicts,
+      latestResearchReport,
+    })
+    const researchSummary = summarizeMemoryOpsPatrolResearch(
+      report,
       latestResearchReport,
     )
-    const researchCandidates = selectMemoryOpsResearchCandidates(snapshot, suggestions)
-    const researchSummary = summarizeMemoryOpsResearchIntegration(latestResearchReport, suggestions)
-    const stats: MemoryOpsPatrolStats = {
-      ...snapshot.stats,
-      historicalConflictCandidateCount: historicalConflicts.candidateCount,
-      historicalConflictSuggestionCount: historicalConflicts.suggestions.length,
-      historicalConflictWarningCount: historicalConflicts.warningCount,
-      researchEvidenceCandidateCount: researchCandidates.length,
-      researchEvidenceMatchedSuggestionCount: researchSummary.matchedSuggestionCount,
-      researchEvidenceItemCount: researchSummary.evidenceCount,
-      researchEvidenceWarningCount: researchSummary.warningCount,
-      scanDurationMs: snapshot.scanTelemetry.totalMs,
-      suggestionCount: suggestions.length,
-    }
-    const report: MemoryOpsPatrolReport = {
+    const reportForAudit: MemoryOpsPatrolReport = {
       snapshot,
-      suggestions,
+      suggestions: report.suggestions,
       warnings: snapshot.audit.warnings,
-      stats,
+      stats: report.stats,
     }
 
     await appendAuditEvent(snapshot.projectPath, {
@@ -163,9 +141,9 @@ export async function runMemoryOpsPatrol(
       reasons: [
         `${options.trigger?.mode ?? "manual"} patrol`,
         ...(options.trigger?.action ? [`triggered by ${options.trigger.action}`] : []),
-        `${report.stats.pageCount} pages scanned`,
-        `${report.stats.suggestionCount} suggestions generated`,
-        `${report.stats.researchEvidenceCandidateCount} research candidates identified`,
+        `${reportForAudit.stats.pageCount} pages scanned`,
+        `${reportForAudit.stats.suggestionCount} suggestions generated`,
+        `${reportForAudit.stats.researchEvidenceCandidateCount} research candidates identified`,
         `policy ${snapshot.policy.name} v${snapshot.policy.version}`,
       ],
     })
@@ -176,9 +154,9 @@ export async function runMemoryOpsPatrol(
 
     useActivityStore.getState().updateItem(activityId, {
       status: "done",
-      detail: `Patrol complete: ${report.stats.suggestionCount} suggestion${report.stats.suggestionCount === 1 ? "" : "s"}.`,
+      detail: `Patrol complete: ${reportForAudit.stats.suggestionCount} suggestion${reportForAudit.stats.suggestionCount === 1 ? "" : "s"}.`,
     })
-    return report
+    return reportForAudit
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     useActivityStore.getState().updateItem(activityId, {
@@ -250,16 +228,6 @@ function patrolTriggerSummary(
   return {
     mode: trigger?.mode ?? "manual",
     ...(trigger?.action ? { action: trigger.action } : {}),
-  }
-}
-
-function emptyHistoricalConflicts(): MemoryOpsHistoricalConflictResult {
-  return {
-    candidateCount: 0,
-    previews: [],
-    warnings: [],
-    warningCount: 0,
-    suggestions: [],
   }
 }
 

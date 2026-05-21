@@ -83,6 +83,27 @@ export function MemoryOpsEvalPanel({
         <div className="space-y-2">
           <EvalSummary report={report} />
 
+          {report.variants && report.variants.length > 0 && (
+            <div className="space-y-1 rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
+              <div className="font-medium">
+                {t("settings.sections.maintenance.eval.variants")}
+              </div>
+              {report.variants.map((variant) => (
+                <div key={variant.id} className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-border/60 pt-1 first:border-t-0 first:pt-0">
+                  <span className="break-words">{variant.title}</span>
+                  <span className="text-muted-foreground">
+                    {t("settings.sections.maintenance.eval.f1", {
+                      n: formatPct(variant.metrics.f1),
+                    })}
+                  </span>
+                  <span className="text-muted-foreground">
+                    Δ {formatSignedPct(variant.f1Delta)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {saveResult?.path && (
             <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
               <code className="break-all font-mono text-muted-foreground">{saveResult.path}</code>
@@ -199,4 +220,9 @@ function WarningText({ text }: { text: string }) {
 
 function formatPct(value: number): string {
   return `${Math.round(value * 100)}%`
+}
+
+function formatSignedPct(value: number): string {
+  const percent = Math.round(value * 100)
+  return `${percent >= 0 ? "+" : ""}${percent}%`
 }

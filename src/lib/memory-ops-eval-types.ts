@@ -1,4 +1,6 @@
 import type { MemoryOpsPatrolReport } from "@/lib/memory-ops-types"
+import type { MemoryOpsPolicy } from "@/lib/memory-ops-policy"
+import type { MemoryOpsProjectSnapshot } from "@/lib/memory-ops-types"
 
 export interface MemoryOpsEvalExpectedSuggestion {
   id: string
@@ -10,6 +12,7 @@ export interface MemoryOpsEvalCase {
   id: string
   title: string
   description: string
+  snapshot?: MemoryOpsProjectSnapshot
   expectedSuggestions: MemoryOpsEvalExpectedSuggestion[]
 }
 
@@ -47,6 +50,21 @@ export interface MemoryOpsEvalMetrics {
   totalDurationMs: number
 }
 
+export interface MemoryOpsEvalPolicyVariant {
+  id: string
+  title: string
+  policy: MemoryOpsPolicy
+}
+
+export interface MemoryOpsEvalVariantResult {
+  id: string
+  title: string
+  metrics: MemoryOpsEvalMetrics
+  precisionDelta: number
+  recallDelta: number
+  f1Delta: number
+}
+
 export interface MemoryOpsEvalReport {
   schemaVersion: 1
   id: string
@@ -54,6 +72,7 @@ export interface MemoryOpsEvalReport {
   projectPath: string
   metrics: MemoryOpsEvalMetrics
   cases: MemoryOpsEvalCaseResult[]
+  variants?: MemoryOpsEvalVariantResult[]
 }
 
 export type MemoryOpsEvalPatrolRunner = (

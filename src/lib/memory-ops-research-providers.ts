@@ -4,6 +4,13 @@ import { redactSensitiveText } from "@/lib/audit-redaction"
 import { parseFrontmatter } from "@/lib/frontmatter"
 import { getFileName, normalizePath } from "@/lib/path-utils"
 import {
+  buildMemoryOpsResearchPlan,
+  claimsForResearchPlan,
+  localPagesForResearchPlan,
+  pageTitleForResearch,
+  webQueriesForResearchPlan,
+} from "@/lib/memory-ops-research-plan"
+import {
   hasConfiguredSearchProvider,
   webSearch,
   type WebSearchResult,
@@ -63,8 +70,40 @@ async function runLocalEvidenceProvider(
   const maxResults = positiveInteger(options.maxResultsPerProvider, DEFAULT_MAX_RESULTS_PER_PROVIDER)
   const evidence: MemoryOpsResearchEvidenceItem[] = []
   const warnings: string[] = []
+  const plan = buildMemoryOpsResearchPlan(candidate, options.snapshot)
 
-  if (candidate.targetPath) {
+  for (const page of localPagesForResearchPlan(plan, options.snapshot)) {
+    evidence.push({
+      id: evidenceId("local", candidate.id, page.path),
+      provider: "local",
+      stance: inferStance(candidate, page.content),
+      title: pageTitleForResearch(page),
+      path: toProjectRelativePath(options.snapshot!.projectPath, page.path),
+      source: "wiki",
+      snippet: summarizeText(parseFrontmatter(page.content).body || page.content),
+      score: page.evidence?.risk.flags.length ? 0.8 : 0.7,
+    })
+  }
+
+  for (const claim of claimsForResearchPlan(plan, options.snapshot)) {
+    evidence.push({
+      id: evidenceId("local", candidate.id, claim.claim_id),
+      provider: "local",
+      stance: claim.status === "contradicted" || claim.status === "superseded"
+        ? "contradict"
+        : claim.source_refs.length > 0
+          ? "support"
+          : "neutral",
+      title: claim.page_title ?? claim.claim_id,
+      path: claim.page_path,
+      source: "claim",
+      snippet: claim.scope === "private" ? "[REDACTED:private]" : summarizeText(claim.text),
+      publishedAt: claim.last_confirmed,
+      score: Number.isFinite(Number(claim.confidence)) ? Number(claim.confidence) : 0.5,
+    })
+  }
+
+  if (candidate.targetPath && evidence.length === 0) {
     try {
       const content = await read(resolveProjectPath(projectPath, candidate.targetPath))
       const parsed = parseFrontmatter(content)
@@ -107,7 +146,9 @@ async function runWebSearchEvidenceProvider(
 
   const maxResults = positiveInteger(options.maxResultsPerProvider, DEFAULT_MAX_RESULTS_PER_PROVIDER)
   const search = options.webSearchImpl ?? webSearch
-  const results = await search(candidate.query, config, maxResults)
+  const plan = buildMemoryOpsResearchPlan(candidate, options.snapshot)
+  const query = webQueriesForResearchPlan(plan, "all")[0] ?? candidate.query
+  const results = await search(query, config, maxResults)
   return {
     provider: "web-search",
     status: "ok",
@@ -133,7 +174,8 @@ async function runDeepResearchEvidenceProvider(
 
   const maxResults = positiveInteger(options.maxResultsPerProvider, DEFAULT_MAX_RESULTS_PER_PROVIDER)
   const search = options.webSearchImpl ?? webSearch
-  const queries = buildDeepResearchQueries(candidate)
+  const plan = buildMemoryOpsResearchPlan(candidate, options.snapshot)
+  const queries = webQueriesForResearchPlan(plan, "deep")
   const perQueryLimit = Math.max(2, Math.ceil(maxResults / Math.max(1, queries.length)))
   const warnings: string[] = []
   const rawResults: WebSearchResult[] = []
@@ -176,21 +218,6 @@ function webResultToEvidence(
   }
 }
 
-function buildDeepResearchQueries(candidate: MemoryOpsResearchCandidate): string[] {
-  const base = candidate.query.trim()
-  const focusedReasons = candidate.reasons
-    .filter((reason) =>
-      /stale|outdated|contradict|supersed|source|confidence|provenance|version|latest/i.test(reason),
-    )
-    .slice(0, 2)
-    .join(" ")
-  return uniqueStrings([
-    base,
-    `${base} latest evidence`,
-    focusedReasons ? `${base} ${focusedReasons}` : `${base} contradiction`,
-  ]).map((query) => query.slice(0, 240))
-}
-
 function inferStance(
   candidate: MemoryOpsResearchCandidate,
   text: string,
@@ -221,6 +248,12 @@ function resolveProjectPath(projectPath: string, targetPath: string): string {
     throw new Error(`Research target path escapes project root: ${targetPath}`)
   }
   return `${pp}/${normalized}`
+}
+
+function toProjectRelativePath(projectPath: string, path: string): string {
+  const pp = normalizePath(projectPath).replace(/\/$/, "")
+  const normalized = normalizePath(path)
+  return normalized.startsWith(`${pp}/`) ? normalized.slice(pp.length + 1) : normalized
 }
 
 function unavailable(
@@ -260,19 +293,6 @@ function uniqueWebResults(results: readonly WebSearchResult[]): WebSearchResult[
     if (seen.has(key)) continue
     seen.add(key)
     unique.push(result)
-  }
-  return unique
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  const seen = new Set<string>()
-  const unique: string[] = []
-  for (const value of values) {
-    const normalized = value.replace(/\s+/g, " ").trim()
-    const key = normalized.toLowerCase()
-    if (!normalized || seen.has(key)) continue
-    seen.add(key)
-    unique.push(normalized)
   }
   return unique
 }

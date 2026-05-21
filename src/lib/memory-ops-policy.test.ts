@@ -50,6 +50,19 @@ describe("memory ops policy", () => {
         maintenanceDaemonEnabled: true,
         maintenanceCheckIntervalMinutes: 15,
       },
+      research: {
+        maxCandidates: 8,
+        maxEvidencePerCandidate: 8,
+        staleReportDays: 7,
+        minConfidence: 0.55,
+        contradictionEscalationThreshold: 0.35,
+        defaultProviders: ["local", "web-search"],
+      },
+      eval: {
+        minPrecision: 0.9,
+        minRecall: 0.9,
+        minF1: 0.9,
+      },
     })
   })
 
@@ -69,6 +82,19 @@ describe("memory ops policy", () => {
         timeIntervalHours: 12,
         maintenanceDaemonEnabled: false,
         maintenanceCheckIntervalMinutes: 20,
+      },
+      research: {
+        maxCandidates: 12,
+        maxEvidencePerCandidate: 10,
+        staleReportDays: 3,
+        minConfidence: 0.6,
+        contradictionEscalationThreshold: 0.4,
+        defaultProviders: ["local", "deep-research", "invalid"],
+      },
+      eval: {
+        minPrecision: 0.8,
+        minRecall: 0.75,
+        minF1: 0.77,
       },
     })
 
@@ -101,6 +127,19 @@ describe("memory ops policy", () => {
         maintenanceDaemonEnabled: false,
         maintenanceCheckIntervalMinutes: 20,
       },
+      research: {
+        maxCandidates: 12,
+        maxEvidencePerCandidate: 10,
+        staleReportDays: 3,
+        minConfidence: 0.6,
+        contradictionEscalationThreshold: 0.4,
+        defaultProviders: ["local", "deep-research"],
+      },
+      eval: {
+        minPrecision: 0.8,
+        minRecall: 0.75,
+        minF1: 0.77,
+      },
     })
   })
 
@@ -114,6 +153,19 @@ describe("memory ops policy", () => {
         minPatrolIntervalMinutes: -1,
         maintenanceCheckIntervalMinutes: 0,
       },
+      research: {
+        maxCandidates: 0,
+        maxEvidencePerCandidate: -1,
+        staleReportDays: -1,
+        minConfidence: 2,
+        contradictionEscalationThreshold: -0.1,
+        defaultProviders: ["bad"],
+      },
+      eval: {
+        minPrecision: 2,
+        minRecall: -1,
+        minF1: Number.NaN,
+      },
     })
 
     expect(result.policy.halfLives.semantic).toBe(180)
@@ -123,6 +175,9 @@ describe("memory ops policy", () => {
     expect(result.policy.automation.minPatrolIntervalMinutes).toBe(30)
     expect(result.policy.automation.maintenanceDaemonEnabled).toBe(true)
     expect(result.policy.automation.maintenanceCheckIntervalMinutes).toBe(15)
+    expect(result.policy.research.maxCandidates).toBe(8)
+    expect(result.policy.research.defaultProviders).toEqual(["local", "web-search"])
+    expect(result.policy.eval.minPrecision).toBe(0.9)
     expect(result.warnings).toEqual([
       "halfLives.semantic must be a positive number; using 180.",
       "lowConfidenceThreshold must be between 0 and 1; using 0.45.",
@@ -130,6 +185,15 @@ describe("memory ops policy", () => {
       "automation.eventThreshold must be a positive integer; using 5.",
       "automation.minPatrolIntervalMinutes must be a non-negative number; using 30.",
       "automation.maintenanceCheckIntervalMinutes must be a positive number; using 15.",
+      "research.maxCandidates must be a positive integer; using 8.",
+      "research.maxEvidencePerCandidate must be a positive integer; using 8.",
+      "research.staleReportDays must be a non-negative number; using 7.",
+      "research.minConfidence must be between 0 and 1; using 0.55.",
+      "research.contradictionEscalationThreshold must be between 0 and 1; using 0.35.",
+      "research.defaultProviders must contain at least one supported provider; using local, web-search.",
+      "eval.minPrecision must be between 0 and 1; using 0.9.",
+      "eval.minRecall must be between 0 and 1; using 0.9.",
+      "eval.minF1 must be between 0 and 1; using 0.9.",
     ])
   })
 

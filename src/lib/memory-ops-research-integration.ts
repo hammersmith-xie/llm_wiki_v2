@@ -1,5 +1,9 @@
 import { redactSensitiveText } from "@/lib/audit-redaction"
 import type { ClaimRecord } from "@/lib/claims"
+import {
+  buildMemoryOpsEvidenceLedgerForSuggestion,
+  decideMemoryOpsEvidenceLedger,
+} from "@/lib/memory-ops-evidence-ledger"
 import type {
   MemoryOpsResearchCandidate,
   MemoryOpsResearchEvidenceReport,
@@ -65,28 +69,41 @@ export function selectMemoryOpsResearchCandidates(
 export function enrichMemoryOpsSuggestionsWithResearch(
   suggestions: readonly MemoryOpsSuggestion[],
   report: MemoryOpsResearchEvidenceReport | null | undefined,
+  snapshot?: MemoryOpsProjectSnapshot,
 ): MemoryOpsSuggestion[] {
-  if (!report) return suggestions.map((suggestion) => ({ ...suggestion }))
   return suggestions.map((suggestion) => {
-    const result = report.results.find((item) =>
-      item.candidate.suggestionId === suggestion.id ||
-      samePath(item.candidate.targetPath, suggestion.targetPath),
-    )
-    if (!result) return { ...suggestion }
+    const ledger = buildMemoryOpsEvidenceLedgerForSuggestion(suggestion, {
+      snapshot,
+      report,
+    })
+    const decision = ledger.length > 0 ? decideMemoryOpsEvidenceLedger(ledger) : null
+    const result = report
+      ? report.results.find((item) =>
+          item.candidate.suggestionId === suggestion.id ||
+          samePath(item.candidate.targetPath, suggestion.targetPath),
+        ) ?? null
+      : null
+    if (!decision || !result || !report) return { ...suggestion }
     const research: MemoryOpsResearchSuggestionSummary = {
-      verdict: result.verdict,
-      confidence: result.confidence,
-      evidenceCount: result.evidence.length,
-      providerCount: result.providerResults.length,
+      verdict: decision.verdict,
+      confidence: decision.confidence,
+      evidenceCount: decision.evidenceCount,
+      providerCount: decision.providerCount,
       reportId: report.id,
       createdAt: report.createdAt,
+      supportScore: decision.supportScore,
+      contradictionScore: decision.contradictionScore,
+      neutralScore: decision.neutralScore,
+      recommendation: decision.recommendation,
+      reasons: decision.reasons,
     }
     return {
       ...suggestion,
       research,
       reasons: [
         ...suggestion.reasons,
-        `research verdict ${result.verdict} (${result.evidence.length} evidence item${result.evidence.length === 1 ? "" : "s"})`,
+        `research verdict ${decision.verdict} (${result.evidence.length} evidence item${result.evidence.length === 1 ? "" : "s"})`,
+        `research recommendation ${decision.recommendation}`,
       ],
     }
   })

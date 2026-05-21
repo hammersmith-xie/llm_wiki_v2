@@ -74,8 +74,38 @@ describe("memory ops research evidence", () => {
     })
 
     expect(search).toHaveBeenCalledTimes(3)
+    expect(search.mock.calls.map((call) => call[0]).join(" ")).toContain("contradiction")
     expect(report.results[0]?.providerResults[0]?.provider).toBe("deep-research")
     expect(report.results[0]?.evidence).toHaveLength(2)
+    expect(report.results[0]?.verdict).toBe("supported")
+  })
+
+  it("uses snapshot local evidence before reading files", async () => {
+    const read = vi.fn(async () => {
+      throw new Error("should not read")
+    })
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["local"],
+      readFileImpl: read,
+      snapshot: {
+        projectPath: "/project",
+        policy: {
+          research: { defaultProviders: ["local"] },
+        },
+        pages: [{
+          id: "test",
+          fileName: "test.md",
+          path: "/project/wiki/test.md",
+          content: "---\ntitle: API Claim\n---\n\n# API Claim\n\nAPI claim support remains valid.",
+          frontmatter: null,
+        }],
+        claims: [],
+        graph: { nodes: new Map(), edges: [], adjacency: new Map(), dataVersion: 0 },
+      } as never,
+    })
+
+    expect(read).not.toHaveBeenCalled()
+    expect(report.results[0]?.evidence[0]?.path).toBe("wiki/test.md")
     expect(report.results[0]?.verdict).toBe("supported")
   })
 })

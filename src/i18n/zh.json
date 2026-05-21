@@ -613,6 +613,7 @@
           "recall": "recall {{n}}",
           "f1": "F1 {{n}}",
           "safePatches": "{{n}} 个安全 patch",
+          "variants": "策略变体",
           "caseCounts": "命中 {{matched}}/{{expected}} · {{fp}} FP · {{fn}} FN"
         },
         "schemaQuality": {
@@ -765,6 +766,16 @@
           "requireNoSourceSupport": "要求没有来源支持",
           "requireNoReinforcement": "要求没有强化记录",
           "requireNoRecentUse": "要求近期没有使用",
+          "research": "研究证据",
+          "maxResearchCandidates": "最多研究候选",
+          "maxEvidencePerCandidate": "每候选最多证据",
+          "staleReportDays": "研究报告有效期（天）",
+          "researchMinConfidence": "研究最低置信度",
+          "contradictionEscalation": "冲突升级阈值",
+          "eval": "AutoResearch 评测目标",
+          "minPrecision": "最低 precision",
+          "minRecall": "最低 recall",
+          "minF1": "最低 F1",
           "defaultSummary": "默认值：working {{working}} 天，semantic {{semantic}} 天，procedural {{procedural}} 天，低置信度 {{confidence}}。"
         },
         "searchHealth": {

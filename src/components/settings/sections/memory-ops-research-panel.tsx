@@ -168,6 +168,9 @@ export function MemoryOpsResearchPanel({
                     n: result.evidence.length,
                   })}
                 </span>
+                <span className="text-muted-foreground">
+                  {result.providerResults.map((provider) => provider.provider).join(", ")}
+                </span>
               </div>
             ))}
           </div>

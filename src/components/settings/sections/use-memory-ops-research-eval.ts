@@ -12,6 +12,7 @@ import {
   type MemoryOpsPatrolReport,
 } from "@/lib/memory-ops"
 import { runMemoryOpsEval } from "@/lib/memory-ops-eval"
+import { BUILT_IN_MEMORY_OPS_EVAL_CASES } from "@/lib/memory-ops-eval-fixtures"
 import {
   loadLatestMemoryOpsEvalReport,
   memoryOpsEvalLatestReportPath,
@@ -132,11 +133,15 @@ export function useMemoryOpsResearchEval({
         providers: ["local", "deep-research"],
         searchConfig: searchApiConfig,
         trigger: "manual",
+        snapshot: baseline.snapshot,
+        maxCandidates: baseline.snapshot.policy.research.maxCandidates,
+        maxResultsPerProvider: baseline.snapshot.policy.research.maxEvidencePerCandidate,
       })
       const saveResult = await saveMemoryOpsResearchReport(project.path, report)
       const enrichedSuggestions = enrichMemoryOpsSuggestionsWithResearch(
         baseline.suggestions,
         report,
+        baseline.snapshot,
       )
       const summary = summarizeMemoryOpsResearchIntegration(report, enrichedSuggestions)
       setResearchReport(report)
@@ -186,11 +191,19 @@ export function useMemoryOpsResearchEval({
       }
       let latestPatrol: MemoryOpsPatrolReport | null = null
       const report = await runMemoryOpsEval(project.path, {
-        cases: [evalCase],
+        cases: [
+          ...BUILT_IN_MEMORY_OPS_EVAL_CASES,
+          evalCase,
+        ],
         runner: async () => {
           latestPatrol = await runMemoryOpsPatrol(project.path, { dataVersion })
           return latestPatrol
         },
+        variants: [{
+          id: "current-policy",
+          title: "Current project policy",
+          policy: baseline.snapshot.policy,
+        }],
       })
       const saveResult = await saveMemoryOpsEvalReport(project.path, report)
       if (latestPatrol) setPatrolReport(latestPatrol)

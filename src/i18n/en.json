@@ -613,6 +613,7 @@
           "recall": "recall {{n}}",
           "f1": "F1 {{n}}",
           "safePatches": "{{n}} safe patches",
+          "variants": "Policy variants",
           "caseCounts": "{{matched}}/{{expected}} matched · {{fp}} FP · {{fn}} FN"
         },
         "schemaQuality": {
@@ -765,6 +766,16 @@
           "requireNoSourceSupport": "Require no source support",
           "requireNoReinforcement": "Require no reinforcement",
           "requireNoRecentUse": "Require no recent use",
+          "research": "Research evidence",
+          "maxResearchCandidates": "Max research candidates",
+          "maxEvidencePerCandidate": "Max evidence per candidate",
+          "staleReportDays": "Research report TTL (days)",
+          "researchMinConfidence": "Research min confidence",
+          "contradictionEscalation": "Contradiction escalation threshold",
+          "eval": "AutoResearch eval targets",
+          "minPrecision": "Minimum precision",
+          "minRecall": "Minimum recall",
+          "minF1": "Minimum F1",
           "defaultSummary": "Default: working {{working}}d, semantic {{semantic}}d, procedural {{procedural}}d, low confidence {{confidence}}."
         },
         "searchHealth": {

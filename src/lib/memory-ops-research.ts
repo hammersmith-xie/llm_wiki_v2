@@ -4,6 +4,8 @@ import { redactSensitiveText } from "@/lib/audit-redaction"
 import { normalizePath } from "@/lib/path-utils"
 import { webSearch } from "@/lib/web-search"
 import { runMemoryOpsResearchProvider } from "@/lib/memory-ops-research-providers"
+import { researchResultToLedgerDecision } from "@/lib/memory-ops-evidence-ledger"
+import type { MemoryOpsProjectSnapshot } from "@/lib/memory-ops-types"
 import type {
   MemoryOpsResearchCandidate,
   MemoryOpsResearchCandidateResult,
@@ -12,7 +14,6 @@ import type {
   MemoryOpsResearchProviderKind,
   MemoryOpsResearchProviderResult,
   MemoryOpsResearchRunOptions,
-  MemoryOpsResearchVerdict,
 } from "@/lib/memory-ops-research-types"
 import { summarizeResearchResults } from "@/lib/memory-ops-research-types"
 
@@ -20,6 +21,7 @@ export interface RunMemoryOpsResearchEvidenceOptions extends MemoryOpsResearchRu
   searchConfig?: SearchApiConfig
   webSearchImpl?: typeof webSearch
   readFileImpl?: typeof readFile
+  snapshot?: MemoryOpsProjectSnapshot
   now?: Date
 }
 
@@ -32,7 +34,10 @@ export async function runMemoryOpsResearchEvidence(
   const pp = normalizePath(projectPath).replace(/\/$/, "")
   const maxCandidates = positiveInteger(options.maxCandidates, DEFAULT_MAX_CANDIDATES)
   const selected = candidates.slice(0, maxCandidates)
-  const providers = normalizeProviders(options.providers)
+  const providers = normalizeProviders(
+    options.providers,
+    options.snapshot?.policy.research.defaultProviders,
+  )
   const results: MemoryOpsResearchCandidateResult[] = []
   const warnings: string[] = []
 
@@ -62,9 +67,14 @@ export async function runMemoryOpsResearchEvidence(
 
 function normalizeProviders(
   providers: readonly MemoryOpsResearchProviderKind[] | undefined,
+  policyProviders: readonly MemoryOpsResearchProviderKind[] | undefined,
 ): MemoryOpsResearchProviderKind[] {
   const defaultProviders: readonly MemoryOpsResearchProviderKind[] = ["local", "web-search"]
-  const input = providers && providers.length > 0 ? providers : defaultProviders
+  const input = providers && providers.length > 0
+    ? providers
+    : policyProviders && policyProviders.length > 0
+      ? policyProviders
+      : defaultProviders
   return [...new Set<MemoryOpsResearchProviderKind>(input)]
 }
 
@@ -73,11 +83,15 @@ function buildCandidateResult(
   providerResults: readonly MemoryOpsResearchProviderResult[],
 ): MemoryOpsResearchCandidateResult {
   const evidence = providerResults.flatMap((result) => result.evidence)
-  const verdict = verdictFromEvidence(providerResults, evidence)
-  const confidence = confidenceFromEvidence(verdict, evidence)
   const { source: _source, ...auditSafeCandidate } = candidate
   const sanitizedEvidence = evidence.map((item) => sanitizeEvidenceItem(candidate, item))
-  return {
+  const providerResultsForReport = providerResults.map((result) => ({
+    ...result,
+    evidence: result.evidence.map((item) => ({
+      ...sanitizeEvidenceItem(candidate, item),
+    })),
+  }))
+  const provisional: MemoryOpsResearchCandidateResult = {
     candidate: {
       ...auditSafeCandidate,
       summary: candidate.scope === "private"
@@ -85,16 +99,19 @@ function buildCandidateResult(
         : redactSensitiveText(candidate.summary),
       query: redactSensitiveText(candidate.query),
     },
-    verdict,
-    confidence,
+    verdict: "insufficient",
+    confidence: 0,
     evidence: sanitizedEvidence,
-    providerResults: providerResults.map((result) => ({
-      ...result,
-      evidence: result.evidence.map((item) => ({
-        ...sanitizeEvidenceItem(candidate, item),
-      })),
-    })),
+    providerResults: providerResultsForReport,
     warnings: providerResults.flatMap((result) => result.warnings),
+  }
+  const decision = providerResults.every((result) => result.status === "unavailable")
+    ? null
+    : researchResultToLedgerDecision(provisional)
+  return {
+    ...provisional,
+    verdict: decision?.verdict ?? "unavailable",
+    confidence: decision?.confidence ?? 0,
   }
 }
 
@@ -108,29 +125,6 @@ function sanitizeEvidenceItem(
       ? "[REDACTED:private]"
       : redactSensitiveText(item.snippet),
   }
-}
-
-function verdictFromEvidence(
-  providerResults: readonly MemoryOpsResearchProviderResult[],
-  evidence: readonly MemoryOpsResearchEvidenceItem[],
-): MemoryOpsResearchVerdict {
-  if (providerResults.every((result) => result.status === "unavailable")) return "unavailable"
-  const supports = evidence.filter((item) => item.stance === "support").length
-  const contradicts = evidence.filter((item) => item.stance === "contradict").length
-  if (supports > 0 && contradicts > 0) return "mixed"
-  if (contradicts > 0) return "contradicted"
-  if (supports > 0) return "supported"
-  return "insufficient"
-}
-
-function confidenceFromEvidence(
-  verdict: MemoryOpsResearchVerdict,
-  evidence: readonly MemoryOpsResearchEvidenceItem[],
-): number {
-  if (verdict === "unavailable") return 0
-  const relevant = evidence.filter((item) => item.stance === "support" || item.stance === "contradict")
-  if (relevant.length === 0) return 0.2
-  return Math.min(0.95, 0.45 + relevant.length * 0.15)
 }
 
 function researchReportId(createdAt: string): string {

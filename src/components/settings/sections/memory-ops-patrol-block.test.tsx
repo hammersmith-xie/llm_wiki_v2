@@ -371,37 +371,7 @@ function patrolReport(
     snapshot: {
       projectPath: "/project",
       dataVersion: 9,
-      policy: {
-        version: 1,
-        name: "default",
-        halfLives: {
-          working: 45,
-          episodic: 45,
-          semantic: 180,
-          procedural: 365,
-          archived: 45,
-        },
-        staleMultiplier: 2,
-        lowConfidenceThreshold: 0.45,
-        promotion: {
-          minSources: 2,
-          minReinforcement: 3,
-        },
-        archive: {
-          requireNoSourceSupport: true,
-          requireNoReinforcement: true,
-          requireNoRecentUse: true,
-        },
-        automation: {
-          autoPatrolEnabled: true,
-          eventThreshold: 5,
-          reminderCooldownMinutes: 30,
-          minPatrolIntervalMinutes: 30,
-          timeIntervalHours: 24,
-          maintenanceDaemonEnabled: true,
-          maintenanceCheckIntervalMinutes: 15,
-        },
-      },
+      policy: DEFAULT_MEMORY_OPS_POLICY,
       policyWarnings: [],
       scanTelemetry: {
         totalMs: statsOverrides.scanDurationMs ?? 0,
