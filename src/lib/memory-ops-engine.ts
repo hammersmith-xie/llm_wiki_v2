@@ -8,6 +8,7 @@ import {
   selectMemoryOpsResearchCandidates,
   summarizeMemoryOpsResearchIntegration,
 } from "@/lib/memory-ops-research-integration"
+import { withMemoryOpsSuggestionDecisions } from "@/lib/memory-ops-decision"
 import type {
   MemoryOpsHistoricalConflictResult,
 } from "@/lib/memory-ops-conflicts"
@@ -44,11 +45,15 @@ export function buildMemoryOpsPatrolReportFromSnapshot(
     ...evaluateRelationCleanupSuggestions(snapshot),
     ...historicalConflicts.suggestions,
   ]
-  const suggestions = enrichMemoryOpsSuggestionsWithResearch(
+  const enrichedSuggestions = enrichMemoryOpsSuggestionsWithResearch(
     baseSuggestions,
     options.latestResearchReport,
     snapshot,
   )
+  const suggestions = withMemoryOpsSuggestionDecisions(enrichedSuggestions, {
+    minResearchConfidence: snapshot.policy.research.minConfidence,
+    requireResearchForWarnings: false,
+  })
   const researchCandidates = selectMemoryOpsResearchCandidates(snapshot, suggestions, {
     maxCandidates: snapshot.policy.research.maxCandidates,
   })

@@ -526,6 +526,13 @@
           "relation": "Relation:",
           "candidateTarget": "candidate {{target}}",
           "reasons": "Evidence",
+          "decision": "Decision gate",
+          "decisions": {
+            "ready": "ready",
+            "needs-research": "needs research",
+            "blocked-by-contradiction": "blocked by contradiction",
+            "review-only": "review only"
+          },
           "diffTitle": "Dry-run diff",
           "noDiff": "No metadata changes needed.",
           "openTarget": "Open page",
@@ -614,6 +621,10 @@
           "f1": "F1 {{n}}",
           "safePatches": "{{n}} safe patches",
           "variants": "Policy variants",
+          "decisions": {
+            "keep": "keep",
+            "discard": "discard"
+          },
           "caseCounts": "{{matched}}/{{expected}} matched · {{fp}} FP · {{fn}} FN"
         },
         "schemaQuality": {

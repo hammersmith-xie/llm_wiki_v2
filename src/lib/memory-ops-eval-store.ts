@@ -1,7 +1,12 @@
 import { createDirectory, readFile, writeFile } from "@/commands/fs"
 import { appendAuditEvent } from "@/lib/audit-timeline"
 import { normalizePath } from "@/lib/path-utils"
-import type { MemoryOpsEvalReport } from "@/lib/memory-ops-eval-types"
+import type {
+  MemoryOpsEvalGateDecision,
+  MemoryOpsEvalMetrics,
+  MemoryOpsEvalReport,
+  MemoryOpsEvalVariantResult,
+} from "@/lib/memory-ops-eval-types"
 
 export interface SaveMemoryOpsEvalReportResult {
   path: string
@@ -41,9 +46,42 @@ export async function loadLatestMemoryOpsEvalReport(
   try {
     const raw = await readFile(memoryOpsEvalLatestReportPath(projectPath))
     const parsed = JSON.parse(raw) as unknown
-    return isMemoryOpsEvalReport(parsed) ? parsed : null
+    return isMemoryOpsEvalReport(parsed) ? normalizeEvalReport(parsed) : null
   } catch {
     return null
+  }
+}
+
+function normalizeEvalReport(report: MemoryOpsEvalReport): MemoryOpsEvalReport {
+  return {
+    ...report,
+    gate: report.gate ?? legacyGateDecision(report.metrics),
+    variants: report.variants?.map(normalizeVariantResult),
+  }
+}
+
+function normalizeVariantResult(
+  variant: MemoryOpsEvalVariantResult,
+): MemoryOpsEvalVariantResult {
+  return {
+    ...variant,
+    decision: variant.decision ?? legacyGateDecision(variant.metrics),
+  }
+}
+
+function legacyGateDecision(metrics: MemoryOpsEvalMetrics): MemoryOpsEvalGateDecision {
+  if (metrics.failedCaseCount === 0) {
+    return {
+      status: "pass",
+      decision: "keep",
+      reasons: ["legacy eval report passed all cases"],
+    }
+  }
+
+  return {
+    status: "fail",
+    decision: "discard",
+    reasons: [`legacy eval report has ${metrics.failedCaseCount} failing case(s)`],
   }
 }
 
@@ -58,18 +96,20 @@ async function appendEvalAuditSafely(
       actor: "user",
       targetPath: ".llm-wiki/memory-ops-evals/latest.json",
       changes: {
-        status: result.writeError ? "error" : report.metrics.failedCaseCount === 0 ? "applied" : "error",
+        status: result.writeError ? "error" : report.gate.status === "pass" ? "applied" : "error",
       },
       after: {
         reportId: report.id,
         createdAt: report.createdAt,
         metrics: report.metrics,
+        gate: report.gate,
         writeError: result.writeError,
       },
       reasons: [
         `${report.metrics.passedCaseCount}/${report.metrics.caseCount} eval cases passed`,
         `precision ${formatMetric(report.metrics.precision)}`,
         `recall ${formatMetric(report.metrics.recall)}`,
+        `decision ${report.gate.decision}`,
       ],
     })
     return undefined

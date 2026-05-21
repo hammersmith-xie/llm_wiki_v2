@@ -1,6 +1,6 @@
 # Memory Ops Deep Research + AutoResearch Tasks
 
-Status: Implementing
+Status: Implemented
 Scale: Super-large
 Review rounds: 10+
 
@@ -17,7 +17,8 @@ flowchart TD
   M5 --> M6
   M6 --> M7["M7 Tests + Size Scan"]
   M7 --> M8["M8 10+ Review Rounds"]
-  M8 --> M9["M9 Commit"]
+  M8 --> M9["M9 First Commit"]
+  M9 --> M10["M10 Decision + Eval Gates"]
 ```
 
 ## M1. Research + Spec
@@ -58,11 +59,12 @@ flowchart TD
     - Inputs: snapshot, historical conflicts, latest research, trigger/today.
     - Output: existing `MemoryOpsPatrolReport`.
 
-- ⏳ T6. Refactor `runMemoryOpsPatrol` to orchestrate scan/history/research/audit around the engine.
+- ✅ T6. Refactor `runMemoryOpsPatrol` to orchestrate scan/history/research/audit around the engine.
   - Depends: T5.
   - Blocks: T24.
   - Notes:
     - Preserve audit shape and maintenance cooldown behavior.
+    - `runMemoryOpsPatrol` now delegates report assembly to the pure engine after scan/history/research loading.
 
 - ✅ T7. Add engine unit tests for existing behavior preservation.
   - Depends: T5.
@@ -185,4 +187,39 @@ Each review writes `review-round-N.md` with findings and fixes.
 
 - ✅ T40. Stage docs/code/tests.
 - ✅ T41. Commit with a focused prefixed message.
-- ⏳ T42. Mark goal complete.
+- 🚧 T42. Mark goal complete.
+
+## M10. Second Deepening Pass
+
+- ✅ T43. Add suggestion decision gate.
+  - Depends: M3-M4.
+  - Blocks: T44.
+  - Notes:
+    - Suggestions now carry ready/needs-research/blocked/review-only decisions.
+
+- ✅ T44. Block single/batch apply when research contradicts a metadata patch.
+  - Depends: T43.
+  - Blocks: T47.
+  - Notes:
+    - Batch eligibility now checks the decision gate.
+
+- ✅ T45. Add AutoResearch pass/fail keep/discard gate.
+  - Depends: M5-M6.
+  - Blocks: T46.
+  - Notes:
+    - Eval report gate compares metrics against policy thresholds.
+
+- ✅ T46. Surface experiment decision in eval UI and audit.
+  - Depends: T45.
+  - Blocks: T47.
+
+- ✅ T47. Add focused tests for gates.
+  - Depends: T43-T46.
+  - Blocks: T48.
+
+- ✅ T48. Run final full validation and commit second pass.
+  - Depends: T47.
+  - Notes:
+    - `npm run typecheck` passed.
+    - `npm run test:mocks` passed: 172 files, 1568 tests.
+    - New/modified Memory Ops source files are under 400 lines after splitting decision/category UI helpers.

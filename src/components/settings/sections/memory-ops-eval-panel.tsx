@@ -185,15 +185,16 @@ export function MemoryOpsEvalPanel({
 function EvalSummary({ report }: { report: MemoryOpsEvalReport }) {
   const { t } = useTranslation()
   const failed = report.metrics.failedCaseCount > 0
+  const gateFailed = report.gate.status === "fail"
   return (
     <div className="rounded border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
       <div className="flex items-center gap-1.5 font-medium">
-        {failed ? (
+        {failed || gateFailed ? (
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
         ) : (
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
         )}
-        {failed
+        {failed || gateFailed
           ? t("settings.sections.maintenance.eval.summaryNeedsReview")
           : t("settings.sections.maintenance.eval.summaryOk")}
       </div>
@@ -205,7 +206,13 @@ function EvalSummary({ report }: { report: MemoryOpsEvalReport }) {
         <span>{t("settings.sections.maintenance.eval.recall", { n: formatPct(report.metrics.recall) })}</span>
         <span>{t("settings.sections.maintenance.eval.f1", { n: formatPct(report.metrics.f1) })}</span>
         <span>{t("settings.sections.maintenance.eval.safePatches", { n: report.metrics.safePatchCount })}</span>
+        <span>{t(`settings.sections.maintenance.eval.decisions.${report.gate.decision}`)}</span>
       </div>
+      {report.gate.reasons.length > 0 && (
+        <div className="mt-1 text-muted-foreground">
+          {report.gate.reasons.slice(0, 2).join(" · ")}
+        </div>
+      )}
     </div>
   )
 }

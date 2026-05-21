@@ -10,6 +10,7 @@ import type {
   MemoryOpsEvalCaseResult,
   MemoryOpsEvalMetrics,
   MemoryOpsEvalPatrolRunner,
+  MemoryOpsEvalGateDecision,
   MemoryOpsEvalPolicyVariant,
   MemoryOpsEvalReport,
   MemoryOpsEvalVariantResult,
@@ -38,12 +39,14 @@ export async function runMemoryOpsEval(
 
   const createdAt = (options.now ?? new Date()).toISOString()
   const metrics = summarizeEvalMetrics(results)
+  const gate = evaluateEvalGate(metrics, cases)
   return {
     schemaVersion: 1,
     id: evalReportId(createdAt),
     createdAt,
     projectPath,
     metrics,
+    gate,
     cases: results,
     variants: options.variants && options.variants.length > 0
       ? await runVariantComparisons(cases, options.variants, metrics)
@@ -129,6 +132,7 @@ async function runVariantComparisons(
       precisionDelta: roundMetric(metrics.precision - baseline.precision),
       recallDelta: roundMetric(metrics.recall - baseline.recall),
       f1Delta: roundMetric(metrics.f1 - baseline.f1),
+      decision: evaluateEvalGate(metrics, cases),
     })
   }
   return results
@@ -236,6 +240,45 @@ function snapshotWithPolicy(
       ...evidenceStats,
     },
   }
+}
+
+function evaluateEvalGate(
+  metrics: MemoryOpsEvalMetrics,
+  cases: readonly MemoryOpsEvalCase[],
+): MemoryOpsEvalGateDecision {
+  const policy = cases.find((evalCase) => evalCase.snapshot)?.snapshot?.policy
+  const minPrecision = policy?.eval.minPrecision ?? 0.9
+  const minRecall = policy?.eval.minRecall ?? 0.9
+  const minF1 = policy?.eval.minF1 ?? 0.9
+  const reasons: string[] = []
+  if (metrics.precision < minPrecision) {
+    reasons.push(`precision ${formatMetric(metrics.precision)} below ${formatMetric(minPrecision)}`)
+  }
+  if (metrics.recall < minRecall) {
+    reasons.push(`recall ${formatMetric(metrics.recall)} below ${formatMetric(minRecall)}`)
+  }
+  if (metrics.f1 < minF1) {
+    reasons.push(`F1 ${formatMetric(metrics.f1)} below ${formatMetric(minF1)}`)
+  }
+  if (metrics.failedCaseCount > 0) {
+    reasons.push(`${metrics.failedCaseCount} failing eval case${metrics.failedCaseCount === 1 ? "" : "s"}`)
+  }
+  if (reasons.length === 0) {
+    return {
+      status: "pass",
+      decision: "keep",
+      reasons: ["eval metrics meet policy thresholds"],
+    }
+  }
+  return {
+    status: "fail",
+    decision: "discard",
+    reasons,
+  }
+}
+
+function formatMetric(value: number): string {
+  return value.toFixed(2)
 }
 
 function roundMetric(value: number): number {

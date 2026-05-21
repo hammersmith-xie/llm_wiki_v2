@@ -169,6 +169,20 @@ export interface MemoryOpsRelationIssue {
   candidateTarget?: string
 }
 
+export type MemoryOpsSuggestionDecisionKind =
+  | "ready"
+  | "needs-research"
+  | "blocked-by-contradiction"
+  | "review-only"
+
+export interface MemoryOpsSuggestionDecision {
+  kind: MemoryOpsSuggestionDecisionKind
+  applyAllowed: boolean
+  batchAllowed: boolean
+  confidence: number
+  reasons: string[]
+}
+
 export interface MemoryOpsSuggestion {
   id: string
   kind: MemoryOpsSuggestionKind
@@ -180,6 +194,7 @@ export interface MemoryOpsSuggestion {
   proposedOperation?: MetadataPatchOperation
   relation?: MemoryOpsRelationIssue
   research?: MemoryOpsResearchSuggestionSummary
+  decision?: MemoryOpsSuggestionDecision
 }
 
 export interface MemoryOpsPatrolStats extends MemoryOpsSnapshotStats {

@@ -233,6 +233,16 @@ describe("memory ops batch", () => {
       suggestion("s1", "wiki/a.md", { review_status: "stale" }),
     )).toBe(true)
     expect(isBatchApplicableMemoryOpsSuggestion(reviewOnlySuggestion("s2", "wiki/b.md"))).toBe(false)
+    expect(isBatchApplicableMemoryOpsSuggestion({
+      ...suggestion("s3", "wiki/c.md", { review_status: "stale" }),
+      decision: {
+        kind: "blocked-by-contradiction",
+        applyAllowed: false,
+        batchAllowed: false,
+        confidence: 0.8,
+        reasons: ["research verdict contradicted"],
+      },
+    })).toBe(false)
   })
 
   it("builds batch summary audits without per-file private diffs", () => {

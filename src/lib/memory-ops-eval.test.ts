@@ -86,5 +86,26 @@ describe("memory ops eval", () => {
     expect(evalReport.metrics.failedCaseCount).toBe(0)
     expect(evalReport.metrics.precision).toBe(1)
     expect(evalReport.metrics.recall).toBe(1)
+    expect(evalReport.gate).toMatchObject({
+      status: "pass",
+      decision: "keep",
+    })
+  })
+
+  it("fails the AutoResearch gate when metrics miss policy thresholds", async () => {
+    const evalReport = await runMemoryOpsEval("/project", {
+      cases: [{
+        id: "case",
+        title: "Case",
+        description: "",
+        expectedSuggestions: [{ id: "expected" }],
+      }],
+      runner: async () => report(["unexpected"]),
+      now: new Date("2026-05-21T00:00:00.000Z"),
+    })
+
+    expect(evalReport.gate.status).toBe("fail")
+    expect(evalReport.gate.decision).toBe("discard")
+    expect(evalReport.gate.reasons.join(" ")).toContain("failing eval case")
   })
 })

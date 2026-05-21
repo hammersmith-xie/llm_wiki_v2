@@ -526,6 +526,13 @@
           "relation": "关系：",
           "candidateTarget": "候选 {{target}}",
           "reasons": "证据",
+          "decision": "决策闸门",
+          "decisions": {
+            "ready": "可应用",
+            "needs-research": "需要研究",
+            "blocked-by-contradiction": "被冲突阻断",
+            "review-only": "仅审阅"
+          },
           "diffTitle": "Dry-run diff",
           "noDiff": "无需变更 metadata。",
           "openTarget": "打开页面",
@@ -614,6 +621,10 @@
           "f1": "F1 {{n}}",
           "safePatches": "{{n}} 个安全 patch",
           "variants": "策略变体",
+          "decisions": {
+            "keep": "保留",
+            "discard": "丢弃"
+          },
           "caseCounts": "命中 {{matched}}/{{expected}} · {{fp}} FP · {{fn}} FN"
         },
         "schemaQuality": {

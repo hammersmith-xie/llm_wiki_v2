@@ -29,4 +29,19 @@ describe("memory ops patrol engine", () => {
     expect(report.suggestions).toEqual([])
     expect(report.stats.suggestionCount).toBe(0)
   })
+
+  it("adds decision gates to generated suggestions", () => {
+    const evalCase = BUILT_IN_MEMORY_OPS_EVAL_CASES.find((item) => item.id === "semantic-promotion")
+    if (!evalCase?.snapshot) throw new Error("missing semantic-promotion fixture")
+
+    const report = buildMemoryOpsPatrolReportFromSnapshot(evalCase.snapshot, {
+      today: "2026-05-22",
+    })
+
+    expect(report.suggestions[0]?.decision).toMatchObject({
+      kind: "ready",
+      applyAllowed: true,
+      batchAllowed: true,
+    })
+  })
 })

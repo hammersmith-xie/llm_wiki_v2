@@ -63,6 +63,16 @@ export interface MemoryOpsEvalVariantResult {
   precisionDelta: number
   recallDelta: number
   f1Delta: number
+  decision: MemoryOpsEvalGateDecision
+}
+
+export type MemoryOpsEvalGateStatus = "pass" | "fail"
+export type MemoryOpsEvalExperimentDecision = "keep" | "discard"
+
+export interface MemoryOpsEvalGateDecision {
+  status: MemoryOpsEvalGateStatus
+  decision: MemoryOpsEvalExperimentDecision
+  reasons: string[]
 }
 
 export interface MemoryOpsEvalReport {
@@ -71,6 +81,7 @@ export interface MemoryOpsEvalReport {
   createdAt: string
   projectPath: string
   metrics: MemoryOpsEvalMetrics
+  gate: MemoryOpsEvalGateDecision
   cases: MemoryOpsEvalCaseResult[]
   variants?: MemoryOpsEvalVariantResult[]
 }
