@@ -5,12 +5,12 @@ import {
 } from "@/lib/lifecycle"
 import { calculateClaimCredibility } from "@/lib/claim-confidence"
 import { summarizeClaimProvenance } from "@/lib/claim-provenance"
-import type { MetadataPatchOperation } from "@/lib/memory-ops-executor"
 import type {
   MemoryOpsPageEvidenceSummary,
   MemoryOpsProjectSnapshot,
+  MemoryOpsSuggestion,
   MemoryOpsWikiPage,
-} from "@/lib/memory-ops"
+} from "@/lib/memory-ops-types"
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
 import { normalizePath } from "@/lib/path-utils"
 import {
@@ -22,26 +22,12 @@ import {
   type MemoryOpsPolicy,
 } from "@/lib/memory-ops-policy"
 
-export type MemoryOpsSuggestionKind = "metadata-update" | "relation-cleanup" | "review-action"
-export type MemoryOpsSuggestionSeverity = "info" | "warning"
-
-export interface MemoryOpsRelationIssue {
-  field: string
-  target: string
-  candidateTarget?: string
-}
-
-export interface MemoryOpsSuggestion {
-  id: string
-  kind: MemoryOpsSuggestionKind
-  severity: MemoryOpsSuggestionSeverity
-  targetPath: string
-  title: string
-  detail: string
-  reasons: string[]
-  proposedOperation?: MetadataPatchOperation
-  relation?: MemoryOpsRelationIssue
-}
+export type {
+  MemoryOpsRelationIssue,
+  MemoryOpsSuggestion,
+  MemoryOpsSuggestionKind,
+  MemoryOpsSuggestionSeverity,
+} from "@/lib/memory-ops-types"
 
 const REINFORCING_ACTION_PREFIXES = [
   "chat.",

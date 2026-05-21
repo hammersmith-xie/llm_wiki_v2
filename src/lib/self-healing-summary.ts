@@ -1,5 +1,5 @@
 import { readConsolidationQueue } from "@/lib/consolidation-queue"
-import type { MemoryOpsProjectSnapshot } from "@/lib/memory-ops"
+import type { MemoryOpsProjectSnapshot } from "@/lib/memory-ops-types"
 
 export interface SelfHealingSummary {
   candidateCount: number

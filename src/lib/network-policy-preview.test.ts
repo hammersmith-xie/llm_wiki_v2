@@ -34,6 +34,37 @@ describe("network policy preview", () => {
     })
   })
 
+  it("returns not-configured for SearXNG without an instance URL", () => {
+    expect(describeWebSearchPolicy("searxng", DEFAULT_NETWORK_POLICY)).toEqual({
+      kind: "not-configured",
+      message: "SearXNG instance URL is not configured.",
+    })
+  })
+
+  it("allows loopback SearXNG in local-only mode", () => {
+    expect(describeWebSearchPolicy(
+      "searxng",
+      { ...DEFAULT_NETWORK_POLICY, mode: "local-only" },
+      "http://127.0.0.1:8888",
+    )).toMatchObject({
+      kind: "allowed",
+      host: "127.0.0.1",
+      mode: "local-only",
+    })
+  })
+
+  it("blocks public SearXNG in local-only mode", () => {
+    expect(describeWebSearchPolicy(
+      "searxng",
+      { ...DEFAULT_NETWORK_POLICY, mode: "local-only" },
+      "https://search.example.com",
+    )).toMatchObject({
+      kind: "blocked",
+      host: "search.example.com",
+      mode: "local-only",
+    })
+  })
+
   it("returns not-configured for disabled embedding", () => {
     expect(describeEmbeddingPolicy({ enabled: false, endpoint: "" }, DEFAULT_NETWORK_POLICY)).toEqual({
       kind: "not-configured",
@@ -66,6 +97,23 @@ describe("network policy preview", () => {
       kind: "cloud-allowed",
       host: "api.openai.com",
       mode: "any",
+    })
+  })
+
+  it("previews Codex CLI vision/dedicated compute against OpenAI cloud egress", () => {
+    expect(describeVisionPolicy(
+      {
+        enabled: true,
+        useMainLlm: false,
+        provider: "codex-cli",
+        customEndpoint: "",
+        ollamaUrl: "http://localhost:11434",
+      },
+      { ...DEFAULT_NETWORK_POLICY, mode: "local-only" },
+    )).toMatchObject({
+      kind: "blocked",
+      host: "api.openai.com",
+      mode: "local-only",
     })
   })
 

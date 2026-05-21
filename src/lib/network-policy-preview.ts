@@ -3,7 +3,7 @@ import {
   type NetworkPolicyConfig,
   type NetworkPolicyMode,
 } from "@/lib/network-policy"
-import type { LlmConfig } from "@/stores/wiki-store"
+import type { LlmConfig, SearchProvider } from "@/stores/wiki-store"
 
 export type NetworkPolicyPreview =
   | { kind: "allowed"; host: string; mode: NetworkPolicyMode; message: string }
@@ -30,9 +30,20 @@ const WEB_SEARCH_URLS = {
 } as const
 
 export function describeWebSearchPolicy(
-  provider: keyof typeof WEB_SEARCH_URLS,
+  provider: SearchProvider,
   policy: NetworkPolicyConfig,
+  searXngUrl?: string,
 ): NetworkPolicyPreview {
+  if (provider === "none") {
+    return { kind: "not-configured", message: "Web search provider is not configured." }
+  }
+  if (provider === "searxng") {
+    const endpoint = searXngUrl?.trim()
+    if (!endpoint) {
+      return { kind: "not-configured", message: "SearXNG instance URL is not configured." }
+    }
+    return describeUrlPolicy(searXngPreviewUrl(endpoint), policy, "searxng web search")
+  }
   return describeUrlPolicy(WEB_SEARCH_URLS[provider], policy, `${provider} web search`)
 }
 
@@ -110,6 +121,22 @@ function describeUrlPolicy(
   }
 }
 
+function searXngPreviewUrl(instanceUrl: string): string {
+  try {
+    const withProtocol = /^https?:\/\//i.test(instanceUrl) ? instanceUrl : `https://${instanceUrl}`
+    const url = new URL(withProtocol)
+    const path = url.pathname.replace(/\/+$/, "")
+    url.pathname = path.endsWith("/search") || path === "/search"
+      ? path
+      : `${path}/search`
+    url.search = ""
+    url.hash = ""
+    return url.toString()
+  } catch {
+    return instanceUrl
+  }
+}
+
 function visionProviderEndpoint(input: VisionPreviewInput): string {
   switch (input.provider) {
     case "openai":
@@ -117,6 +144,8 @@ function visionProviderEndpoint(input: VisionPreviewInput): string {
     case "anthropic":
     case "claude-code":
       return "https://api.anthropic.com/v1/messages"
+    case "codex-cli":
+      return "https://api.openai.com/v1/responses"
     case "google":
       return "https://generativelanguage.googleapis.com/v1beta/models"
     case "minimax":

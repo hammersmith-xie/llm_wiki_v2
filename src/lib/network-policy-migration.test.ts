@@ -36,6 +36,36 @@ describe("seedNetworkPolicyFromConfiguredCloud", () => {
     expect(JSON.stringify(policy)).not.toContain("embeddings")
   })
 
+  it("adds configured SearXNG public origins without requiring an API key", () => {
+    const policy = seedNetworkPolicyFromConfiguredCloud({
+      savedNetworkPolicy: null,
+      searchConfig: {
+        provider: "searxng",
+        apiKey: "",
+        searXngUrl: "https://search.example.com/searxng/search?q=secret",
+      },
+    })
+
+    expect(policy).toEqual({
+      ...DEFAULT_NETWORK_POLICY,
+      allowedHosts: ["https://search.example.com"],
+    })
+    expect(JSON.stringify(policy)).not.toContain("secret")
+    expect(JSON.stringify(policy)).not.toContain("searxng")
+  })
+
+  it("adds Codex CLI cloud origin for subprocess-backed remote inference", () => {
+    const policy = seedNetworkPolicyFromConfiguredCloud({
+      savedNetworkPolicy: null,
+      llmConfig: llm({ provider: "codex-cli", apiKey: "", model: "gpt-5.4-mini" }),
+    })
+
+    expect(policy).toEqual({
+      ...DEFAULT_NETWORK_POLICY,
+      allowedHosts: ["https://api.openai.com"],
+    })
+  })
+
   it("does not override an explicitly saved policy", () => {
     const saved = {
       ...DEFAULT_NETWORK_POLICY,

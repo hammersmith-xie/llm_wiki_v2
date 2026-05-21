@@ -12,6 +12,12 @@ import {
   type MemoryOpsHistoricalConflictResult,
 } from "@/lib/memory-ops-conflicts"
 import {
+  enrichMemoryOpsSuggestionsWithResearch,
+  selectMemoryOpsResearchCandidates,
+  summarizeMemoryOpsResearchIntegration,
+} from "@/lib/memory-ops-research-integration"
+import { loadLatestMemoryOpsResearchReport } from "@/lib/memory-ops-research-store"
+import {
   completeMemoryOpsPatrolCooldown,
   reduceMemoryOpsMaintenanceEvent,
   summarizeMemoryOpsMaintenanceStatus,
@@ -101,7 +107,7 @@ export async function runMemoryOpsPatrol(
           snapshot.projectPath,
           snapshot.pages,
         )
-    const suggestions = [
+    const baseSuggestions = [
       ...evaluateLifecycleSuggestions(snapshot, {
         today: options.today,
         policy: snapshot.policy,
@@ -112,11 +118,22 @@ export async function runMemoryOpsPatrol(
       ...evaluateRelationCleanupSuggestions(snapshot),
       ...historicalConflicts.suggestions,
     ]
+    const latestResearchReport = await loadLatestMemoryOpsResearchReport(snapshot.projectPath)
+    const suggestions = enrichMemoryOpsSuggestionsWithResearch(
+      baseSuggestions,
+      latestResearchReport,
+    )
+    const researchCandidates = selectMemoryOpsResearchCandidates(snapshot, suggestions)
+    const researchSummary = summarizeMemoryOpsResearchIntegration(latestResearchReport, suggestions)
     const stats: MemoryOpsPatrolStats = {
       ...snapshot.stats,
       historicalConflictCandidateCount: historicalConflicts.candidateCount,
       historicalConflictSuggestionCount: historicalConflicts.suggestions.length,
       historicalConflictWarningCount: historicalConflicts.warningCount,
+      researchEvidenceCandidateCount: researchCandidates.length,
+      researchEvidenceMatchedSuggestionCount: researchSummary.matchedSuggestionCount,
+      researchEvidenceItemCount: researchSummary.evidenceCount,
+      researchEvidenceWarningCount: researchSummary.warningCount,
       scanDurationMs: snapshot.scanTelemetry.totalMs,
       suggestionCount: suggestions.length,
     }
@@ -140,6 +157,7 @@ export async function runMemoryOpsPatrol(
           version: snapshot.policy.version,
           warnings: snapshot.policyWarnings,
         },
+        researchEvidence: researchSummary,
         trigger: patrolTriggerSummary(options.trigger),
       },
       reasons: [
@@ -147,6 +165,7 @@ export async function runMemoryOpsPatrol(
         ...(options.trigger?.action ? [`triggered by ${options.trigger.action}`] : []),
         `${report.stats.pageCount} pages scanned`,
         `${report.stats.suggestionCount} suggestions generated`,
+        `${report.stats.researchEvidenceCandidateCount} research candidates identified`,
         `policy ${snapshot.policy.name} v${snapshot.policy.version}`,
       ],
     })

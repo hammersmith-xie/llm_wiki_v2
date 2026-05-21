@@ -1,3 +1,4 @@
+mod api_server;
 mod clip_server;
 mod commands;
 mod panic_guard;
@@ -10,6 +11,23 @@ use panic_guard::run_guarded;
 fn clip_server_status() -> String {
     run_guarded("clip_server_status", || {
         Ok(clip_server::get_daemon_status().to_string())
+    })
+    .unwrap_or_else(|e| format!("error: {e}"))
+}
+
+#[tauri::command]
+fn api_server_status() -> String {
+    run_guarded("api_server_status", || {
+        Ok(api_server::get_api_status().to_string())
+    })
+    .unwrap_or_else(|e| format!("error: {e}"))
+}
+
+#[tauri::command]
+fn api_server_reload_config() -> String {
+    run_guarded("api_server_reload_config", || {
+        api_server::invalidate_config_cache();
+        Ok("ok".to_string())
     })
     .unwrap_or_else(|e| format!("error: {e}"))
 }
@@ -73,11 +91,15 @@ pub fn run() {
             // frontend-generated stream id. Populated by claude_cli_spawn,
             // drained on process exit or by claude_cli_kill.
             app.manage(commands::claude_cli::ClaudeCliState::default());
+            app.manage(commands::codex_cli::CodexCliState::default());
+            app.manage(commands::file_sync::FileSyncState::default());
+            api_server::start_api_server(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::fs::read_file,
             commands::fs::write_file,
+            commands::fs::write_file_atomic,
             commands::fs::append_file,
             commands::fs::list_directory,
             commands::fs::copy_file,
@@ -87,10 +109,23 @@ pub fn run() {
             commands::fs::find_related_wiki_pages,
             commands::fs::create_directory,
             commands::fs::file_exists,
+            commands::fs::get_file_modified_time,
+            commands::fs::get_file_size,
+            commands::fs::get_file_md5,
             commands::fs::read_file_as_base64,
+            commands::file_sync::start_project_file_watcher,
+            commands::file_sync::stop_project_file_watcher,
+            commands::file_sync::rescan_project_files,
+            commands::file_sync::get_file_change_queue,
+            commands::file_sync::retry_file_change_task,
+            commands::file_sync::ignore_file_change_task,
             commands::project::create_project,
             commands::project::open_project,
+            commands::project::open_project_folder,
             clip_server_status,
+            api_server_status,
+            api_server_reload_config,
+            commands::search::search_project,
             commands::vectorstore::vector_upsert,
             commands::vectorstore::vector_search,
             commands::vectorstore::vector_delete,
@@ -104,6 +139,9 @@ pub fn run() {
             commands::claude_cli::claude_cli_detect,
             commands::claude_cli::claude_cli_spawn,
             commands::claude_cli::claude_cli_kill,
+            commands::codex_cli::codex_cli_detect,
+            commands::codex_cli::codex_cli_spawn,
+            commands::codex_cli::codex_cli_kill,
             commands::extract_images::extract_pdf_images_cmd,
             commands::extract_images::extract_office_images_cmd,
             commands::extract_images::extract_and_save_pdf_images_cmd,

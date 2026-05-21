@@ -37,6 +37,10 @@ export interface MemoryOpsPatrolSummary {
   historicalConflictCandidateCount: number
   historicalConflictSuggestionCount: number
   historicalConflictWarningCount: number
+  researchEvidenceCandidateCount: number
+  researchEvidenceMatchedSuggestionCount: number
+  researchEvidenceItemCount: number
+  researchEvidenceWarningCount: number
   selfHealingCandidateCount: number
   selfHealingWarningCount: number
   categoryCounts: Partial<Record<MemoryOpsSuggestionCategory, number>>
@@ -65,6 +69,10 @@ export function summarizeMemoryOpsPatrolReport(
     historicalConflictCandidateCount: report.stats.historicalConflictCandidateCount,
     historicalConflictSuggestionCount: report.stats.historicalConflictSuggestionCount,
     historicalConflictWarningCount: report.stats.historicalConflictWarningCount,
+    researchEvidenceCandidateCount: report.stats.researchEvidenceCandidateCount ?? 0,
+    researchEvidenceMatchedSuggestionCount: report.stats.researchEvidenceMatchedSuggestionCount ?? 0,
+    researchEvidenceItemCount: report.stats.researchEvidenceItemCount ?? 0,
+    researchEvidenceWarningCount: report.stats.researchEvidenceWarningCount ?? 0,
     selfHealingCandidateCount: report.stats.selfHealingCandidateCount,
     selfHealingWarningCount: report.stats.selfHealingWarningCount,
     categoryCounts: countSuggestionCategories(report.suggestions),

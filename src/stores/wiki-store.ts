@@ -18,7 +18,7 @@ export interface ReasoningConfig {
 }
 
 interface LlmConfig {
-  provider: "openai" | "anthropic" | "google" | "ollama" | "custom" | "minimax" | "claude-code"
+  provider: "openai" | "anthropic" | "google" | "ollama" | "custom" | "minimax" | "claude-code" | "codex-cli"
   apiKey: string
   model: string
   ollamaUrl: string
@@ -28,7 +28,7 @@ interface LlmConfig {
   reasoning?: ReasoningConfig
 }
 
-export type SearchProvider = "tavily" | "serpapi" | "none"
+export type SearchProvider = "tavily" | "serpapi" | "searxng" | "none"
 export type SerpApiEngine =
   | "google"
   | "google_news"
@@ -40,10 +40,24 @@ export type SerpApiEngine =
   | "google_videos"
   | "youtube"
   | string
+export type SearXngCategory =
+  | "general"
+  | "news"
+  | "science"
+  | "it"
+  | "images"
+  | "videos"
+  | "files"
+  | "map"
+  | "music"
+  | "social media"
+  | string
 
 export interface SearchProviderOverride {
   apiKey?: string
   serpApiEngine?: SerpApiEngine
+  searXngUrl?: string
+  searXngCategories?: SearXngCategory[]
 }
 
 export type SearchProviderConfigs = Partial<Record<Exclude<SearchProvider, "none">, SearchProviderOverride>>
@@ -52,6 +66,8 @@ interface SearchApiConfig {
   provider: SearchProvider
   apiKey: string
   serpApiEngine?: SerpApiEngine
+  searXngUrl?: string
+  searXngCategories?: SearXngCategory[]
   providerConfigs?: SearchProviderConfigs
 }
 
@@ -75,6 +91,8 @@ interface EmbeddingConfig {
    */
   maxChunkChars?: number
   overlapChunkChars?: number
+  /** Optional Gemini native embedding output dimension. */
+  outputDimensionality?: number
 }
 
 /**
@@ -116,6 +134,29 @@ interface ProxyConfig {
   enabled: boolean
   url: string
   bypassLocal: boolean
+}
+
+export interface SourceWatchConfig {
+  enabled: boolean
+  autoIngest: boolean
+  includeExtensions: string[]
+  excludeExtensions: string[]
+  excludeDirs: string[]
+  excludeGlobs: string[]
+  maxFileSizeMb: number
+}
+
+interface ScheduledImportConfig {
+  enabled: boolean
+  path: string
+  interval: number
+  lastScan: number | null
+}
+
+interface ApiConfig {
+  enabled: boolean
+  allowUnauthenticated: boolean
+  token: string
 }
 
 interface MultimodalConfig {
@@ -211,6 +252,9 @@ interface WikiState {
   multimodalConfig: MultimodalConfig
   outputLanguage: OutputLanguage
   proxyConfig: ProxyConfig
+  scheduledImportConfig: ScheduledImportConfig
+  sourceWatchConfig: SourceWatchConfig
+  apiConfig: ApiConfig
   networkPolicyConfig: NetworkPolicyConfig
   dataVersion: number
 
@@ -229,6 +273,9 @@ interface WikiState {
   setMultimodalConfig: (config: MultimodalConfig) => void
   setOutputLanguage: (lang: OutputLanguage) => void
   setProxyConfig: (config: ProxyConfig) => void
+  setScheduledImportConfig: (config: ScheduledImportConfig) => void
+  setSourceWatchConfig: (config: SourceWatchConfig) => void
+  setApiConfig: (config: ApiConfig) => void
   setNetworkPolicyConfig: (config: NetworkPolicyConfig) => void
   bumpDataVersion: () => void
 }
@@ -266,6 +313,8 @@ export const useWikiStore = create<WikiState>((set) => ({
     provider: "none",
     apiKey: "",
     serpApiEngine: "google",
+    searXngUrl: "",
+    searXngCategories: ["general"],
     providerConfigs: {},
   },
 
@@ -301,6 +350,70 @@ export const useWikiStore = create<WikiState>((set) => ({
     bypassLocal: true,
   },
 
+  scheduledImportConfig: {
+    enabled: false,
+    path: "",
+    interval: 60,
+    lastScan: null,
+  },
+
+  sourceWatchConfig: {
+    enabled: true,
+    autoIngest: true,
+    includeExtensions: [
+      "md",
+      "mdx",
+      "txt",
+      "pdf",
+      "docx",
+      "pptx",
+      "xls",
+      "xlsx",
+      "odt",
+      "odp",
+      "ods",
+      "rtf",
+      "html",
+      "htm",
+      "csv",
+    ],
+    excludeExtensions: [
+      "tmp",
+      "temp",
+      "bak",
+      "swp",
+      "part",
+      "partial",
+      "crdownload",
+      "exe",
+      "dll",
+      "so",
+      "dylib",
+      "bin",
+      "iso",
+      "dmg",
+    ],
+    excludeDirs: [
+      ".git",
+      ".svn",
+      ".hg",
+      ".obsidian",
+      ".idea",
+      ".vscode",
+      "node_modules",
+      ".cache",
+      "__pycache__",
+    ],
+    excludeGlobs: ["~$*", ".~lock.*#", "*.draft.*", "draft-*", "*.private.*"],
+    maxFileSizeMb: 100,
+  },
+
+  apiConfig: {
+    enabled: true,
+    allowUnauthenticated: false,
+    token: "",
+  },
+
   networkPolicyConfig: DEFAULT_NETWORK_POLICY,
 
   setLlmConfig: (llmConfig) => set({ llmConfig }),
@@ -311,8 +424,11 @@ export const useWikiStore = create<WikiState>((set) => ({
   setMultimodalConfig: (multimodalConfig) => set({ multimodalConfig }),
   setOutputLanguage: (outputLanguage) => set({ outputLanguage }),
   setProxyConfig: (proxyConfig) => set({ proxyConfig }),
+  setScheduledImportConfig: (scheduledImportConfig) => set({ scheduledImportConfig }),
+  setSourceWatchConfig: (sourceWatchConfig) => set({ sourceWatchConfig }),
+  setApiConfig: (apiConfig) => set({ apiConfig }),
   setNetworkPolicyConfig: (networkPolicyConfig) => set({ networkPolicyConfig }),
   bumpDataVersion: () => set((state) => ({ dataVersion: state.dataVersion + 1 })),
 }))
 
-export type { WikiState, LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProxyConfig, NetworkPolicyConfig }
+export type { WikiState, LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProxyConfig, ScheduledImportConfig, ApiConfig, NetworkPolicyConfig }

@@ -164,6 +164,10 @@ export async function scanMemoryOpsProject(
     historicalConflictCandidateCount: 0,
     historicalConflictSuggestionCount: 0,
     historicalConflictWarningCount: 0,
+    researchEvidenceCandidateCount: 0,
+    researchEvidenceMatchedSuggestionCount: 0,
+    researchEvidenceItemCount: 0,
+    researchEvidenceWarningCount: 0,
     selfHealingCandidateCount: 0,
     selfHealingWarningCount: 0,
   }

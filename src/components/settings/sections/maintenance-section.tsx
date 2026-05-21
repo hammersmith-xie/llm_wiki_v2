@@ -97,12 +97,15 @@ import {
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
 import { AuditTimelinePanel } from "./audit-timeline-panel"
+import { MemoryOpsEvalPanel } from "./memory-ops-eval-panel"
 import { MemoryOpsPolicyPanel } from "./memory-ops-policy-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
+import { MemoryOpsResearchPanel } from "./memory-ops-research-panel"
 import { SchemaQualityPanel } from "./schema-quality-panel"
 import { SearchHealthPanel } from "./search-health-panel"
 import { CoordinationSummaryPanel } from "./coordination-summary-panel"
 import { ConsolidationQueuePanel } from "./consolidation-queue-panel"
+import { useMemoryOpsResearchEval } from "./use-memory-ops-research-eval"
 import {
   enqueueMerge,
   cancelTask,
@@ -127,6 +130,8 @@ type MaintenanceWorkbenchTab =
   | "schema"
   | "coordination"
   | "consolidation"
+  | "research"
+  | "eval"
   | "timeline"
   | "policy"
   | "search"
@@ -145,6 +150,7 @@ export function MaintenanceSection() {
   const llmConfig = useWikiStore((s) => s.llmConfig)
   const project = useWikiStore((s) => s.project)
   const dataVersion = useWikiStore((s) => s.dataVersion)
+  const searchApiConfig = useWikiStore((s) => s.searchApiConfig)
   const setFileTree = useWikiStore((s) => s.setFileTree)
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
   const setFileContent = useWikiStore((s) => s.setFileContent)
@@ -299,6 +305,27 @@ export function MaintenanceSection() {
   useEffect(() => {
     void refreshMaintenanceStatus()
   }, [refreshMaintenanceStatus, dataVersion])
+
+  const {
+    researchRunning,
+    researchReport,
+    researchSaveResult,
+    researchError,
+    evalRunning,
+    evalReport,
+    evalSaveResult,
+    evalError,
+    handleRunResearchEvidence,
+    handleRunMemoryOpsEval,
+  } = useMemoryOpsResearchEval({
+    project,
+    dataVersion,
+    searchApiConfig,
+    patrolReport,
+    setPatrolReport,
+    refreshRecentAudit,
+    refreshMaintenanceStatus,
+  })
 
   const refreshMemoryOpsPolicy = useCallback(async () => {
     if (!project) {
@@ -1174,7 +1201,7 @@ export function MaintenanceSection() {
           aria-label={t("settings.sections.maintenance.workbenchTabs.label")}
           className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-2"
         >
-          {(["patrol", "schema", "coordination", "consolidation", "timeline", "policy", "search"] as const).map((tab) => (
+          {(["patrol", "research", "eval", "schema", "coordination", "consolidation", "timeline", "policy", "search"] as const).map((tab) => (
             <Button
               key={tab}
               role="tab"
@@ -1239,6 +1266,43 @@ export function MaintenanceSection() {
               onApply={(suggestion) => void handleApplySuggestion(suggestion)}
               onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
               onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "research" && (
+          <div
+            id="maintenance-research-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-research-tab"
+          >
+            <MemoryOpsResearchPanel
+              projectReady={projectReady}
+              running={researchRunning}
+              report={researchReport}
+              saveResult={researchSaveResult}
+              error={researchError}
+              currentPatrolSuggestionCount={patrolReport?.suggestions.length ?? 0}
+              onRun={() => void handleRunResearchEvidence()}
+              onOpenReport={(path) => void handleOpenAuditPath(path)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "eval" && (
+          <div
+            id="maintenance-eval-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-eval-tab"
+          >
+            <MemoryOpsEvalPanel
+              projectReady={projectReady}
+              running={evalRunning}
+              report={evalReport}
+              saveResult={evalSaveResult}
+              error={evalError}
+              onRun={() => void handleRunMemoryOpsEval()}
+              onOpenReport={(path) => void handleOpenAuditPath(path)}
             />
           </div>
         )}

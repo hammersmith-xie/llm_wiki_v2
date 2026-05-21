@@ -6,6 +6,7 @@ import type {
   ProviderConfigs,
   ProxyConfig,
   SearchApiConfig,
+  ApiConfig,
 } from "@/stores/wiki-store"
 import { seedNetworkPolicyFromConfiguredCloud } from "@/lib/network-policy-migration"
 
@@ -18,6 +19,7 @@ export interface StartupSettingsLoaders {
   loadMultimodalConfig: () => Promise<MultimodalConfig | null>
   loadProxyConfig: () => Promise<ProxyConfig | null>
   loadNetworkPolicyConfig: () => Promise<NetworkPolicyConfig | null>
+  loadApiConfig?: () => Promise<ApiConfig | null>
 }
 
 export interface StartupSettingsStore {
@@ -30,6 +32,7 @@ export interface StartupSettingsStore {
   setMultimodalConfig: (config: MultimodalConfig) => void
   setProxyConfig: (config: ProxyConfig) => void
   setNetworkPolicyConfig: (config: NetworkPolicyConfig) => void
+  setApiConfig?: (config: ApiConfig) => void
 }
 
 export interface HydrateStartupSettingsOptions {
@@ -106,6 +109,18 @@ export async function hydrateStartupSettings({
   const savedProxy = await loaders.loadProxyConfig()
   if (savedProxy) {
     store.setProxyConfig(savedProxy)
+  }
+
+  const savedApi = await loaders.loadApiConfig?.()
+  if (savedApi && store.setApiConfig) {
+    store.setApiConfig({
+      enabled: typeof savedApi.enabled === "boolean" ? savedApi.enabled : true,
+      allowUnauthenticated:
+        typeof savedApi.allowUnauthenticated === "boolean"
+          ? savedApi.allowUnauthenticated
+          : false,
+      token: typeof savedApi.token === "string" ? savedApi.token : "",
+    })
   }
 
   const savedNetworkPolicy = await loaders.loadNetworkPolicyConfig()

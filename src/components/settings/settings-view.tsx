@@ -10,6 +10,9 @@ import {
   Network,
   History,
   Wrench,
+  Clock,
+  FolderSync,
+  Server,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { invoke } from "@tauri-apps/api/core"
@@ -22,9 +25,10 @@ import {
   useSettingsNavigationStore,
   type SettingsCategoryId,
 } from "@/stores/settings-navigation-store"
-import { saveLanguage } from "@/lib/project-store"
+import { loadSourceWatchConfig, saveLanguage } from "@/lib/project-store"
 import type { EgressReport } from "@/lib/egress-log"
 import type { SettingsDraft, DraftSetter } from "./settings-types"
+import { normalizeSourceWatchConfig } from "@/lib/source-watch-config"
 import { LlmProviderSection } from "./sections/llm-provider-section"
 import { EmbeddingSection } from "./sections/embedding-section"
 import { MultimodalSection } from "./sections/multimodal-section"
@@ -32,6 +36,9 @@ import { WebSearchSection } from "./sections/web-search-section"
 import { OutputSection } from "./sections/output-section"
 import { InterfaceSection } from "./sections/interface-section"
 import { NetworkSection } from "./sections/network-section"
+import { ScheduledImportSection } from "./sections/scheduled-import-section"
+import { SourceWatchSection } from "./sections/source-watch-section"
+import { ApiServerSection } from "./sections/api-server-section"
 import { ChangelogSection } from "./sections/changelog-section"
 import { MaintenanceSection } from "./sections/maintenance-section"
 import { AboutSection } from "./sections/about-section"
@@ -51,6 +58,9 @@ const CATEGORIES: Category[] = [
   { id: "multimodal", labelKey: "settings.categories.multimodal", icon: ImageIcon },
   { id: "web-search", labelKey: "settings.categories.webSearch", icon: Globe },
   { id: "network", labelKey: "settings.categories.network", icon: Network },
+  { id: "source-watch", labelKey: "settings.categories.sourceWatch", icon: FolderSync },
+  { id: "scheduled-import", labelKey: "settings.categories.scheduledImport", icon: Clock },
+  { id: "api-server", labelKey: "settings.categories.apiServer", icon: Server },
   { id: "output", labelKey: "settings.categories.output", icon: Languages },
   { id: "interface", labelKey: "settings.categories.interface", icon: Palette },
   { id: "maintenance", labelKey: "settings.categories.maintenance", icon: Wrench },
@@ -65,9 +75,25 @@ function initialDraft(
   outputLanguage: ReturnType<typeof useWikiStore.getState>["outputLanguage"],
   proxy: ReturnType<typeof useWikiStore.getState>["proxyConfig"],
   networkPolicy: ReturnType<typeof useWikiStore.getState>["networkPolicyConfig"],
+  scheduledImport: ReturnType<typeof useWikiStore.getState>["scheduledImportConfig"],
+  sourceWatch: ReturnType<typeof useWikiStore.getState>["sourceWatchConfig"],
+  apiConfig: ReturnType<typeof useWikiStore.getState>["apiConfig"],
   maxHistoryMessages: number,
   uiLanguage: string,
+  projectPath?: string,
 ): SettingsDraft {
+  let scheduledImportPath = scheduledImport.path || ""
+  if (!scheduledImportPath && projectPath) {
+    scheduledImportPath = `${projectPath}/raw/sources`
+  } else if (
+    scheduledImportPath &&
+    projectPath &&
+    !scheduledImportPath.startsWith("/") &&
+    !scheduledImportPath.match(/^[a-zA-Z]:[/\\]/)
+  ) {
+    scheduledImportPath = `${projectPath}/${scheduledImportPath}`
+  }
+
   return {
     provider: llm.provider,
     apiKey: llm.apiKey,
@@ -83,6 +109,7 @@ function initialDraft(
     embeddingModel: embed.model,
     embeddingMaxChunkChars: embed.maxChunkChars,
     embeddingOverlapChunkChars: embed.overlapChunkChars,
+    embeddingOutputDimensionality: embed.outputDimensionality,
     multimodalEnabled: multimodal.enabled,
     multimodalUseMainLlm: multimodal.useMainLlm,
     multimodalProvider: multimodal.provider,
@@ -98,6 +125,13 @@ function initialDraft(
     proxyUrl: proxy.url,
     proxyBypassLocal: proxy.bypassLocal,
     networkPolicyConfig: networkPolicy,
+    scheduledImportEnabled: scheduledImport.enabled,
+    scheduledImportPath,
+    scheduledImportInterval: scheduledImport.interval,
+    sourceWatchConfig: normalizeSourceWatchConfig(sourceWatch),
+    apiEnabled: apiConfig.enabled,
+    apiAllowUnauthenticated: apiConfig.allowUnauthenticated,
+    apiToken: apiConfig.token,
     uiLanguage,
   }
 }
@@ -117,6 +151,12 @@ export function SettingsView() {
   const setProxyConfig = useWikiStore((s) => s.setProxyConfig)
   const networkPolicyConfig = useWikiStore((s) => s.networkPolicyConfig)
   const setNetworkPolicyConfig = useWikiStore((s) => s.setNetworkPolicyConfig)
+  const scheduledImportConfig = useWikiStore((s) => s.scheduledImportConfig)
+  const setScheduledImportConfig = useWikiStore((s) => s.setScheduledImportConfig)
+  const sourceWatchConfig = useWikiStore((s) => s.sourceWatchConfig)
+  const setSourceWatchConfig = useWikiStore((s) => s.setSourceWatchConfig)
+  const apiConfig = useWikiStore((s) => s.apiConfig)
+  const setApiConfig = useWikiStore((s) => s.setApiConfig)
   const maxHistoryMessages = useChatStore((s) => s.maxHistoryMessages)
   const setMaxHistoryMessages = useChatStore((s) => s.setMaxHistoryMessages)
   // Drives the red dot next to the "About" row in the settings
@@ -144,10 +184,32 @@ export function SettingsView() {
       outputLanguage,
       proxyConfig,
       networkPolicyConfig,
+      scheduledImportConfig,
+      sourceWatchConfig,
+      apiConfig,
       maxHistoryMessages,
       i18n.language,
+      project?.path,
     ),
   )
+
+  useEffect(() => {
+    let cancelled = false
+    loadSourceWatchConfig(project?.id).then((config) => {
+      if (cancelled) return
+      const normalized = normalizeSourceWatchConfig(config)
+      setSourceWatchConfig(normalized)
+      setDraftState((prev) => ({ ...prev, sourceWatchConfig: normalized }))
+    }).catch(() => {
+      if (cancelled) return
+      const fallback = normalizeSourceWatchConfig()
+      setSourceWatchConfig(fallback)
+      setDraftState((prev) => ({ ...prev, sourceWatchConfig: fallback }))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [project?.id, setSourceWatchConfig])
 
   useEffect(() => {
     if (!requestedCategory) return
@@ -172,8 +234,12 @@ export function SettingsView() {
         outputLanguage,
         proxyConfig,
         networkPolicyConfig,
+        scheduledImportConfig,
+        sourceWatchConfig,
+        apiConfig,
         maxHistoryMessages,
         prev.uiLanguage,
+        project?.path,
       ),
     )
   }, [
@@ -183,7 +249,11 @@ export function SettingsView() {
     outputLanguage,
     proxyConfig,
     networkPolicyConfig,
+    scheduledImportConfig,
+    sourceWatchConfig,
+    apiConfig,
     maxHistoryMessages,
+    project?.path,
   ])
 
   const setDraft: DraftSetter = useCallback((key, value) => {
@@ -217,6 +287,9 @@ export function SettingsView() {
       saveOutputLanguage,
       saveProxyConfig,
       saveNetworkPolicyConfig,
+      saveScheduledImportConfig,
+      saveSourceWatchConfig,
+      saveApiConfig,
     } = await import("@/lib/project-store")
 
     const newLlm = {
@@ -236,6 +309,7 @@ export function SettingsView() {
       model: draft.embeddingModel,
       maxChunkChars: draft.embeddingMaxChunkChars,
       overlapChunkChars: draft.embeddingOverlapChunkChars,
+      outputDimensionality: draft.embeddingOutputDimensionality,
     }
     const newMultimodal = {
       enabled: draft.multimodalEnabled,
@@ -273,6 +347,39 @@ export function SettingsView() {
     await saveProxyConfig(newProxy)
     setNetworkPolicyConfig(draft.networkPolicyConfig)
     await saveNetworkPolicyConfig(draft.networkPolicyConfig)
+    const newScheduledImport = {
+      enabled: draft.scheduledImportEnabled,
+      path: draft.scheduledImportPath,
+      interval: Math.max(1, Math.min(1440, draft.scheduledImportInterval || 60)),
+      lastScan: scheduledImportConfig.lastScan,
+    }
+    setScheduledImportConfig(newScheduledImport)
+    if (project) {
+      await saveScheduledImportConfig(project.path, newScheduledImport)
+      const { startScheduledImport, stopScheduledImport } = await import("@/lib/scheduled-import")
+      if (
+        newScheduledImport.enabled &&
+        newScheduledImport.path &&
+        newScheduledImport.interval > 0
+      ) {
+        startScheduledImport(project, newScheduledImport)
+      } else {
+        stopScheduledImport()
+      }
+    }
+    const newSourceWatch = normalizeSourceWatchConfig(draft.sourceWatchConfig)
+    setSourceWatchConfig(newSourceWatch)
+    await saveSourceWatchConfig(newSourceWatch, project?.id)
+    if (project) {
+      const { startProjectFileSync, stopProjectFileSync } = await import("@/lib/project-file-sync")
+      if (newSourceWatch.enabled) {
+        await startProjectFileSync(project, newSourceWatch).catch((err) =>
+          console.error("Failed to start project file sync:", err)
+        )
+      } else {
+        await stopProjectFileSync()
+      }
+    }
     // Apply the proxy env vars LIVE so the next outbound request
     // picks them up — no app restart needed. tauri-plugin-http
     // builds a fresh reqwest client per fetch and reqwest reads
@@ -281,6 +388,18 @@ export function SettingsView() {
       await invoke<string>("set_proxy_env", { config: newProxy })
     } catch (err) {
       console.warn("[proxy] live update failed; restart will still apply:", err)
+    }
+    const newApiConfig = {
+      enabled: draft.apiEnabled,
+      allowUnauthenticated: draft.apiAllowUnauthenticated,
+      token: draft.apiToken.trim(),
+    }
+    setApiConfig(newApiConfig)
+    await saveApiConfig(newApiConfig)
+    try {
+      await invoke<string>("api_server_reload_config")
+    } catch (err) {
+      console.warn("[api] failed to reload API server config cache:", err)
     }
     setMaxHistoryMessages(draft.maxHistoryMessages)
 
@@ -297,7 +416,11 @@ export function SettingsView() {
     setEmbeddingConfig,
     setOutputLanguage,
     setProxyConfig,
+    setScheduledImportConfig,
+    setSourceWatchConfig,
+    setApiConfig,
     setNetworkPolicyConfig,
+    scheduledImportConfig.lastScan,
     setMaxHistoryMessages,
     outputLanguage,
     project,
@@ -327,6 +450,12 @@ export function SettingsView() {
             onRefreshEgress={refreshEgressReport}
           />
         )
+      case "source-watch":
+        return <SourceWatchSection draft={draft} setDraft={setDraft} projectReady={!!project} />
+      case "scheduled-import":
+        return <ScheduledImportSection draft={draft} setDraft={setDraft} />
+      case "api-server":
+        return <ApiServerSection draft={draft} setDraft={setDraft} />
       case "output":
         return <OutputSection draft={draft} setDraft={setDraft} />
       case "interface":

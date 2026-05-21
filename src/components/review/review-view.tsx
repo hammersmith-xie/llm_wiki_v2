@@ -17,6 +17,7 @@ import {
 } from "@/lib/crystallize-candidates"
 import { makeQueryFileName } from "@/lib/wiki-filename"
 import { hasUsableLlm } from "@/lib/has-usable-llm"
+import { hasConfiguredSearchProvider } from "@/lib/web-search"
 import {
   previewReviewCreatedPageWrite,
 } from "@/lib/review-page"
@@ -48,8 +49,8 @@ export function ReviewView() {
     // Deep Research — must be checked FIRST before any fuzzy matching
     if (action === "__deep_research__" && project) {
       const searchConfig = useWikiStore.getState().searchApiConfig
-      if (searchConfig.provider === "none" || !searchConfig.apiKey) {
-        window.alert("Web Search not configured. Go to Settings → Web Search to add a Tavily or SerpApi API key first.")
+      if (!hasConfiguredSearchProvider(searchConfig)) {
+        window.alert("Web Search not configured. Go to Settings → Web Search to add a Tavily or SerpApi API key, or a SearXNG instance URL first.")
         return
       }
       const item = items.find((i) => i.id === id)
@@ -186,7 +187,7 @@ export function ReviewView() {
     } else if (actionLooksLikeResearch(action) && project) {
       // Actions with "research" trigger deep research, not just page creation
       const searchConfig = useWikiStore.getState().searchApiConfig
-      if (searchConfig.provider === "none" || !searchConfig.apiKey) {
+      if (!hasConfiguredSearchProvider(searchConfig)) {
         // No search API — fall through to create a page instead
         const item = items.find((i) => i.id === id)
         if (item) {

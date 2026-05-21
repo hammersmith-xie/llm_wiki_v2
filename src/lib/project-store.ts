@@ -1,7 +1,20 @@
 import { load } from "@tauri-apps/plugin-store"
 import type { WikiProject } from "@/types/wiki"
-import type { LlmConfig, SearchApiConfig, EmbeddingConfig, MultimodalConfig, OutputLanguage, ProviderConfigs, ProxyConfig, NetworkPolicyConfig } from "@/stores/wiki-store"
+import type {
+  LlmConfig,
+  SearchApiConfig,
+  EmbeddingConfig,
+  MultimodalConfig,
+  OutputLanguage,
+  ProviderConfigs,
+  ProxyConfig,
+  ScheduledImportConfig,
+  ApiConfig,
+  NetworkPolicyConfig,
+  SourceWatchConfig,
+} from "@/stores/wiki-store"
 import { normalizeNetworkPolicy } from "@/lib/network-policy"
+import { normalizeSourceWatchConfig } from "@/lib/source-watch-config"
 import { normalizePath } from "@/lib/path-utils"
 
 const STORE_NAME = "app-state.json"
@@ -148,6 +161,19 @@ export async function loadNetworkPolicyConfig(): Promise<NetworkPolicyConfig | n
   return value === null || value === undefined ? null : normalizeNetworkPolicy(value)
 }
 
+const API_CONFIG_KEY = "apiConfig"
+
+export async function saveApiConfig(config: ApiConfig): Promise<void> {
+  const store = await getStore()
+  await store.set(API_CONFIG_KEY, config)
+  await store.save()
+}
+
+export async function loadApiConfig(): Promise<ApiConfig | null> {
+  const store = await getStore()
+  return (await store.get<ApiConfig>(API_CONFIG_KEY)) ?? null
+}
+
 export async function removeFromRecentProjects(
   path: string
 ): Promise<void> {
@@ -181,6 +207,13 @@ export async function loadLanguage(): Promise<string | null> {
 
 const OUTPUT_LANGUAGE_KEY = "outputLanguage"
 const PROJECT_OUTPUT_LANGUAGE_KEY = "projectOutputLanguages"
+const SCHEDULED_IMPORT_KEY_PREFIX = "scheduledImportConfig:"
+const SCHEDULED_IMPORT_GLOBAL_KEY = "scheduledImportConfig"
+const SOURCE_WATCH_CONFIG_KEY = "sourceWatchConfig"
+
+function scheduledImportKey(projectPath: string): string {
+  return `${SCHEDULED_IMPORT_KEY_PREFIX}${normalizePath(projectPath)}`
+}
 
 export async function saveOutputLanguage(lang: OutputLanguage, projectId?: string): Promise<void> {
   const store = await getStore()
@@ -198,6 +231,46 @@ export async function loadOutputLanguage(projectId?: string): Promise<OutputLang
     return projectLanguages?.[projectId] ?? null
   }
   return (await store.get<OutputLanguage>(OUTPUT_LANGUAGE_KEY)) ?? null
+}
+
+export async function saveScheduledImportConfig(projectPath: string, config: ScheduledImportConfig): Promise<void> {
+  const store = await getStore()
+  await store.set(scheduledImportKey(projectPath), config)
+  await store.save()
+}
+
+export async function loadScheduledImportConfig(projectPath: string): Promise<ScheduledImportConfig | null> {
+  const store = await getStore()
+  const perProject = await store.get<ScheduledImportConfig>(scheduledImportKey(projectPath))
+  if (perProject) return perProject
+
+  const legacy = await store.get<ScheduledImportConfig>(SCHEDULED_IMPORT_GLOBAL_KEY)
+  if (legacy) {
+    await store.set(scheduledImportKey(projectPath), legacy)
+    await store.delete(SCHEDULED_IMPORT_GLOBAL_KEY)
+    await store.save()
+    return legacy
+  }
+
+  return null
+}
+
+export async function saveSourceWatchConfig(config: SourceWatchConfig, projectId?: string): Promise<void> {
+  const store = await getStore()
+  const normalized = normalizeSourceWatchConfig(config)
+  const existing = (await store.get<Record<string, SourceWatchConfig>>(SOURCE_WATCH_CONFIG_KEY)) ?? {}
+  await store.set(SOURCE_WATCH_CONFIG_KEY, {
+    ...existing,
+    [projectId ?? "default"]: normalized,
+  })
+  await store.save()
+}
+
+export async function loadSourceWatchConfig(projectId?: string): Promise<SourceWatchConfig> {
+  const store = await getStore()
+  const settings = await store.get<Record<string, SourceWatchConfig>>(SOURCE_WATCH_CONFIG_KEY)
+  const config = projectId ? settings?.[projectId] : undefined
+  return normalizeSourceWatchConfig(config ?? settings?.default)
 }
 
 // ── Update-check persistence ──────────────────────────────────────────────

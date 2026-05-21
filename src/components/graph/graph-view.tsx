@@ -16,6 +16,8 @@ import { queueResearch } from "@/lib/deep-research"
 import { optimizeResearchTopic } from "@/lib/optimize-research-topic"
 import { normalizePath } from "@/lib/path-utils"
 import { applyGraphFilters, DEFAULT_GRAPH_FILTERS, hasActiveGraphFilters, type GraphFilterState } from "@/lib/graph-filters"
+import { applyGraphSearch } from "@/lib/graph-search"
+import { useTranslation } from "react-i18next"
 
 const NODE_TYPE_COLORS: Record<string, string> = {
   entity: "#60a5fa",    // blue-400
@@ -322,6 +324,7 @@ function ZoomControls() {
 // --- Main component ---
 
 export function GraphView() {
+  const { t } = useTranslation()
   const project = useWikiStore((s) => s.project)
   const dataVersion = useWikiStore((s) => s.dataVersion)
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
@@ -343,6 +346,8 @@ export function GraphView() {
   const [isResizing, setIsResizing] = useState(false)
   const [legendCollapsed, setLegendCollapsed] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [graphSearchOpen, setGraphSearchOpen] = useState(false)
+  const [graphSearch, setGraphSearch] = useState("")
   const [filters, setFilters] = useState<GraphFilterState>(() => ({
     ...DEFAULT_GRAPH_FILTERS,
     hiddenTypes: new Set(),
@@ -350,6 +355,7 @@ export function GraphView() {
   }))
   const [nodeMenu, setNodeMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const graphContainerRef = useRef<HTMLDivElement>(null)
+  const graphSearchInputRef = useRef<HTMLInputElement>(null)
   // Research confirmation dialog
   const [researchDialog, setResearchDialog] = useState<{
     loading: boolean
@@ -383,6 +389,12 @@ export function GraphView() {
       loadGraph()
     }
   }, [loadGraph, dataVersion])
+
+  useEffect(() => {
+    if (!graphSearchOpen) return
+    const id = window.requestAnimationFrame(() => graphSearchInputRef.current?.focus())
+    return () => window.cancelAnimationFrame(id)
+  }, [graphSearchOpen])
 
   const handleNodeClick = useCallback(
     async (nodeId: string) => {
@@ -516,6 +528,11 @@ export function GraphView() {
     () => applyGraphFilters(nodes, edges, filters),
     [nodes, edges, filters],
   )
+  const searchedGraph = useMemo(
+    () => applyGraphSearch(filteredGraph.nodes, filteredGraph.edges, graphSearch),
+    [filteredGraph.nodes, filteredGraph.edges, graphSearch],
+  )
+  const searchActive = graphSearch.trim().length > 0
   const hiddenCount = nodes.length - filteredGraph.nodes.length
   const filtersActive = hasActiveGraphFilters(filters)
   const contextNode = nodeMenu ? nodes.find((node) => node.id === nodeMenu.nodeId) : null
@@ -568,8 +585,8 @@ export function GraphView() {
             <span className="text-sm font-medium">Knowledge Graph</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="rounded bg-muted px-1.5 py-0.5">{filteredGraph.nodes.length}/{nodes.length} pages</span>
-            <span className="rounded bg-muted px-1.5 py-0.5">{filteredGraph.edges.length}/{edges.length} links</span>
+            <span className="rounded bg-muted px-1.5 py-0.5">{searchedGraph.nodes.length}/{nodes.length} pages</span>
+            <span className="rounded bg-muted px-1.5 py-0.5">{searchedGraph.edges.length}/{edges.length} links</span>
             {hiddenCount > 0 && (
               <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-300">
                 {hiddenCount} hidden
@@ -578,6 +595,51 @@ export function GraphView() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {graphSearchOpen || searchActive ? (
+            <div className="relative mr-1 w-52">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                ref={graphSearchInputRef}
+                value={graphSearch}
+                onChange={(e) => setGraphSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setGraphSearch("")
+                    setGraphSearchOpen(false)
+                  }
+                }}
+                className="h-7 w-full rounded-md border bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
+                placeholder={t("graph.searchPlaceholder")}
+                aria-label={t("graph.searchLabel")}
+              />
+              <button
+                type="button"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => {
+                  if (searchActive) {
+                    setGraphSearch("")
+                    return
+                  }
+                  setGraphSearchOpen(false)
+                }}
+                aria-label={searchActive ? t("graph.clearSearch") : t("graph.closeSearch")}
+                title={searchActive ? t("graph.clearSearch") : t("graph.closeSearch")}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setGraphSearchOpen(true)}
+              className="text-xs gap-1 h-7"
+              aria-label={t("graph.searchLabel")}
+              title={t("graph.searchLabel")}
+            >
+              <Search className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant={showFilters ? "secondary" : "ghost"}
             size="sm"
@@ -655,6 +717,18 @@ export function GraphView() {
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               Resizing...
             </div>
+          ) : searchedGraph.nodes.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+              <Search className="h-8 w-8 opacity-40" />
+              <p className="text-sm">
+                {searchActive ? t("graph.noSearchResults") : t("graph.noVisibleNodes")}
+              </p>
+              {searchActive && (
+                <Button variant="outline" size="sm" onClick={() => setGraphSearch("")}>
+                  {t("graph.clearSearch")}
+                </Button>
+              )}
+            </div>
           ) : (
           <ErrorBoundary>
           <SigmaContainer
@@ -711,9 +785,9 @@ export function GraphView() {
               },
             }}
           >
-            <GraphLoader nodes={filteredGraph.nodes} edges={filteredGraph.edges} colorMode={colorMode} />
+            <GraphLoader nodes={searchedGraph.nodes} edges={searchedGraph.edges} colorMode={colorMode} />
             <EventHandler onNodeClick={handleNodeClick} onNodeContextMenu={handleNodeContextMenu} />
-            <HighlightManager highlightedNodes={highlightedNodes} />
+            <HighlightManager highlightedNodes={searchActive ? searchedGraph.matchedNodeIds : highlightedNodes} />
             <ZoomControls />
           </SigmaContainer>
           </ErrorBoundary>

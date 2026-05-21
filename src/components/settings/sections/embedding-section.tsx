@@ -148,6 +148,28 @@ export function EmbeddingSection({ draft, setDraft }: Props) {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label>{t("settings.sections.embedding.outputDimensionality")}</Label>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={draft.embeddingOutputDimensionality ?? ""}
+              onChange={(e) => {
+                const v = e.target.value.trim()
+                const n = Number(v)
+                setDraft(
+                  "embeddingOutputDimensionality",
+                  v === "" || !Number.isFinite(n) || n <= 0 ? undefined : Math.floor(n),
+                )
+              }}
+              placeholder="768"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("settings.sections.embedding.outputDimensionalityHint")}
+            </p>
+          </div>
+
           <div className="space-y-3 rounded-md border p-3">
             <div className="text-sm font-medium">
               {t("settings.sections.embedding.chunking")}

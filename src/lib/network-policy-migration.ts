@@ -48,6 +48,9 @@ function addProviderOrigin(target: Set<string>, config: LlmConfig | null | undef
     case "claude-code":
       addOrigin(target, "https://api.anthropic.com")
       return
+    case "codex-cli":
+      addOrigin(target, "https://api.openai.com")
+      return
     case "google":
       if (config.apiKey) addOrigin(target, "https://generativelanguage.googleapis.com")
       return
@@ -69,6 +72,10 @@ function addSearchOrigin(target: Set<string>, config: SearchApiConfig | null | u
   }
   if (config.provider === "serpapi" && searchProviderHasKey(config, "serpapi")) {
     addOrigin(target, "https://serpapi.com")
+  }
+  if (config.provider === "searxng") {
+    const url = config.providerConfigs?.searxng?.searXngUrl || config.searXngUrl
+    if (url) addOrigin(target, url)
   }
 }
 

@@ -2,6 +2,7 @@ import "@/i18n"
 import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { DEFAULT_NETWORK_POLICY } from "@/lib/network-policy"
+import { DEFAULT_SOURCE_WATCH_CONFIG } from "@/lib/source-watch-config"
 import type { SettingsDraft } from "../settings-types"
 import {
   NetworkSection,
@@ -101,6 +102,7 @@ function draft(overrides: Partial<SettingsDraft> = {}): SettingsDraft {
     embeddingModel: "",
     embeddingMaxChunkChars: undefined,
     embeddingOverlapChunkChars: undefined,
+    embeddingOutputDimensionality: undefined,
     multimodalEnabled: false,
     multimodalUseMainLlm: true,
     multimodalProvider: "custom",
@@ -116,6 +118,13 @@ function draft(overrides: Partial<SettingsDraft> = {}): SettingsDraft {
     proxyUrl: "",
     proxyBypassLocal: true,
     networkPolicyConfig: DEFAULT_NETWORK_POLICY,
+    scheduledImportEnabled: false,
+    scheduledImportPath: "",
+    scheduledImportInterval: 60,
+    apiEnabled: true,
+    apiAllowUnauthenticated: false,
+    apiToken: "",
+    sourceWatchConfig: DEFAULT_SOURCE_WATCH_CONFIG,
     uiLanguage: "en",
     ...overrides,
   }

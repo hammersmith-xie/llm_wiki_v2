@@ -237,6 +237,34 @@ export function MemoryOpsPatrolBlock({
                 })}
               </span>
             )}
+            {summary.researchEvidenceCandidateCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.researchCandidates", {
+                  n: summary.researchEvidenceCandidateCount,
+                })}
+              </span>
+            )}
+            {summary.researchEvidenceItemCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.researchEvidence", {
+                  n: summary.researchEvidenceItemCount,
+                })}
+              </span>
+            )}
+            {summary.researchEvidenceMatchedSuggestionCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.researchMatches", {
+                  n: summary.researchEvidenceMatchedSuggestionCount,
+                })}
+              </span>
+            )}
+            {summary.researchEvidenceWarningCount > 0 && (
+              <span>
+                {t("settings.sections.maintenance.memoryOps.researchWarnings", {
+                  n: summary.researchEvidenceWarningCount,
+                })}
+              </span>
+            )}
             <span>
               Claims: {summary.claimCount}
               {summary.staleClaimCount + summary.contradictedClaimCount + summary.supersededClaimCount + summary.orphanClaimCount > 0

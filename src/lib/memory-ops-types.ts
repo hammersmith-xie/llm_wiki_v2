@@ -3,6 +3,7 @@ import type { ClaimRecord } from "@/lib/claims"
 import type { FrontmatterValue } from "@/lib/frontmatter"
 import type { MetadataPatchOperation } from "@/lib/memory-ops-executor"
 import type { MemoryOpsPolicy } from "@/lib/memory-ops-policy"
+import type { MemoryOpsResearchSuggestionSummary } from "@/lib/memory-ops-research-types"
 import type {
   PersistedMemoryOpsMaintenanceState,
   PersistedSchemaQualitySummaryState,
@@ -90,6 +91,10 @@ export interface MemoryOpsSnapshotStats {
   historicalConflictCandidateCount: number
   historicalConflictSuggestionCount: number
   historicalConflictWarningCount: number
+  researchEvidenceCandidateCount?: number
+  researchEvidenceMatchedSuggestionCount?: number
+  researchEvidenceItemCount?: number
+  researchEvidenceWarningCount?: number
   selfHealingCandidateCount: number
   selfHealingWarningCount: number
 }
@@ -174,6 +179,7 @@ export interface MemoryOpsSuggestion {
   reasons: string[]
   proposedOperation?: MetadataPatchOperation
   relation?: MemoryOpsRelationIssue
+  research?: MemoryOpsResearchSuggestionSummary
 }
 
 export interface MemoryOpsPatrolStats extends MemoryOpsSnapshotStats {

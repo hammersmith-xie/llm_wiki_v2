@@ -258,6 +258,44 @@ function isQwenThinkingModel(model: string): boolean {
   return /qwen[-_]?3/i.test(model)
 }
 
+function isKimiEndpoint(config: LlmConfig): boolean {
+  return /(^|[/:.-])kimi([/:.-]|$)/i.test(config.model)
+    || /moonshot/i.test(config.model)
+    || /api\.moonshot\.(ai|cn)/i.test(config.customEndpoint)
+}
+
+function isOpenAiStrictCompletionModel(config: LlmConfig): boolean {
+  if (config.provider !== "openai") return false
+  const model = config.model.trim().toLowerCase()
+  return /^gpt-5(?:[.\-_]|$)/.test(model) || /^o\d+(?:[.\-_]|$)/.test(model)
+}
+
+function adaptOpenAiStrictCompletionBody(config: LlmConfig, body: Record<string, unknown>): void {
+  if (!isOpenAiStrictCompletionModel(config)) return
+
+  if (typeof body.max_tokens === "number") {
+    body.max_completion_tokens = body.max_tokens
+    delete body.max_tokens
+  }
+
+  // Current OpenAI GPT-5 / o-series Chat Completions deployments reject
+  // non-default sampling knobs. Custom OpenAI-compatible routers keep
+  // the legacy fields because many still accept or require them.
+  delete body.temperature
+  delete body.top_p
+  delete body.top_k
+}
+
+function adaptKimiBody(config: LlmConfig, body: Record<string, unknown>): void {
+  if (!isKimiEndpoint(config)) return
+
+  // Moonshot/Kimi OpenAI-compatible endpoints reject non-default
+  // temperature values for several current models. Omitting the field
+  // lets the endpoint apply its required default while preserving other
+  // OpenAI-compatible knobs such as max_tokens.
+  delete body.temperature
+}
+
 function buildOpenAiCompatibleBody(
   config: LlmConfig,
   messages: ChatMessage[],
@@ -265,6 +303,8 @@ function buildOpenAiCompatibleBody(
 ): Record<string, unknown> {
   const reasoning = effectiveReasoning(config, overrides)
   const body: Record<string, unknown> = buildOpenAiBody(messages, stripWireAgnosticOverrides(overrides))
+  adaptOpenAiStrictCompletionBody(config, body)
+  adaptKimiBody(config, body)
 
   if (isDeepSeekEndpoint(config)) {
     // DeepSeek V4 thinking mode. `thinking.type=disabled` is the most
@@ -635,12 +675,13 @@ export function getProviderConfig(config: LlmConfig): ProviderConfig {
     }
 
     case "claude-code":
-      // Claude Code CLI uses a subprocess transport (stdin/stdout JSON
-      // stream), not HTTP. Dispatch happens one layer up in
+    case "codex-cli":
+      // Local CLI providers use subprocess transports (stdin/stdout JSON
+      // streams), not HTTP. Dispatch happens one layer up in
       // streamChat() before getProviderConfig is called. Reaching this
       // branch means wiring is broken somewhere upstream.
       throw new Error(
-        "claude-code provider uses subprocess transport; getProviderConfig should not be called for it",
+        `${provider} provider uses subprocess transport; getProviderConfig should not be called for it`,
       )
 
     case "custom": {

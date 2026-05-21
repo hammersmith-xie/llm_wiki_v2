@@ -1,6 +1,5 @@
 import { parseFrontmatter, type FrontmatterValue } from "@/lib/frontmatter"
-import type { MemoryOpsWikiPage } from "@/lib/memory-ops"
-import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import type { MemoryOpsSuggestion, MemoryOpsWikiPage } from "@/lib/memory-ops-types"
 import { normalizePath } from "@/lib/path-utils"
 import {
   buildPreWriteCandidate,
