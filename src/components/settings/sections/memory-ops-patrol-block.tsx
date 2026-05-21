@@ -19,9 +19,14 @@ import type {
   MemoryOpsRollbackResult,
 } from "@/lib/memory-ops-rollback"
 import type { MemoryOpsMaintenanceStatus, MemoryOpsPatrolReport } from "@/lib/memory-ops"
+import type { MemoryOpsPolicy } from "@/lib/memory-ops-policy"
 import type { ClaimIndexRebuildResult } from "@/lib/claim-ops"
 import type { ClaimProvenanceRepairPlan } from "@/lib/claim-provenance-repair"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
+import {
+  explainMemoryOpsPolicyStatus,
+  type MemoryOpsPolicyExplanation,
+} from "@/lib/memory-ops-policy-explanation"
 import {
   auditEventTargetLabel,
   groupMemoryOpsSuggestionsByCategory,
@@ -43,6 +48,7 @@ interface MemoryOpsPatrolBlockProps {
   claimBackfillError: string | null
   claimBackfillResult: ClaimIndexRebuildResult | null
   maintenanceStatus: MemoryOpsMaintenanceStatus | null
+  policy: MemoryOpsPolicy
   recentAuditEvents: readonly AuditEvent[]
   ignoredSuggestionIds: ReadonlySet<string>
   appliedSuggestionIds: ReadonlySet<string>
@@ -87,6 +93,7 @@ export function MemoryOpsPatrolBlock({
   claimBackfillError,
   claimBackfillResult,
   maintenanceStatus,
+  policy,
   recentAuditEvents,
   ignoredSuggestionIds,
   appliedSuggestionIds,
@@ -160,7 +167,7 @@ export function MemoryOpsPatrolBlock({
       </Button>
 
       {maintenanceStatus && (
-        <MaintenanceStatusNotice maintenanceStatus={maintenanceStatus} />
+        <MaintenanceStatusNotice maintenanceStatus={maintenanceStatus} policy={policy} />
       )}
 
       <ClaimProvenanceRepairBlock
@@ -534,10 +541,14 @@ function ClaimProvenanceRepairBlock({
 
 function MaintenanceStatusNotice({
   maintenanceStatus,
+  policy,
 }: {
   maintenanceStatus: MemoryOpsMaintenanceStatus
+  policy: MemoryOpsPolicy
 }) {
   const { t } = useTranslation()
+  const explanations = explainMemoryOpsPolicyStatus(maintenanceStatus, policy)
+  const explanationList = <MaintenancePolicyExplanationList explanations={explanations} />
 
   if (maintenanceStatus.status === "reminder-due") {
     return (
@@ -552,6 +563,7 @@ function MaintenanceStatusNotice({
               n: maintenanceStatus.eventCountSincePatrol,
             })}
           </div>
+          {explanationList}
         </div>
       </div>
     )
@@ -570,6 +582,7 @@ function MaintenanceStatusNotice({
               n: maintenanceStatus.eventCountSincePatrol,
             })}
           </div>
+          {explanationList}
         </div>
       </div>
     )
@@ -591,9 +604,44 @@ function MaintenanceStatusNotice({
               })
             : t("settings.sections.maintenance.memoryOps.patrolNever")}
         </div>
+        {explanationList}
       </div>
     </div>
   )
+}
+
+function MaintenancePolicyExplanationList({
+  explanations,
+}: {
+  explanations: readonly MemoryOpsPolicyExplanation[]
+}) {
+  const { t } = useTranslation()
+  if (explanations.length === 0) return null
+
+  return (
+    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+      {explanations.map((explanation) => (
+        <li key={policyExplanationKey(explanation)} className="break-words">
+          {t(`settings.sections.maintenance.memoryOps.policyExplanation.${explanation.kind}`, {
+            count: explanation.count,
+            threshold: explanation.threshold,
+            minutes: explanation.minutes,
+            hours: explanation.hours,
+          })}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function policyExplanationKey(explanation: MemoryOpsPolicyExplanation): string {
+  return [
+    explanation.kind,
+    explanation.count,
+    explanation.threshold,
+    explanation.minutes,
+    explanation.hours,
+  ].filter((value) => value !== undefined).join(":")
 }
 
 function SchemaQualitySummaryBlock({

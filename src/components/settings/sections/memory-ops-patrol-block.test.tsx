@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
 import type { MemoryOpsPatrolReport } from "@/lib/memory-ops"
+import { DEFAULT_MEMORY_OPS_POLICY } from "@/lib/memory-ops-policy"
 import { extractTypedGraphFromPages } from "@/lib/typed-graph"
 
 describe("MemoryOpsPatrolBlock", () => {
@@ -28,6 +29,7 @@ describe("MemoryOpsPatrolBlock", () => {
           lastReminderAt: 2_000,
           dueReasons: ["event-threshold"],
         }}
+        policy={DEFAULT_MEMORY_OPS_POLICY}
         recentAuditEvents={[]}
         ignoredSuggestionIds={new Set()}
         appliedSuggestionIds={new Set()}
@@ -63,6 +65,8 @@ describe("MemoryOpsPatrolBlock", () => {
 
     expect(html).toContain("Patrol reminder due")
     expect(html).toContain("7 wiki activity events")
+    expect(html).toContain("reached the threshold")
+    expect(html).toContain("Auto patrol is enabled")
     expect(html).toContain("Run Memory Ops patrol")
   })
 
@@ -80,6 +84,7 @@ describe("MemoryOpsPatrolBlock", () => {
         claimBackfillError={null}
         claimBackfillResult={claimBackfillResult()}
         maintenanceStatus={null}
+        policy={DEFAULT_MEMORY_OPS_POLICY}
         recentAuditEvents={[]}
         ignoredSuggestionIds={new Set()}
         appliedSuggestionIds={new Set()}
@@ -148,6 +153,7 @@ describe("MemoryOpsPatrolBlock", () => {
         claimBackfillError={null}
         claimBackfillResult={null}
         maintenanceStatus={null}
+        policy={DEFAULT_MEMORY_OPS_POLICY}
         recentAuditEvents={[]}
         ignoredSuggestionIds={new Set()}
         appliedSuggestionIds={new Set()}
@@ -185,6 +191,75 @@ describe("MemoryOpsPatrolBlock", () => {
     expect(html).toContain("2 conflict review suggestions")
     expect(html).toContain("1 conflict warnings")
   })
+
+  it("summarizes large suggestion categories without dropping hidden selectable items", () => {
+    const report = patrolReport()
+    report.suggestions = [
+      ...Array.from({ length: 6 }, (_, index) =>
+        metadataSuggestion(`batch-${index + 1}`, `wiki/batch-${index + 1}.md`)
+      ),
+      reviewOnlySuggestion("review-1", "wiki/review-1.md"),
+    ]
+    report.stats.suggestionCount = report.suggestions.length
+
+    const html = renderToStaticMarkup(
+      <MemoryOpsPatrolBlock
+        projectReady
+        running={false}
+        error={null}
+        report={report}
+        claimRepairWorking={false}
+        claimRepairError={null}
+        claimRepairPlan={null}
+        claimBackfillWorking={false}
+        claimBackfillError={null}
+        claimBackfillResult={null}
+        maintenanceStatus={null}
+        policy={DEFAULT_MEMORY_OPS_POLICY}
+        recentAuditEvents={[]}
+        ignoredSuggestionIds={new Set()}
+        appliedSuggestionIds={new Set()}
+        dryRunPlans={{}}
+        suggestionErrors={{}}
+        workingSuggestionId={null}
+        selectedSuggestionIds={new Set(["batch-1", "batch-6"])}
+        batchWorking={false}
+        lastBatchResult={null}
+        rollbackPreviews={{}}
+        rollbackResults={{}}
+        rollbackErrors={{}}
+        workingRollbackId={null}
+        onRun={vi.fn()}
+        onPreviewClaimRepair={vi.fn()}
+        onApplyClaimRepair={vi.fn()}
+        onPreviewClaimBackfill={vi.fn()}
+        onApplyClaimBackfill={vi.fn()}
+        onToggleSelection={vi.fn()}
+        onSelectCategory={vi.fn()}
+        onClearSelection={vi.fn()}
+        onBatchPreview={vi.fn()}
+        onBatchApply={vi.fn()}
+        onBatchIgnore={vi.fn()}
+        onPreviewRollback={vi.fn()}
+        onApplyRollback={vi.fn()}
+        onPreview={vi.fn()}
+        onApply={vi.fn()}
+        onIgnore={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain("Lifecycle")
+    expect(html).toContain("(7)")
+    expect(html).toContain("2 selected")
+    expect(html).toContain("6 batchable")
+    expect(html).toContain("Select 6")
+    expect(html).toContain("Show 3 more in this category")
+    expect(html).toContain("Suggestion batch-1")
+    expect(html).toContain("Suggestion batch-4")
+    expect(html).not.toContain("Suggestion batch-5")
+    expect(html).not.toContain("Review review-1")
+  })
 })
 
 function claimRepairPlan() {
@@ -220,6 +295,36 @@ function claimBackfillResult() {
       staleCount: 1,
       warningCount: 0,
     },
+  }
+}
+
+function metadataSuggestion(id: string, targetPath: string) {
+  return {
+    id,
+    kind: "metadata-update" as const,
+    severity: "info" as const,
+    targetPath,
+    title: `Suggestion ${id}`,
+    detail: "Patch metadata.",
+    reasons: [`Reason ${id}`],
+    proposedOperation: {
+      kind: "metadata-patch" as const,
+      targetPath,
+      fields: { review_status: "stale" },
+      reason: `Patch ${id}`,
+    },
+  }
+}
+
+function reviewOnlySuggestion(id: string, targetPath: string) {
+  return {
+    id,
+    kind: "review-action" as const,
+    severity: "warning" as const,
+    targetPath,
+    title: `Review ${id}`,
+    detail: "Human review only.",
+    reasons: [`Review reason ${id}`],
   }
 }
 
@@ -261,6 +366,7 @@ function patrolReport(
       selfHealingWarningCount: 0,
       suggestionCount: 0,
       ...statsOverrides,
+      scanDurationMs: statsOverrides.scanDurationMs ?? 0,
     },
     snapshot: {
       projectPath: "/project",
@@ -297,6 +403,14 @@ function patrolReport(
         },
       },
       policyWarnings: [],
+      scanTelemetry: {
+        totalMs: statsOverrides.scanDurationMs ?? 0,
+        stages: [],
+        options: {
+          includeChatMessages: true,
+          includeSelfHealing: true,
+        },
+      },
       pages: [],
       graph: extractTypedGraphFromPages([], 9),
       audit: { events: [], warnings: [] },

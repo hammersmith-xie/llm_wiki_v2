@@ -336,11 +336,9 @@ export function MaintenanceSection() {
     void refreshCustomSearchScenarios()
   }, [refreshCustomSearchScenarios])
 
-  const handlePatrol = useCallback(async () => {
-    if (!project) return
-    setPatrolRunning(true)
+  const resetMemoryOpsPatrolState = useCallback((options: { clearReport?: boolean } = {}) => {
     setPatrolError(null)
-    setPatrolReport(null)
+    if (options.clearReport) setPatrolReport(null)
     setIgnoredSuggestionIds(new Set())
     setAppliedSuggestionIds(new Set())
     setDryRunPlans({})
@@ -351,43 +349,41 @@ export function MaintenanceSection() {
     setRollbackResults({})
     setRollbackErrors({})
     setWorkingRollbackId(null)
+  }, [])
+
+  const runMemoryOpsPatrolAndRefresh = useCallback(async (
+    options: { clearReport?: boolean } = {},
+  ) => {
+    if (!project) return
+    setPatrolRunning(true)
+    resetMemoryOpsPatrolState(options)
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
-      await refreshMaintenanceStatus()
-      await refreshRecentAudit()
+      await Promise.all([
+        refreshMaintenanceStatus(),
+        refreshRecentAudit(),
+      ])
     } catch (err) {
       setPatrolError(err instanceof Error ? err.message : String(err))
     } finally {
       setPatrolRunning(false)
     }
-  }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+  }, [
+    project,
+    dataVersion,
+    resetMemoryOpsPatrolState,
+    refreshMaintenanceStatus,
+    refreshRecentAudit,
+  ])
+
+  const handlePatrol = useCallback(async () => {
+    await runMemoryOpsPatrolAndRefresh({ clearReport: true })
+  }, [runMemoryOpsPatrolAndRefresh])
 
   const runPatrolAfterPolicyChange = useCallback(async () => {
-    if (!project) return
-    setPatrolRunning(true)
-    setPatrolError(null)
-    setIgnoredSuggestionIds(new Set())
-    setAppliedSuggestionIds(new Set())
-    setDryRunPlans({})
-    setSuggestionErrors({})
-    setSelectedSuggestionIds(new Set())
-    setLastBatchResult(null)
-    setRollbackPreviews({})
-    setRollbackResults({})
-    setRollbackErrors({})
-    setWorkingRollbackId(null)
-    try {
-      const report = await runMemoryOpsPatrol(project.path, { dataVersion })
-      setPatrolReport(report)
-      await refreshMaintenanceStatus()
-      await refreshRecentAudit()
-    } catch (err) {
-      setPatrolError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setPatrolRunning(false)
-    }
-  }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+    await runMemoryOpsPatrolAndRefresh()
+  }, [runMemoryOpsPatrolAndRefresh])
 
   const handlePreviewClaimRepair = useCallback(async () => {
     if (!project) return
@@ -1212,6 +1208,7 @@ export function MaintenanceSection() {
               claimBackfillError={claimBackfillError}
               claimBackfillResult={claimBackfillResult}
               maintenanceStatus={maintenanceStatus}
+              policy={policy}
               recentAuditEvents={recentAuditEvents}
               ignoredSuggestionIds={ignoredSuggestionIds}
               appliedSuggestionIds={appliedSuggestionIds}

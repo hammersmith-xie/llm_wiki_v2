@@ -740,6 +740,114 @@ describe("memory ops project scanner", () => {
       auditEventCount: 1,
       auditWarningCount: 1,
     })
+    expect(snapshot.scanTelemetry).toMatchObject({
+      options: {
+        includeChatMessages: true,
+        includeSelfHealing: true,
+      },
+    })
+    expect(snapshot.scanTelemetry.totalMs).toBeGreaterThanOrEqual(0)
+    expect(snapshot.scanTelemetry.stages.map((stage) => stage.stage)).toEqual([
+      "policy-schema",
+      "wiki-pages",
+      "graph",
+      "audit",
+      "review-items",
+      "conversations",
+      "chat-messages",
+      "claims",
+      "evidence",
+      "self-healing",
+    ])
+  })
+
+  it("can skip per-conversation chat message reads for lightweight scans", async () => {
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      if (path === "/project/.llm-wiki/conversations.json") {
+        return JSON.stringify([
+          { id: "conv-1", title: "Attention", createdAt: 1, updatedAt: 2 },
+        ])
+      }
+      if (path === "/project/.llm-wiki/chats/conv-1.json") {
+        throw new Error("chat messages should not be read")
+      }
+      throw new Error(`missing ${path}`)
+    })
+
+    const snapshot = await scanMemoryOpsProject("/project", {
+      includeChatMessages: false,
+      includeSelfHealing: false,
+    })
+
+    expect(snapshot.conversations).toHaveLength(1)
+    expect(snapshot.chatMessages).toEqual([])
+    expect(snapshot.stats).toMatchObject({
+      conversationCount: 1,
+      chatMessageCount: 0,
+      selfHealingCandidateCount: 0,
+    })
+    expect(snapshot.scanTelemetry.options).toMatchObject({
+      includeChatMessages: false,
+      includeSelfHealing: false,
+    })
+    expect(snapshot.scanTelemetry.stages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stage: "chat-messages",
+          itemCount: 0,
+          skipped: true,
+        }),
+        expect.objectContaining({
+          stage: "self-healing",
+          itemCount: 0,
+          skipped: true,
+        }),
+      ]),
+    )
+    expect(mockReadFile).not.toHaveBeenCalledWith("/project/.llm-wiki/chats/conv-1.json")
+  })
+
+  it("limits chat files read when a scan caps chat conversations", async () => {
+    mockListDirectory.mockResolvedValue([])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      if (path === "/project/.llm-wiki/conversations.json") {
+        return JSON.stringify([
+          { id: "conv-1", title: "One", createdAt: 1, updatedAt: 2 },
+          { id: "conv-2", title: "Two", createdAt: 3, updatedAt: 4 },
+        ])
+      }
+      if (path === "/project/.llm-wiki/chats/conv-1.json") {
+        return JSON.stringify([
+          {
+            id: "msg-1",
+            role: "assistant",
+            content: "Answer",
+            timestamp: 2,
+            conversationId: "conv-1",
+          },
+        ])
+      }
+      if (path === "/project/.llm-wiki/chats/conv-2.json") {
+        throw new Error("second chat should not be read")
+      }
+      throw new Error(`missing ${path}`)
+    })
+
+    const snapshot = await scanMemoryOpsProject("/project", {
+      includeSelfHealing: false,
+      maxChatConversations: 1,
+    })
+
+    expect(snapshot.conversations).toHaveLength(2)
+    expect(snapshot.chatMessages).toHaveLength(1)
+    expect(snapshot.scanTelemetry.options).toMatchObject({
+      maxChatConversations: 1,
+    })
+    expect(mockReadFile).toHaveBeenCalledWith("/project/.llm-wiki/chats/conv-1.json")
+    expect(mockReadFile).not.toHaveBeenCalledWith("/project/.llm-wiki/chats/conv-2.json")
   })
 
   it("runs a patrol, records activity, and appends an audit summary", async () => {
@@ -793,6 +901,16 @@ describe("memory ops project scanner", () => {
       "/project/.llm-wiki/audit.jsonl",
       expect.stringContaining("\"trigger\":{\"mode\":\"manual\"}"),
     )
+    const audit = JSON.parse(String(
+      mockAppendFile.mock.calls[mockAppendFile.mock.calls.length - 1]?.[1],
+    ))
+    expect(audit.after.stats.scanDurationMs).toBeGreaterThanOrEqual(0)
+    expect(audit.after.scanTelemetry.stages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ stage: "wiki-pages" }),
+        expect.objectContaining({ stage: "self-healing" }),
+      ]),
+    )
   })
 
   it("includes historical conflict suggestions and audit stats in patrol results", async () => {
@@ -841,6 +959,36 @@ describe("memory ops project scanner", () => {
     })
     expect(audit.after.selfHealing).toMatchObject({
       candidateCount: report.stats.selfHealingCandidateCount,
+    })
+  })
+
+  it("can skip historical conflict preview during patrol", async () => {
+    mockListDirectory.mockResolvedValue([
+      {
+        name: "risk.md",
+        path: "/project/wiki/concepts/risk.md",
+        is_dir: false,
+      },
+    ])
+    mockReadFile.mockImplementation(async (path) => {
+      if (path === "/project/wiki/concepts/risk.md") {
+        return "---\ntitle: Risk\n---\n\n# Risk"
+      }
+      if (path === "/project/.llm-wiki/audit.jsonl") return ""
+      throw new Error(`missing ${path}`)
+    })
+
+    const report = await runMemoryOpsPatrol("/project", {
+      includeHistoricalConflicts: false,
+      includeSelfHealing: false,
+    })
+
+    expect(mockPreviewMemoryOpsHistoricalConflicts).not.toHaveBeenCalled()
+    expect(report.stats).toMatchObject({
+      historicalConflictCandidateCount: 0,
+      historicalConflictSuggestionCount: 0,
+      historicalConflictWarningCount: 0,
+      selfHealingCandidateCount: 0,
     })
   })
 

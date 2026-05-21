@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   AlertTriangle,
@@ -20,6 +21,8 @@ import {
   type MemoryOpsSuggestionGroup,
 } from "@/lib/memory-ops-ui"
 import { isBatchApplicableMemoryOpsSuggestion } from "@/lib/memory-ops-batch"
+
+const COLLAPSED_SUGGESTION_LIMIT = 4
 
 interface MemoryOpsSuggestionGroupsProps {
   groups: MemoryOpsSuggestionGroup[]
@@ -161,9 +164,15 @@ function SuggestionCategoryGroup({
   onOpen: (suggestion: MemoryOpsSuggestion) => void
 }) {
   const { t } = useTranslation()
-  const visibleSuggestions = suggestions.slice(0, 4)
-  const extraSuggestionCount = Math.max(0, suggestions.length - visibleSuggestions.length)
-  const selectableSuggestions = visibleSuggestions.filter(isBatchApplicableMemoryOpsSuggestion)
+  const [expanded, setExpanded] = useState(false)
+  const visibleSuggestions = expanded
+    ? suggestions
+    : suggestions.slice(0, COLLAPSED_SUGGESTION_LIMIT)
+  const hiddenSuggestionCount = Math.max(0, suggestions.length - visibleSuggestions.length)
+  const selectableSuggestions = suggestions.filter(isBatchApplicableMemoryOpsSuggestion)
+  const selectedInCategoryCount = suggestions.filter((suggestion) =>
+    selectedSuggestionIds.has(suggestion.id)
+  ).length
 
   return (
     <div className="space-y-1.5 border-t border-border/60 pt-2 first:border-t-0 first:pt-0">
@@ -173,6 +182,12 @@ function SuggestionCategoryGroup({
           {t(`settings.sections.maintenance.memoryOps.categories.${category}`)}
         </span>
         <span className="text-muted-foreground">({suggestions.length})</span>
+        <span className="text-muted-foreground">
+          {t("settings.sections.maintenance.memoryOps.categorySelectionSummary", {
+            selected: selectedInCategoryCount,
+            selectable: selectableSuggestions.length,
+          })}
+        </span>
         {selectableSuggestions.length > 0 && (
           <Button
             size="xs"
@@ -181,7 +196,9 @@ function SuggestionCategoryGroup({
             onClick={() => onSelectCategory(selectableSuggestions)}
             disabled={batchWorking}
           >
-            {t("settings.sections.maintenance.memoryOps.selectCategory")}
+            {t("settings.sections.maintenance.memoryOps.selectCategory", {
+              n: selectableSuggestions.length,
+            })}
           </Button>
         )}
       </div>
@@ -201,12 +218,19 @@ function SuggestionCategoryGroup({
           onOpen={() => onOpen(suggestion)}
         />
       ))}
-      {extraSuggestionCount > 0 && (
-        <div className="text-xs text-muted-foreground">
-          {t("settings.sections.maintenance.memoryOps.moreInCategory", {
-            n: extraSuggestionCount,
-          })}
-        </div>
+      {suggestions.length > COLLAPSED_SUGGESTION_LIMIT && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-auto px-1 py-0.5 text-xs text-muted-foreground"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded
+            ? t("settings.sections.maintenance.memoryOps.showLessInCategory")
+            : t("settings.sections.maintenance.memoryOps.moreInCategory", {
+                n: hiddenSuggestionCount,
+              })}
+        </Button>
       )}
     </div>
   )
