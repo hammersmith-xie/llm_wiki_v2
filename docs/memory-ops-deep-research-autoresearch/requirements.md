@@ -248,6 +248,30 @@ Acceptance:
 - Case tests prove missing/unexpected suggestions generate diagnostic reasons.
 - Legacy eval reports without diagnostics are normalized on load.
 
+### F14. Research Report Normalization
+
+- Loading latest research reports must normalize legacy reports that predate evidence matrices, source keys, quorum counts, or source diversity fields.
+- Normalization must rebuild provider evidence matrices from provider results when possible.
+- Audit reasons must include independent source count and source diversity so cross-validation strength is visible outside the UI.
+- Normalization must preserve the persisted schema version while filling optional-compatible fields in memory.
+
+Acceptance:
+
+- Legacy reports without evidence matrices load with quorum counts and source diversity summaries.
+- Audit tests prove source diversity is recorded in the research audit event.
+
+### F15. Variant Case Regression Diagnostics
+
+- Policy variant comparisons must include per-case baseline-vs-candidate score deltas.
+- Variant results must count improved and regressed cases.
+- Variant gates must fail when any baseline-passing case regresses to a failed candidate, even if aggregate metrics are close.
+- UI must expose variant regression counts and top regressed cases.
+
+Acceptance:
+
+- A deliberately strict variant reports at least one regressed case and a discard decision.
+- Legacy eval variants without case diagnostics are normalized on load.
+
 ## Non-functional Requirements
 
 - Determinism: built-in eval fixtures must not require network, real LLM calls, timers, or local user data.
@@ -284,6 +308,8 @@ flowchart TD
   EvalCaseDiagnostics --> EvalMetrics["Precision / Recall / F1 / Safety / Score"]
   EvalMetrics --> EvalGate["AutoResearch Gate"]
   EvalMetrics --> Scorecard["Baseline-vs-Variant Scorecard"]
+  EvalCaseDiagnostics --> VariantCases["Variant Case Deltas"]
+  VariantCases --> EvalGate
   Scorecard --> EvalGate
   EvalGate --> EvalReport["AutoResearch Eval Report"]
   Ledger --> DecisionGate["Suggestion Decision Gate"]
@@ -307,5 +333,7 @@ flowchart TD
 - Treat AutoResearch as an experiment gate: good policies are kept, regressing policies are discarded.
 - Use one patrol score as the AutoResearch optimization signal so policy variants are comparable.
 - Keep case-level diagnostics so score regressions are explainable.
+- Normalize old research and eval reports at load time, not by migrating user files silently.
+- Treat a case-level variant regression as a first-class AutoResearch discard reason.
 - Make all new default evals deterministic and fast.
 - Add more fields as optional to avoid breaking old persisted reports.

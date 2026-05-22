@@ -628,6 +628,9 @@
           "scoreBreakdown": "match {{match}} · safety {{safety}}",
           "safePatches": "{{n}} safe patches",
           "variants": "Policy variants",
+          "variantRegressions": "{{n}} regressions",
+          "variantImprovements": "{{n}} improvements",
+          "caseDelta": "{{title}}: {{delta}} to {{score}}",
           "decisions": {
             "keep": "keep",
             "discard": "discard"

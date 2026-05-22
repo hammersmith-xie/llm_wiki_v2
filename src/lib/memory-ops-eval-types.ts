@@ -67,6 +67,19 @@ export interface MemoryOpsEvalPolicyVariant {
   policy: MemoryOpsPolicy
 }
 
+export interface MemoryOpsEvalCaseComparison {
+  id: string
+  title: string
+  baselinePassed: boolean
+  candidatePassed: boolean
+  baselineScore: number
+  candidateScore: number
+  scoreDelta: number
+  regressed: boolean
+  improved: boolean
+  reasons: string[]
+}
+
 export interface MemoryOpsEvalVariantResult {
   id: string
   title: string
@@ -75,6 +88,9 @@ export interface MemoryOpsEvalVariantResult {
   precisionDelta: number
   recallDelta: number
   f1Delta: number
+  caseComparisons: MemoryOpsEvalCaseComparison[]
+  regressionCount: number
+  improvementCount: number
   decision: MemoryOpsEvalGateDecision
 }
 

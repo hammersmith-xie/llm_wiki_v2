@@ -136,5 +136,8 @@ describe("memory ops eval store", () => {
       decision: "keep",
     })
     expect(loaded?.variants?.[0]?.metrics.patrolScore).toBe(1)
+    expect(loaded?.variants?.[0]?.caseComparisons).toEqual([])
+    expect(loaded?.variants?.[0]?.regressionCount).toBe(0)
+    expect(loaded?.variants?.[0]?.improvementCount).toBe(0)
   })
 })

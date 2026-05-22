@@ -2,6 +2,7 @@ import { createDirectory, readFile, writeFile } from "@/commands/fs"
 import { appendAuditEvent } from "@/lib/audit-timeline"
 import { normalizePath } from "@/lib/path-utils"
 import type {
+  MemoryOpsEvalCaseComparison,
   MemoryOpsEvalCaseResult,
   MemoryOpsEvalCaseScoreBreakdown,
   MemoryOpsEvalGateDecision,
@@ -69,12 +70,32 @@ function normalizeVariantResult(
   variant: MemoryOpsEvalVariantResult,
 ): MemoryOpsEvalVariantResult {
   const metrics = normalizeMetrics(variant.metrics)
+  const caseComparisons = normalizeCaseComparisons(variant.caseComparisons)
   return {
     ...variant,
     metrics,
     scoreDelta: Number.isFinite(variant.scoreDelta) ? variant.scoreDelta : 0,
+    precisionDelta: Number.isFinite(variant.precisionDelta) ? variant.precisionDelta : 0,
+    recallDelta: Number.isFinite(variant.recallDelta) ? variant.recallDelta : 0,
+    f1Delta: Number.isFinite(variant.f1Delta) ? variant.f1Delta : 0,
+    caseComparisons,
+    regressionCount: Number.isFinite(variant.regressionCount)
+      ? variant.regressionCount
+      : caseComparisons.filter((item) => item.regressed).length,
+    improvementCount: Number.isFinite(variant.improvementCount)
+      ? variant.improvementCount
+      : caseComparisons.filter((item) => item.improved).length,
     decision: variant.decision ?? legacyGateDecision(metrics),
   }
+}
+
+function normalizeCaseComparisons(
+  comparisons: MemoryOpsEvalVariantResult["caseComparisons"] | undefined,
+): MemoryOpsEvalCaseComparison[] {
+  return (comparisons ?? []).map((item) => ({
+    ...item,
+    reasons: item.reasons ?? [],
+  }))
 }
 
 function normalizeCaseResult(result: MemoryOpsEvalCaseResult): MemoryOpsEvalCaseResult {

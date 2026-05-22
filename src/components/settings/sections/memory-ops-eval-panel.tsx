@@ -88,27 +88,51 @@ export function MemoryOpsEvalPanel({
               <div className="font-medium">
                 {t("settings.sections.maintenance.eval.variants")}
               </div>
-              {report.variants.map((variant) => (
-                <div key={variant.id} className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-border/60 pt-1 first:border-t-0 first:pt-0">
-                  <span className="break-words">{variant.title}</span>
-                  <span className="text-muted-foreground">
-                    {t("settings.sections.maintenance.eval.score", {
-                      n: formatPct(variant.metrics.patrolScore),
-                    })}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Δ {formatSignedPct(variant.scoreDelta)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {t("settings.sections.maintenance.eval.f1", {
-                      n: formatPct(variant.metrics.f1),
-                    })}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Δ {formatSignedPct(variant.f1Delta)}
-                  </span>
-                </div>
-              ))}
+              {report.variants.map((variant) => {
+                const regressions = variant.caseComparisons.filter((item) => item.regressed)
+                return (
+                  <div key={variant.id} className="space-y-1 border-t border-border/60 pt-1 first:border-t-0 first:pt-0">
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="break-words">{variant.title}</span>
+                      <span className="text-muted-foreground">
+                        {t("settings.sections.maintenance.eval.score", {
+                          n: formatPct(variant.metrics.patrolScore),
+                        })}
+                      </span>
+                      <span className="text-muted-foreground">
+                        Δ {formatSignedPct(variant.scoreDelta)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t("settings.sections.maintenance.eval.f1", {
+                          n: formatPct(variant.metrics.f1),
+                        })}
+                      </span>
+                      <span className="text-muted-foreground">
+                        Δ {formatSignedPct(variant.f1Delta)}
+                      </span>
+                      <span className={variant.regressionCount > 0 ? "text-rose-700 dark:text-rose-400" : "text-muted-foreground"}>
+                        {t("settings.sections.maintenance.eval.variantRegressions", {
+                          n: variant.regressionCount,
+                        })}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t("settings.sections.maintenance.eval.variantImprovements", {
+                          n: variant.improvementCount,
+                        })}
+                      </span>
+                    </div>
+                    {regressions.slice(0, 3).map((item) => (
+                      <div key={item.id} className="text-muted-foreground">
+                        {t("settings.sections.maintenance.eval.caseDelta", {
+                          title: item.title,
+                          delta: formatSignedPct(item.scoreDelta),
+                          score: formatPct(item.candidateScore),
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
             </div>
           )}
 

@@ -2,11 +2,18 @@ import type { MemoryOpsPatrolReport } from "@/lib/memory-ops-types"
 import { buildMemoryOpsPatrolReportFromSnapshot } from "@/lib/memory-ops-engine"
 import { attachPageEvidence, summarizeEvidenceStats } from "@/lib/memory-ops-evidence"
 import {
+  aggregateMemoryOpsEvalScoreBreakdown,
+  buildMemoryOpsEvalCaseScoreBreakdown,
+  compareMemoryOpsEvalVariantCases,
+  memoryOpsEvalFailureReasons,
+} from "@/lib/memory-ops-eval-diagnostics"
+import {
   BUILT_IN_MEMORY_OPS_EVAL_CASES,
 } from "@/lib/memory-ops-eval-fixtures"
 import type { MemoryOpsPolicy } from "@/lib/memory-ops-policy"
 import type {
   MemoryOpsEvalCase,
+  MemoryOpsEvalCaseComparison,
   MemoryOpsEvalCaseResult,
   MemoryOpsEvalMetrics,
   MemoryOpsEvalPatrolRunner,
@@ -49,7 +56,7 @@ export async function runMemoryOpsEval(
     gate,
     cases: results,
     variants: options.variants && options.variants.length > 0
-      ? await runVariantComparisons(cases, options.variants, metrics)
+      ? await runVariantComparisons(cases, options.variants, metrics, results)
       : undefined,
   }
 }
@@ -78,7 +85,7 @@ function evaluateCase(
   const unexpected = [...actual].filter((id) => !expected.has(id))
   const matchedCount = [...expected].filter((id) => actual.has(id)).length
   const safePatchCount = actualSuggestions.filter((suggestion) => suggestion.safePatch).length
-  const scoreBreakdown = caseScoreBreakdown({
+  const scoreBreakdown = buildMemoryOpsEvalCaseScoreBreakdown({
     expectedCount: expected.size,
     actualCount: actual.size,
     matchedCount,
@@ -98,7 +105,7 @@ function evaluateCase(
     actualSuggestionIds: actualSuggestions.map((suggestion) => suggestion.id),
     missingSuggestionIds: missing,
     unexpectedSuggestionIds: unexpected,
-    failureReasons: failureReasons(missing, unexpected),
+    failureReasons: memoryOpsEvalFailureReasons(missing, unexpected),
     scoreBreakdown,
     durationMs,
   }
@@ -120,6 +127,7 @@ async function runVariantComparisons(
   cases: readonly MemoryOpsEvalCase[],
   variants: readonly MemoryOpsEvalPolicyVariant[],
   baseline: MemoryOpsEvalMetrics,
+  baselineResults: readonly MemoryOpsEvalCaseResult[],
 ): Promise<MemoryOpsEvalVariantResult[]> {
   const results: MemoryOpsEvalVariantResult[] = []
   for (const variant of variants) {
@@ -134,6 +142,7 @@ async function runVariantComparisons(
       caseResults.push(evaluateCase(evalCase, report, elapsedMs(startedAt)))
     }
     const metrics = summarizeEvalMetrics(caseResults)
+    const caseComparisons = compareMemoryOpsEvalVariantCases(baselineResults, caseResults)
     results.push({
       id: variant.id,
       title: variant.title,
@@ -142,7 +151,10 @@ async function runVariantComparisons(
       precisionDelta: roundMetric(metrics.precision - baseline.precision),
       recallDelta: roundMetric(metrics.recall - baseline.recall),
       f1Delta: roundMetric(metrics.f1 - baseline.f1),
-      decision: evaluateEvalGate(metrics, cases, baseline),
+      caseComparisons,
+      regressionCount: caseComparisons.filter((item) => item.regressed).length,
+      improvementCount: caseComparisons.filter((item) => item.improved).length,
+      decision: evaluateEvalGate(metrics, cases, baseline, caseComparisons),
     })
   }
   return results
@@ -165,7 +177,7 @@ export function summarizeEvalMetrics(
   const actualCategoryCoverage = mergeCategoryCounts(
     results.map((item) => categoryCounts(item.actualSuggestionIds)),
   )
-  const scoreBreakdown = aggregateScoreBreakdown(results)
+  const scoreBreakdown = aggregateMemoryOpsEvalScoreBreakdown(results)
   const precision = ratio(matchedSuggestionCount, actualSuggestionCount)
   const recall = ratio(matchedSuggestionCount, expectedSuggestionCount)
   const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
@@ -190,56 +202,6 @@ export function summarizeEvalMetrics(
     scoreBreakdown,
     totalDurationMs: sum(results, (item) => item.durationMs),
   }
-}
-
-function caseScoreBreakdown(input: {
-  expectedCount: number
-  actualCount: number
-  matchedCount: number
-  safePatchCount: number
-}): MemoryOpsEvalCaseResult["scoreBreakdown"] {
-  const precision = ratio(input.matchedCount, input.actualCount)
-  const recall = ratio(input.matchedCount, input.expectedCount)
-  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
-  const exact = input.expectedCount === input.matchedCount && input.actualCount === input.matchedCount ? 1 : 0
-  const safety = input.actualCount > 0 ? ratio(input.safePatchCount, input.actualCount) : 1
-  const total = roundMetric(f1 * 0.6 + exact * 0.25 + safety * 0.1 + precision * 0.05)
-  return {
-    match: roundMetric(f1 * 0.6 + exact * 0.25),
-    precision: roundMetric(precision * 0.05),
-    safety: roundMetric(safety * 0.1),
-    total,
-  }
-}
-
-function aggregateScoreBreakdown(
-  results: readonly MemoryOpsEvalCaseResult[],
-): MemoryOpsEvalCaseResult["scoreBreakdown"] {
-  if (results.length === 0) {
-    return { match: 0.85, precision: 0.05, safety: 0.1, total: 1 }
-  }
-  const totals = results.reduce((acc, result) => ({
-    match: acc.match + result.scoreBreakdown.match,
-    precision: acc.precision + result.scoreBreakdown.precision,
-    safety: acc.safety + result.scoreBreakdown.safety,
-    total: acc.total + result.scoreBreakdown.total,
-  }), { match: 0, precision: 0, safety: 0, total: 0 })
-  return {
-    match: roundMetric(totals.match / results.length),
-    precision: roundMetric(totals.precision / results.length),
-    safety: roundMetric(totals.safety / results.length),
-    total: roundMetric(totals.total / results.length),
-  }
-}
-
-function failureReasons(
-  missing: readonly string[],
-  unexpected: readonly string[],
-): string[] {
-  return [
-    missing.length > 0 ? `${missing.length} missing expected suggestion${missing.length === 1 ? "" : "s"}` : "",
-    unexpected.length > 0 ? `${unexpected.length} unexpected suggestion${unexpected.length === 1 ? "" : "s"}` : "",
-  ].filter(Boolean)
 }
 
 function sum<T>(items: readonly T[], selector: (item: T) => number): number {
@@ -311,6 +273,7 @@ function evaluateEvalGate(
   metrics: MemoryOpsEvalMetrics,
   cases: readonly MemoryOpsEvalCase[],
   baseline?: MemoryOpsEvalMetrics,
+  caseComparisons: readonly MemoryOpsEvalCaseComparison[] = [],
 ): MemoryOpsEvalGateDecision {
   const policy = cases.find((evalCase) => evalCase.snapshot)?.snapshot?.policy
   const minPrecision = policy?.eval.minPrecision ?? 0.9
@@ -331,6 +294,10 @@ function evaluateEvalGate(
   }
   if (baseline && metrics.patrolScore < baseline.patrolScore) {
     reasons.push(`score ${formatMetric(metrics.patrolScore)} below baseline ${formatMetric(baseline.patrolScore)}`)
+  }
+  const regressedCases = caseComparisons.filter((item) => item.regressed)
+  if (regressedCases.length > 0) {
+    reasons.push(`${regressedCases.length} regressed eval case${regressedCases.length === 1 ? "" : "s"}`)
   }
   if (reasons.length === 0) {
     return {

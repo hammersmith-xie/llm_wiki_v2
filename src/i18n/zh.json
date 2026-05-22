@@ -628,6 +628,9 @@
           "scoreBreakdown": "匹配 {{match}} · 安全 {{safety}}",
           "safePatches": "{{n}} 个安全 patch",
           "variants": "策略变体",
+          "variantRegressions": "{{n}} 个回归",
+          "variantImprovements": "{{n}} 个改进",
+          "caseDelta": "{{title}}：{{delta}} 到 {{score}}",
           "decisions": {
             "keep": "保留",
             "discard": "丢弃"

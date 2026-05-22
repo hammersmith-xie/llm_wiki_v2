@@ -1,7 +1,14 @@
 import { createDirectory, readFile, writeFile } from "@/commands/fs"
 import { appendAuditEvent } from "@/lib/audit-timeline"
+import { buildMemoryOpsResearchEvidenceMatrix } from "@/lib/memory-ops-research-matrix"
 import { normalizePath } from "@/lib/path-utils"
-import type { MemoryOpsResearchEvidenceReport } from "@/lib/memory-ops-research-types"
+import type {
+  MemoryOpsResearchCandidateResult,
+  MemoryOpsResearchEvidenceItem,
+  MemoryOpsResearchEvidenceReport,
+  MemoryOpsResearchProviderResult,
+} from "@/lib/memory-ops-research-types"
+import { summarizeResearchResults } from "@/lib/memory-ops-research-types"
 
 export interface SaveMemoryOpsResearchReportResult {
   path: string
@@ -53,10 +60,66 @@ export async function loadLatestMemoryOpsResearchReport(
   try {
     const raw = await readFile(memoryOpsResearchLatestReportPath(projectPath))
     const parsed = JSON.parse(raw) as unknown
-    return isMemoryOpsResearchReport(parsed) ? parsed : null
+    return isMemoryOpsResearchReport(parsed) ? normalizeResearchReport(parsed) : null
   } catch {
     return null
   }
+}
+
+function normalizeResearchReport(
+  report: MemoryOpsResearchEvidenceReport,
+): MemoryOpsResearchEvidenceReport {
+  const results = report.results.map(normalizeResearchResult)
+  return {
+    ...report,
+    results,
+    summary: summarizeResearchResults(results),
+    warnings: report.warnings ?? [],
+  }
+}
+
+function normalizeResearchResult(
+  result: MemoryOpsResearchCandidateResult,
+): MemoryOpsResearchCandidateResult {
+  const existingEvidence = result.evidence ?? []
+  const providerResults = normalizeProviderResults(result.providerResults, existingEvidence)
+  const evidence = existingEvidence.length > 0
+    ? existingEvidence
+    : providerResults.flatMap((provider) => provider.evidence)
+  return {
+    ...result,
+    evidence,
+    providerResults,
+    evidenceMatrix: buildMemoryOpsResearchEvidenceMatrix(providerResults),
+    warnings: result.warnings ?? [],
+  }
+}
+
+function normalizeProviderResults(
+  providerResults: readonly MemoryOpsResearchProviderResult[] | undefined,
+  fallbackEvidence: readonly MemoryOpsResearchEvidenceItem[],
+): MemoryOpsResearchProviderResult[] {
+  if (providerResults && providerResults.length > 0) {
+    return providerResults.map((provider) => ({
+      ...provider,
+      evidence: provider.evidence ?? [],
+      warnings: provider.warnings ?? [],
+      durationMs: Number.isFinite(provider.durationMs) ? provider.durationMs : 0,
+    }))
+  }
+
+  const grouped = new Map<string, MemoryOpsResearchEvidenceItem[]>()
+  for (const item of fallbackEvidence) {
+    const provider = item.provider || "unknown"
+    grouped.set(provider, [...(grouped.get(provider) ?? []), item])
+  }
+  return [...grouped.entries()].map(([provider, evidence]) => ({
+    provider,
+    status: "ok",
+    evidence,
+    warnings: [],
+    durationMs: 0,
+  }))
 }
 
 async function appendResearchAuditSafely(
@@ -82,6 +145,8 @@ async function appendResearchAuditSafely(
       reasons: [
         `${report.summary.candidateCount} research candidate${report.summary.candidateCount === 1 ? "" : "s"}`,
         `${report.summary.evidenceCount} evidence item${report.summary.evidenceCount === 1 ? "" : "s"}`,
+        `${report.summary.uniqueSourceCount} unique source${report.summary.uniqueSourceCount === 1 ? "" : "s"}`,
+        `source diversity ${formatMetric(report.summary.averageSourceDiversityScore)}`,
       ],
     })
     return undefined
@@ -106,4 +171,8 @@ function safeFilePart(value: string): string {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+function formatMetric(value: number): string {
+  return value.toFixed(2)
 }

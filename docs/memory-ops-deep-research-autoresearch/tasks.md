@@ -19,6 +19,9 @@ flowchart TD
   M7 --> M8["M8 10+ Review Rounds"]
   M8 --> M9["M9 First Commit"]
   M9 --> M10["M10 Decision + Eval Gates"]
+  M10 --> M11["M11 Quorum + Scorecard"]
+  M11 --> M12["M12 Source Diversity + Diagnostics"]
+  M12 --> M13["M13 Normalization + Variant Deltas"]
 ```
 
 ## M1. Research + Spec
@@ -304,3 +307,36 @@ Each review writes `review-round-N.md` with findings and fixes.
     - `npm run typecheck` passed.
     - `npm run test:mocks` passed: 172 files, 1573 tests.
     - New/modified Memory Ops source files remain under 400 lines.
+
+## M13. Fifth Deepening Pass: Normalization + Variant Deltas
+
+- ✅ T62. Normalize legacy research reports with missing evidence matrix/source diversity fields.
+  - Depends: T55-T56.
+  - Blocks: T63, T66.
+  - Notes:
+    - Rebuild provider matrices from `providerResults` when persisted reports predate quorum/source keys.
+
+- ⏳ T63. Add source diversity details to research audit reasons.
+- ✅ T63. Add source diversity details to research audit reasons.
+  - Depends: T62.
+  - Blocks: T66.
+
+- ✅ T64. Add AutoResearch per-case variant regression diagnostics.
+  - Depends: T58.
+  - Blocks: T65-T66.
+
+- ✅ T65. Surface variant regression diagnostics in UI/i18n.
+  - Depends: T64.
+  - Blocks: T66.
+
+- ✅ T66. Add focused regression tests for report normalization and variant deltas.
+  - Depends: T62-T65.
+  - Blocks: T67.
+
+- ✅ T67. Run full validation, size scan, review round 14, and commit.
+  - Depends: T66.
+  - Notes:
+    - `npm run typecheck` passed.
+    - `npm run test:mocks` passed: 172 files, 1576 tests.
+    - Focused eval/research store tests passed: 3 files, 12 tests.
+    - Touched source files are under 400 lines after extracting eval diagnostics and research matrix helpers.

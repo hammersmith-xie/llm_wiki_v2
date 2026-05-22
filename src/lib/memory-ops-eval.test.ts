@@ -145,6 +145,10 @@ describe("memory ops eval", () => {
     })
 
     expect(evalReport.variants?.[0]?.scoreDelta).toBeLessThan(0)
+    expect(evalReport.variants?.[0]?.regressionCount).toBeGreaterThan(0)
+    expect(evalReport.variants?.[0]?.caseComparisons.some((item) =>
+      item.regressed && item.reasons.length > 0
+    )).toBe(true)
     expect(evalReport.variants?.[0]?.decision).toMatchObject({
       status: "fail",
       decision: "discard",
