@@ -261,3 +261,46 @@ Each review writes `review-round-N.md` with findings and fixes.
     - `npm run typecheck` passed.
     - `npm run test:mocks` passed: 172 files, 1571 tests.
     - New/modified Memory Ops source files remain under 400 lines.
+
+## M12. Fourth Deepening Pass: Source Diversity + Diagnostics
+
+- ✅ T55. Add independent source keys to research evidence matrix.
+  - Depends: T49.
+  - Blocks: T56.
+  - Notes:
+    - Web evidence uses normalized hostnames.
+    - Local evidence uses normalized paths.
+
+- ✅ T56. Make quorum require source diversity, not just provider count.
+  - Depends: T55.
+  - Blocks: T57.
+  - Notes:
+    - Multiple providers citing one host stay `weak`.
+
+- ✅ T57. Wire source diversity into decision gate.
+  - Depends: T56.
+  - Blocks: T60.
+  - Notes:
+    - Warning patches need independent source diversity before apply.
+
+- ✅ T58. Add case-level eval failure reasons and score breakdown.
+  - Depends: T51.
+  - Blocks: T59.
+  - Notes:
+    - Cases now explain missing and unexpected suggestions.
+    - Metrics aggregate case match/precision/safety totals.
+
+- ✅ T59. Normalize legacy eval diagnostics on load.
+  - Depends: T58.
+  - Blocks: T60.
+
+- ✅ T60. Surface source diversity and eval diagnostics in UI/i18n.
+  - Depends: T55-T59.
+  - Blocks: T61.
+
+- ✅ T61. Run final validation, size scan, review round 13, and commit.
+  - Depends: T60.
+  - Notes:
+    - `npm run typecheck` passed.
+    - `npm run test:mocks` passed: 172 files, 1573 tests.
+    - New/modified Memory Ops source files remain under 400 lines.

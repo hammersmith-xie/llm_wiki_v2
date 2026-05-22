@@ -77,6 +77,13 @@ function evaluateCase(
   const missing = [...expected].filter((id) => !actual.has(id))
   const unexpected = [...actual].filter((id) => !expected.has(id))
   const matchedCount = [...expected].filter((id) => actual.has(id)).length
+  const safePatchCount = actualSuggestions.filter((suggestion) => suggestion.safePatch).length
+  const scoreBreakdown = caseScoreBreakdown({
+    expectedCount: expected.size,
+    actualCount: actual.size,
+    matchedCount,
+    safePatchCount,
+  })
 
   return {
     id: evalCase.id,
@@ -87,10 +94,12 @@ function evaluateCase(
     matchedCount,
     falsePositiveCount: unexpected.length,
     falseNegativeCount: missing.length,
-    safePatchCount: actualSuggestions.filter((suggestion) => suggestion.safePatch).length,
+    safePatchCount,
     actualSuggestionIds: actualSuggestions.map((suggestion) => suggestion.id),
     missingSuggestionIds: missing,
     unexpectedSuggestionIds: unexpected,
+    failureReasons: failureReasons(missing, unexpected),
+    scoreBreakdown,
     durationMs,
   }
 }
@@ -156,19 +165,11 @@ export function summarizeEvalMetrics(
   const actualCategoryCoverage = mergeCategoryCounts(
     results.map((item) => categoryCounts(item.actualSuggestionIds)),
   )
+  const scoreBreakdown = aggregateScoreBreakdown(results)
   const precision = ratio(matchedSuggestionCount, actualSuggestionCount)
   const recall = ratio(matchedSuggestionCount, expectedSuggestionCount)
   const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
-  const exactPassRate = ratio(results.filter((item) => item.passed).length, results.length)
-  const safetyRate = actualSuggestionCount > 0
-    ? ratio(safePatchCount, actualSuggestionCount)
-    : 1
-  const patrolScore = roundMetric(
-    f1 * 0.6 +
-    exactPassRate * 0.25 +
-    safetyRate * 0.1 +
-    precision * 0.05,
-  )
+  const patrolScore = roundMetric(scoreBreakdown.total)
 
   return {
     caseCount: results.length,
@@ -186,8 +187,59 @@ export function summarizeEvalMetrics(
     recall,
     f1,
     patrolScore,
+    scoreBreakdown,
     totalDurationMs: sum(results, (item) => item.durationMs),
   }
+}
+
+function caseScoreBreakdown(input: {
+  expectedCount: number
+  actualCount: number
+  matchedCount: number
+  safePatchCount: number
+}): MemoryOpsEvalCaseResult["scoreBreakdown"] {
+  const precision = ratio(input.matchedCount, input.actualCount)
+  const recall = ratio(input.matchedCount, input.expectedCount)
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
+  const exact = input.expectedCount === input.matchedCount && input.actualCount === input.matchedCount ? 1 : 0
+  const safety = input.actualCount > 0 ? ratio(input.safePatchCount, input.actualCount) : 1
+  const total = roundMetric(f1 * 0.6 + exact * 0.25 + safety * 0.1 + precision * 0.05)
+  return {
+    match: roundMetric(f1 * 0.6 + exact * 0.25),
+    precision: roundMetric(precision * 0.05),
+    safety: roundMetric(safety * 0.1),
+    total,
+  }
+}
+
+function aggregateScoreBreakdown(
+  results: readonly MemoryOpsEvalCaseResult[],
+): MemoryOpsEvalCaseResult["scoreBreakdown"] {
+  if (results.length === 0) {
+    return { match: 0.85, precision: 0.05, safety: 0.1, total: 1 }
+  }
+  const totals = results.reduce((acc, result) => ({
+    match: acc.match + result.scoreBreakdown.match,
+    precision: acc.precision + result.scoreBreakdown.precision,
+    safety: acc.safety + result.scoreBreakdown.safety,
+    total: acc.total + result.scoreBreakdown.total,
+  }), { match: 0, precision: 0, safety: 0, total: 0 })
+  return {
+    match: roundMetric(totals.match / results.length),
+    precision: roundMetric(totals.precision / results.length),
+    safety: roundMetric(totals.safety / results.length),
+    total: roundMetric(totals.total / results.length),
+  }
+}
+
+function failureReasons(
+  missing: readonly string[],
+  unexpected: readonly string[],
+): string[] {
+  return [
+    missing.length > 0 ? `${missing.length} missing expected suggestion${missing.length === 1 ? "" : "s"}` : "",
+    unexpected.length > 0 ? `${unexpected.length} unexpected suggestion${unexpected.length === 1 ? "" : "s"}` : "",
+  ].filter(Boolean)
 }
 
 function sum<T>(items: readonly T[], selector: (item: T) => number): number {

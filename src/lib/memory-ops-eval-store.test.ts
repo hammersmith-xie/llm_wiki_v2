@@ -47,6 +47,12 @@ const report: MemoryOpsEvalReport = {
     f1: 1,
     patrolScore: 1,
     totalDurationMs: 1,
+    scoreBreakdown: {
+      match: 0.85,
+      precision: 0.05,
+      safety: 0.1,
+      total: 1,
+    },
   },
   gate: {
     status: "pass",
@@ -54,7 +60,28 @@ const report: MemoryOpsEvalReport = {
     candidateScore: 1,
     reasons: ["eval metrics meet policy thresholds"],
   },
-  cases: [],
+  cases: [{
+    id: "case",
+    title: "Case",
+    passed: true,
+    expectedCount: 1,
+    actualCount: 1,
+    matchedCount: 1,
+    falsePositiveCount: 0,
+    falseNegativeCount: 0,
+    safePatchCount: 1,
+    actualSuggestionIds: ["expected"],
+    missingSuggestionIds: [],
+    unexpectedSuggestionIds: [],
+    failureReasons: [],
+    scoreBreakdown: {
+      match: 0.85,
+      precision: 0.05,
+      safety: 0.1,
+      total: 1,
+    },
+    durationMs: 1,
+  }],
 }
 
 describe("memory ops eval store", () => {
@@ -74,12 +101,14 @@ describe("memory ops eval store", () => {
 
   it("normalizes legacy reports without an experiment gate", async () => {
     const { gate: _gate, ...legacyReport } = report
-    const { patrolScore: _score, ...legacyMetrics } = report.metrics
+    const { patrolScore: _score, scoreBreakdown: _breakdown, ...legacyMetrics } = report.metrics
+    const legacyCases = report.cases.map(({ failureReasons: _reasons, scoreBreakdown: _caseBreakdown, ...item }) => item)
     files.set(
       memoryOpsEvalLatestReportPath("/project"),
       JSON.stringify({
         ...legacyReport,
         metrics: legacyMetrics,
+        cases: legacyCases,
         variants: [
           {
             id: "variant_legacy",
@@ -99,6 +128,9 @@ describe("memory ops eval store", () => {
       decision: "keep",
     })
     expect(loaded?.metrics.patrolScore).toBe(1)
+    expect(loaded?.metrics.scoreBreakdown.total).toBe(1)
+    expect(loaded?.cases[0]?.failureReasons).toEqual([])
+    expect(loaded?.cases[0]?.scoreBreakdown.total).toBe(1)
     expect(loaded?.variants?.[0]?.decision).toMatchObject({
       status: "pass",
       decision: "keep",

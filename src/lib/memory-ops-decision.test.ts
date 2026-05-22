@@ -47,7 +47,28 @@ describe("memory ops suggestion decision gate", () => {
 
     expect(decision.kind).toBe("needs-research")
     expect(decision.applyAllowed).toBe(false)
-    expect(decision.reasons.join(" ")).toContain("weak provider quorum")
+    expect(decision.reasons.join(" ")).toContain("independent source diversity")
+  })
+
+  it("holds warning patches when providers cite only one unique source", () => {
+    const decision = decideMemoryOpsSuggestion(metadataSuggestion({
+      verdict: "supported",
+      confidence: 0.8,
+      evidenceCount: 2,
+      providerCount: 2,
+      reportId: "research_1",
+      createdAt: "2026-05-22T00:00:00.000Z",
+      quorumStatus: "met",
+      supportProviderCount: 2,
+      independentEvidenceCount: 2,
+      uniqueSourceCount: 1,
+      sourceDiversityScore: 0.5,
+    }, "warning"), {
+      minResearchConfidence: 0.55,
+    })
+
+    expect(decision.kind).toBe("needs-research")
+    expect(decision.reasons.join(" ")).toContain("independent source diversity")
   })
 })
 

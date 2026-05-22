@@ -156,6 +156,16 @@ export function MemoryOpsEvalPanel({
                       fn: item.falseNegativeCount,
                     })}
                   </div>
+                  {item.failureReasons.length > 0 && (
+                    <div>{item.failureReasons.join(" · ")}</div>
+                  )}
+                  <div>
+                    {t("settings.sections.maintenance.eval.caseScore", {
+                      score: formatPct(item.scoreBreakdown.total),
+                      match: formatPct(item.scoreBreakdown.match),
+                      safety: formatPct(item.scoreBreakdown.safety),
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -179,6 +189,11 @@ export function MemoryOpsEvalPanel({
                     expected: item.expectedCount,
                     fp: item.falsePositiveCount,
                     fn: item.falseNegativeCount,
+                  })}
+                </span>
+                <span className="text-muted-foreground">
+                  {t("settings.sections.maintenance.eval.score", {
+                    n: formatPct(item.scoreBreakdown.total),
                   })}
                 </span>
               </div>
@@ -214,6 +229,10 @@ function EvalSummary({ report }: { report: MemoryOpsEvalReport }) {
         <span>{t("settings.sections.maintenance.eval.recall", { n: formatPct(report.metrics.recall) })}</span>
         <span>{t("settings.sections.maintenance.eval.f1", { n: formatPct(report.metrics.f1) })}</span>
         <span>{t("settings.sections.maintenance.eval.score", { n: formatPct(report.metrics.patrolScore) })}</span>
+        <span>{t("settings.sections.maintenance.eval.scoreBreakdown", {
+          match: formatPct(report.metrics.scoreBreakdown.match),
+          safety: formatPct(report.metrics.scoreBreakdown.safety),
+        })}</span>
         <span>{t("settings.sections.maintenance.eval.safePatches", { n: report.metrics.safePatchCount })}</span>
         <span>{t(`settings.sections.maintenance.eval.decisions.${report.gate.decision}`)}</span>
       </div>

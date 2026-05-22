@@ -169,6 +169,16 @@ export function MemoryOpsResearchPanel({
                   })}
                 </span>
                 <span className="text-muted-foreground">
+                  {t("settings.sections.maintenance.research.sources", {
+                    n: result.evidenceMatrix.uniqueSourceCount,
+                  })}
+                </span>
+                <span className="text-muted-foreground">
+                  {t("settings.sections.maintenance.research.diversity", {
+                    n: formatPct(result.evidenceMatrix.sourceDiversityScore),
+                  })}
+                </span>
+                <span className="text-muted-foreground">
                   {result.providerResults.map((provider) => provider.provider).join(", ")}
                 </span>
               </div>
@@ -200,6 +210,8 @@ function ResearchSummary({ report }: { report: MemoryOpsResearchEvidenceReport }
         <span>{t("settings.sections.maintenance.research.candidates", { n: report.summary.candidateCount })}</span>
         <span>{t("settings.sections.maintenance.research.providers", { n: report.summary.providerCount })}</span>
         <span>{t("settings.sections.maintenance.research.evidence", { n: report.summary.evidenceCount })}</span>
+        <span>{t("settings.sections.maintenance.research.sources", { n: report.summary.uniqueSourceCount })}</span>
+        <span>{t("settings.sections.maintenance.research.diversity", { n: formatPct(report.summary.averageSourceDiversityScore) })}</span>
         <span>{t("settings.sections.maintenance.research.supported", { n: counts.supported })}</span>
         <span>{t("settings.sections.maintenance.research.contradicted", { n: counts.contradicted })}</span>
         <span>{t("settings.sections.maintenance.research.mixed", { n: counts.mixed })}</span>
@@ -211,6 +223,10 @@ function ResearchSummary({ report }: { report: MemoryOpsResearchEvidenceReport }
       </div>
     </div>
   )
+}
+
+function formatPct(value: number): string {
+  return `${Math.round(value * 100)}%`
 }
 
 function WarningText({ text }: { text: string }) {

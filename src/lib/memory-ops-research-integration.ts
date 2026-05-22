@@ -99,6 +99,8 @@ export function enrichMemoryOpsSuggestionsWithResearch(
       supportProviderCount: result.evidenceMatrix.supportProviderCount,
       contradictionProviderCount: result.evidenceMatrix.contradictionProviderCount,
       independentEvidenceCount: result.evidenceMatrix.independentEvidenceCount,
+      uniqueSourceCount: result.evidenceMatrix.uniqueSourceCount,
+      sourceDiversityScore: result.evidenceMatrix.sourceDiversityScore,
       reasons: decision.reasons,
     }
     return {

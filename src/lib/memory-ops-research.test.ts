@@ -130,7 +130,31 @@ describe("memory ops research evidence", () => {
       quorumStatus: "met",
       supportProviderCount: 2,
       independentEvidenceCount: 2,
+      uniqueSourceCount: 2,
+      sourceDiversityScore: 1,
     })
+    expect(report.summary.uniqueSourceCount).toBe(2)
     expect(report.summary.quorumCounts.met).toBe(1)
+  })
+
+  it("does not count two providers pointing at the same web host as diverse evidence", async () => {
+    const searchConfig: SearchApiConfig = { provider: "tavily", apiKey: "test-key" }
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["web-search", "deep-research"],
+      searchConfig,
+      webSearchImpl: vi.fn(async () => [{
+        title: "API claim support",
+        url: "https://same.example.com/api",
+        snippet: "API claim support remains valid.",
+        source: "same.example.com",
+      }]),
+    })
+
+    expect(report.results[0]?.evidenceMatrix).toMatchObject({
+      quorumStatus: "weak",
+      supportProviderCount: 2,
+      uniqueSourceCount: 1,
+    })
+    expect(report.summary.quorumCounts.weak).toBe(1)
   })
 })

@@ -8,6 +8,13 @@ export interface MemoryOpsEvalExpectedSuggestion {
   targetPath?: string
 }
 
+export interface MemoryOpsEvalCaseScoreBreakdown {
+  match: number
+  precision: number
+  safety: number
+  total: number
+}
+
 export interface MemoryOpsEvalCase {
   id: string
   title: string
@@ -29,6 +36,8 @@ export interface MemoryOpsEvalCaseResult {
   actualSuggestionIds: string[]
   missingSuggestionIds: string[]
   unexpectedSuggestionIds: string[]
+  failureReasons: string[]
+  scoreBreakdown: MemoryOpsEvalCaseScoreBreakdown
   durationMs: number
 }
 
@@ -48,6 +57,7 @@ export interface MemoryOpsEvalMetrics {
   recall: number
   f1: number
   patrolScore: number
+  scoreBreakdown: MemoryOpsEvalCaseScoreBreakdown
   totalDurationMs: number
 }
 

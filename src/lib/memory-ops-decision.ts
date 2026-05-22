@@ -66,7 +66,7 @@ export function decideMemoryOpsSuggestion(
     research &&
     suggestion.severity === "warning" &&
     research.verdict === "supported" &&
-    research.quorumStatus === "weak"
+    (research.quorumStatus === "weak" || (research.sourceDiversityScore ?? 1) < 1)
   ) {
     return {
       kind: "needs-research",
@@ -74,8 +74,8 @@ export function decideMemoryOpsSuggestion(
       batchAllowed: false,
       confidence: research.confidence,
       reasons: [
-        "supported research has only weak provider quorum",
-        `${research.supportProviderCount ?? 0} support provider(s), ${research.independentEvidenceCount ?? 0} evidence provider(s)`,
+        "supported research needs independent source diversity",
+        `${research.supportProviderCount ?? 0} support provider(s), ${research.uniqueSourceCount ?? 0} unique source(s)`,
       ],
     }
   }

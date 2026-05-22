@@ -585,6 +585,8 @@
           "candidates": "{{n}} 个候选",
           "providers": "{{n}} 个 provider",
           "evidence": "{{n}} 条证据",
+          "sources": "{{n}} 个来源",
+          "diversity": "来源多样性 {{n}}",
           "supported": "{{n}} 个支持",
           "contradicted": "{{n}} 个反驳",
           "mixed": "{{n}} 个混合",
@@ -623,13 +625,15 @@
           "recall": "recall {{n}}",
           "f1": "F1 {{n}}",
           "score": "总分 {{n}}",
+          "scoreBreakdown": "匹配 {{match}} · 安全 {{safety}}",
           "safePatches": "{{n}} 个安全 patch",
           "variants": "策略变体",
           "decisions": {
             "keep": "保留",
             "discard": "丢弃"
           },
-          "caseCounts": "命中 {{matched}}/{{expected}} · {{fp}} FP · {{fn}} FN"
+          "caseCounts": "命中 {{matched}}/{{expected}} · {{fp}} FP · {{fn}} FN",
+          "caseScore": "总分 {{score}} · 匹配 {{match}} · 安全 {{safety}}"
         },
         "schemaQuality": {
           "title": "Schema 与质量扫描",

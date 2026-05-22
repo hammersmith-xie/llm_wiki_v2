@@ -2,6 +2,8 @@ import { createDirectory, readFile, writeFile } from "@/commands/fs"
 import { appendAuditEvent } from "@/lib/audit-timeline"
 import { normalizePath } from "@/lib/path-utils"
 import type {
+  MemoryOpsEvalCaseResult,
+  MemoryOpsEvalCaseScoreBreakdown,
   MemoryOpsEvalGateDecision,
   MemoryOpsEvalMetrics,
   MemoryOpsEvalReport,
@@ -58,6 +60,7 @@ function normalizeEvalReport(report: MemoryOpsEvalReport): MemoryOpsEvalReport {
     ...report,
     metrics,
     gate: report.gate ?? legacyGateDecision(metrics),
+    cases: report.cases.map(normalizeCaseResult),
     variants: report.variants?.map(normalizeVariantResult),
   }
 }
@@ -74,10 +77,19 @@ function normalizeVariantResult(
   }
 }
 
+function normalizeCaseResult(result: MemoryOpsEvalCaseResult): MemoryOpsEvalCaseResult {
+  return {
+    ...result,
+    failureReasons: result.failureReasons ?? legacyFailureReasons(result),
+    scoreBreakdown: result.scoreBreakdown ?? legacyCaseScoreBreakdown(result),
+  }
+}
+
 function normalizeMetrics(metrics: MemoryOpsEvalMetrics): MemoryOpsEvalMetrics {
   return {
     ...metrics,
     patrolScore: legacyPatrolScore(metrics),
+    scoreBreakdown: metrics.scoreBreakdown ?? legacyMetricsScoreBreakdown(metrics),
   }
 }
 
@@ -98,6 +110,56 @@ function legacyGateDecision(metrics: MemoryOpsEvalMetrics): MemoryOpsEvalGateDec
     candidateScore: patrolScore,
     reasons: [`legacy eval report has ${metrics.failedCaseCount} failing case(s)`],
   }
+}
+
+function legacyCaseScoreBreakdown(
+  result: MemoryOpsEvalCaseResult,
+): MemoryOpsEvalCaseScoreBreakdown {
+  const precision = ratio(result.matchedCount, result.actualCount)
+  const recall = ratio(result.matchedCount, result.expectedCount)
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
+  const exact = result.matchedCount === result.expectedCount && result.matchedCount === result.actualCount ? 1 : 0
+  const safety = result.actualCount > 0 ? ratio(result.safePatchCount, result.actualCount) : 1
+  return scoreBreakdown(f1, exact, safety, precision)
+}
+
+function legacyMetricsScoreBreakdown(
+  metrics: MemoryOpsEvalMetrics,
+): MemoryOpsEvalCaseScoreBreakdown {
+  const exact = metrics.caseCount > 0 ? ratio(metrics.passedCaseCount, metrics.caseCount) : 1
+  const safety = metrics.actualSuggestionCount > 0
+    ? ratio(metrics.safePatchCount, metrics.actualSuggestionCount)
+    : 1
+  return scoreBreakdown(metrics.f1, exact, safety, metrics.precision)
+}
+
+function scoreBreakdown(
+  f1: number,
+  exact: number,
+  safety: number,
+  precision: number,
+): MemoryOpsEvalCaseScoreBreakdown {
+  return {
+    match: roundMetric(f1 * 0.6 + exact * 0.25),
+    precision: roundMetric(precision * 0.05),
+    safety: roundMetric(safety * 0.1),
+    total: roundMetric(f1 * 0.6 + exact * 0.25 + safety * 0.1 + precision * 0.05),
+  }
+}
+
+function legacyFailureReasons(result: MemoryOpsEvalCaseResult): string[] {
+  return [
+    result.falseNegativeCount > 0 ? `${result.falseNegativeCount} missing expected suggestion${result.falseNegativeCount === 1 ? "" : "s"}` : "",
+    result.falsePositiveCount > 0 ? `${result.falsePositiveCount} unexpected suggestion${result.falsePositiveCount === 1 ? "" : "s"}` : "",
+  ].filter(Boolean)
+}
+
+function ratio(numerator: number, denominator: number): number {
+  return denominator > 0 ? numerator / denominator : 1
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 1000) / 1000
 }
 
 function legacyPatrolScore(metrics: MemoryOpsEvalMetrics): number {

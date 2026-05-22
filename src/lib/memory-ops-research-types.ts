@@ -72,6 +72,7 @@ export interface MemoryOpsResearchEvidenceMatrixProvider {
   neutral: number
   unknown: number
   evidenceCount: number
+  sourceKeys: string[]
 }
 
 export interface MemoryOpsResearchEvidenceMatrix {
@@ -79,6 +80,8 @@ export interface MemoryOpsResearchEvidenceMatrix {
   supportProviderCount: number
   contradictionProviderCount: number
   independentEvidenceCount: number
+  uniqueSourceCount: number
+  sourceDiversityScore: number
   providers: MemoryOpsResearchEvidenceMatrixProvider[]
 }
 
@@ -112,6 +115,8 @@ export interface MemoryOpsResearchReportSummary {
   evidenceCount: number
   providerCount: number
   warningCount: number
+  uniqueSourceCount: number
+  averageSourceDiversityScore: number
   verdictCounts: MemoryOpsResearchVerdictCounts
   quorumCounts: MemoryOpsResearchQuorumCounts
 }
@@ -150,6 +155,8 @@ export interface MemoryOpsResearchSuggestionSummary {
   supportProviderCount?: number
   contradictionProviderCount?: number
   independentEvidenceCount?: number
+  uniqueSourceCount?: number
+  sourceDiversityScore?: number
   reasons?: string[]
 }
 
@@ -178,14 +185,20 @@ export function summarizeResearchResults(
   const verdictCounts = emptyResearchVerdictCounts()
   const quorumCounts = emptyResearchQuorumCounts()
   const providers = new Set<string>()
+  const uniqueSources = new Set<string>()
   let evidenceCount = 0
   let warningCount = 0
+  let sourceDiversityTotal = 0
 
   for (const result of results) {
     verdictCounts[result.verdict] += 1
     quorumCounts[result.evidenceMatrix.quorumStatus] += 1
     evidenceCount += result.evidence.length
     warningCount += result.warnings.length
+    sourceDiversityTotal += result.evidenceMatrix.sourceDiversityScore
+    for (const provider of result.evidenceMatrix.providers) {
+      for (const sourceKey of provider.sourceKeys) uniqueSources.add(sourceKey)
+    }
     for (const provider of result.providerResults) {
       providers.add(provider.provider)
     }
@@ -196,7 +209,15 @@ export function summarizeResearchResults(
     evidenceCount,
     providerCount: providers.size,
     warningCount,
+    uniqueSourceCount: uniqueSources.size,
+    averageSourceDiversityScore: results.length > 0
+      ? roundScore(sourceDiversityTotal / results.length)
+      : 0,
     verdictCounts,
     quorumCounts,
   }
+}
+
+function roundScore(value: number): number {
+  return Math.round(value * 1000) / 1000
 }

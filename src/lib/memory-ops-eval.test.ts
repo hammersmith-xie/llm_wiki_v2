@@ -36,6 +36,11 @@ describe("memory ops eval", () => {
     expect(result.passed).toBe(false)
     expect(result.falsePositiveCount).toBe(1)
     expect(result.falseNegativeCount).toBe(1)
+    expect(result.failureReasons).toEqual([
+      "1 missing expected suggestion",
+      "1 unexpected suggestion",
+    ])
+    expect(result.scoreBreakdown.total).toBeLessThan(0.5)
   })
 
   it("summarizes precision recall and f1", () => {
@@ -53,6 +58,13 @@ describe("memory ops eval", () => {
         actualSuggestionIds: [],
         missingSuggestionIds: [],
         unexpectedSuggestionIds: [],
+        failureReasons: [],
+        scoreBreakdown: {
+          match: 0.85,
+          precision: 0.05,
+          safety: 0.1,
+          total: 1,
+        },
         durationMs: 10,
       },
     ])
@@ -60,7 +72,13 @@ describe("memory ops eval", () => {
     expect(metrics.precision).toBe(1)
     expect(metrics.recall).toBe(1)
     expect(metrics.f1).toBe(1)
-    expect(metrics.patrolScore).toBe(0.95)
+    expect(metrics.patrolScore).toBe(1)
+    expect(metrics.scoreBreakdown).toMatchObject({
+      match: 0.85,
+      precision: 0.05,
+      safety: 0.1,
+      total: 1,
+    })
   })
 
   it("runs with an injected patrol runner", async () => {
@@ -88,7 +106,7 @@ describe("memory ops eval", () => {
     expect(evalReport.metrics.failedCaseCount).toBe(0)
     expect(evalReport.metrics.precision).toBe(1)
     expect(evalReport.metrics.recall).toBe(1)
-    expect(evalReport.metrics.patrolScore).toBe(0.95)
+    expect(evalReport.metrics.patrolScore).toBe(0.955)
     expect(evalReport.gate).toMatchObject({
       status: "pass",
       decision: "keep",

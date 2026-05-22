@@ -37,6 +37,8 @@ const report: MemoryOpsResearchEvidenceReport = {
     evidenceCount: 1,
     providerCount: 1,
     warningCount: 0,
+    uniqueSourceCount: 1,
+    averageSourceDiversityScore: 1,
     verdictCounts: {
       supported: 1,
       contradicted: 0,

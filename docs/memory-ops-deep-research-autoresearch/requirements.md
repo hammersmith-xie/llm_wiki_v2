@@ -223,6 +223,31 @@ Acceptance:
 - Built-in baseline reports a deterministic patrol score.
 - A deliberately regressing policy variant reports negative score delta and `discard`.
 
+### F12. Source Diversity Cross-Validation
+
+- Quorum must count independent sources, not only providers.
+- Web evidence from the same hostname must count as one source key.
+- Local evidence from the same normalized wiki/source path must count as one source key.
+- Warning-level metadata patches must require enough independent source diversity before apply.
+
+Acceptance:
+
+- Two providers citing the same web hostname remain `weak`.
+- Local + web evidence with distinct source keys reaches `met`.
+- Decision gate tests prove low source diversity blocks warning metadata patches.
+
+### F13. Case-Level Eval Diagnostics
+
+- Eval case results must include failure reasons for missing expected and unexpected suggestions.
+- Eval case results must include score breakdown: match, precision, safety, total.
+- Aggregate eval metrics must include the same score breakdown averaged over cases.
+- UI must show failure reasons and per-case score for failed cases.
+
+Acceptance:
+
+- Case tests prove missing/unexpected suggestions generate diagnostic reasons.
+- Legacy eval reports without diagnostics are normalized on load.
+
 ## Non-functional Requirements
 
 - Determinism: built-in eval fixtures must not require network, real LLM calls, timers, or local user data.
@@ -255,7 +280,8 @@ flowchart TD
 
   Fixtures["Built-in Eval Snapshots"] --> Engine
   PolicyVariants["Policy Variants"] --> Engine
-  Engine --> EvalMetrics["Precision / Recall / F1 / Safety / Score"]
+  Engine --> EvalCaseDiagnostics["Case Diagnostics"]
+  EvalCaseDiagnostics --> EvalMetrics["Precision / Recall / F1 / Safety / Score"]
   EvalMetrics --> EvalGate["AutoResearch Gate"]
   EvalMetrics --> Scorecard["Baseline-vs-Variant Scorecard"]
   Scorecard --> EvalGate
@@ -277,7 +303,9 @@ flowchart TD
 - Use `research-report` evidence as cached cross-validation during patrol.
 - Block apply when research contradicts a metadata patch; keep the suggestion visible as review work.
 - Treat single-provider support for warning patches as insufficient quorum, not as apply-ready evidence.
+- Treat same-domain/same-path evidence as one source for cross-validation.
 - Treat AutoResearch as an experiment gate: good policies are kept, regressing policies are discarded.
 - Use one patrol score as the AutoResearch optimization signal so policy variants are comparable.
+- Keep case-level diagnostics so score regressions are explainable.
 - Make all new default evals deterministic and fast.
 - Add more fields as optional to avoid breaking old persisted reports.
