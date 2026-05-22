@@ -47,6 +47,7 @@ export interface MemoryOpsEvalMetrics {
   precision: number
   recall: number
   f1: number
+  patrolScore: number
   totalDurationMs: number
 }
 
@@ -60,6 +61,7 @@ export interface MemoryOpsEvalVariantResult {
   id: string
   title: string
   metrics: MemoryOpsEvalMetrics
+  scoreDelta: number
   precisionDelta: number
   recallDelta: number
   f1Delta: number
@@ -72,6 +74,8 @@ export type MemoryOpsEvalExperimentDecision = "keep" | "discard"
 export interface MemoryOpsEvalGateDecision {
   status: MemoryOpsEvalGateStatus
   decision: MemoryOpsEvalExperimentDecision
+  baselineScore?: number
+  candidateScore?: number
   reasons: string[]
 }
 

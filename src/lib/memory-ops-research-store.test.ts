@@ -44,6 +44,12 @@ const report: MemoryOpsResearchEvidenceReport = {
       insufficient: 0,
       unavailable: 0,
     },
+    quorumCounts: {
+      met: 1,
+      weak: 0,
+      conflict: 0,
+      unavailable: 0,
+    },
   },
   results: [],
   warnings: [],

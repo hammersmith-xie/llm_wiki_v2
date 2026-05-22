@@ -29,6 +29,26 @@ describe("memory ops suggestion decision gate", () => {
     expect(decision.kind).toBe("needs-research")
     expect(decision.applyAllowed).toBe(false)
   })
+
+  it("holds warning patches when support comes from only weak provider quorum", () => {
+    const decision = decideMemoryOpsSuggestion(metadataSuggestion({
+      verdict: "supported",
+      confidence: 0.8,
+      evidenceCount: 1,
+      providerCount: 1,
+      reportId: "research_1",
+      createdAt: "2026-05-22T00:00:00.000Z",
+      quorumStatus: "weak",
+      supportProviderCount: 1,
+      independentEvidenceCount: 1,
+    }, "warning"), {
+      minResearchConfidence: 0.55,
+    })
+
+    expect(decision.kind).toBe("needs-research")
+    expect(decision.applyAllowed).toBe(false)
+    expect(decision.reasons.join(" ")).toContain("weak provider quorum")
+  })
 })
 
 function metadataSuggestion(

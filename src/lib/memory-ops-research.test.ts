@@ -24,7 +24,9 @@ describe("memory ops research evidence", () => {
 
     expect(report.summary.candidateCount).toBe(1)
     expect(report.summary.evidenceCount).toBe(1)
+    expect(report.summary.quorumCounts.weak).toBe(1)
     expect(report.results[0]?.verdict).toBe("supported")
+    expect(report.results[0]?.evidenceMatrix.quorumStatus).toBe("weak")
     expect(report.results[0]?.evidence[0]?.path).toBe("wiki/test.md")
   })
 
@@ -53,6 +55,7 @@ describe("memory ops research evidence", () => {
 
     expect(report.results[0]?.verdict).toBe("supported")
     expect(report.results[0]?.evidence[0]?.url).toBe("https://example.com/api")
+    expect(report.results[0]?.evidenceMatrix.supportProviderCount).toBe(1)
   })
 
   it("runs deep research as bounded multi-query web evidence", async () => {
@@ -107,5 +110,27 @@ describe("memory ops research evidence", () => {
     expect(read).not.toHaveBeenCalled()
     expect(report.results[0]?.evidence[0]?.path).toBe("wiki/test.md")
     expect(report.results[0]?.verdict).toBe("supported")
+  })
+
+  it("records provider quorum when independent providers support the same candidate", async () => {
+    const searchConfig: SearchApiConfig = { provider: "tavily", apiKey: "test-key" }
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["local", "web-search"],
+      searchConfig,
+      readFileImpl: vi.fn(async () => "# API Claim\n\nThe API claim support remains valid."),
+      webSearchImpl: vi.fn(async () => [{
+        title: "API claim support",
+        url: "https://example.com/api",
+        snippet: "API claim support remains valid.",
+        source: "example.com",
+      }]),
+    })
+
+    expect(report.results[0]?.evidenceMatrix).toMatchObject({
+      quorumStatus: "met",
+      supportProviderCount: 2,
+      independentEvidenceCount: 2,
+    })
+    expect(report.summary.quorumCounts.met).toBe(1)
   })
 })

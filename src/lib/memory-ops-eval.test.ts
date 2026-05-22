@@ -4,6 +4,7 @@ import {
   runMemoryOpsEval,
   summarizeEvalMetrics,
 } from "./memory-ops-eval"
+import { DEFAULT_MEMORY_OPS_POLICY } from "./memory-ops-policy"
 import type { MemoryOpsPatrolReport } from "./memory-ops-types"
 
 function report(ids: string[]): MemoryOpsPatrolReport {
@@ -59,6 +60,7 @@ describe("memory ops eval", () => {
     expect(metrics.precision).toBe(1)
     expect(metrics.recall).toBe(1)
     expect(metrics.f1).toBe(1)
+    expect(metrics.patrolScore).toBe(0.95)
   })
 
   it("runs with an injected patrol runner", async () => {
@@ -86,6 +88,7 @@ describe("memory ops eval", () => {
     expect(evalReport.metrics.failedCaseCount).toBe(0)
     expect(evalReport.metrics.precision).toBe(1)
     expect(evalReport.metrics.recall).toBe(1)
+    expect(evalReport.metrics.patrolScore).toBe(0.95)
     expect(evalReport.gate).toMatchObject({
       status: "pass",
       decision: "keep",
@@ -107,5 +110,27 @@ describe("memory ops eval", () => {
     expect(evalReport.gate.status).toBe("fail")
     expect(evalReport.gate.decision).toBe("discard")
     expect(evalReport.gate.reasons.join(" ")).toContain("failing eval case")
+  })
+
+  it("discards policy variants that regress against the baseline score", async () => {
+    const strict = {
+      ...DEFAULT_MEMORY_OPS_POLICY,
+      promotion: {
+        ...DEFAULT_MEMORY_OPS_POLICY.promotion,
+        minSources: 10,
+        minReinforcement: 10,
+      },
+    }
+    const evalReport = await runMemoryOpsEval("/project", {
+      variants: [{ id: "strict", title: "Over-strict", policy: strict }],
+      now: new Date("2026-05-21T00:00:00.000Z"),
+    })
+
+    expect(evalReport.variants?.[0]?.scoreDelta).toBeLessThan(0)
+    expect(evalReport.variants?.[0]?.decision).toMatchObject({
+      status: "fail",
+      decision: "discard",
+      baselineScore: evalReport.metrics.patrolScore,
+    })
   })
 })

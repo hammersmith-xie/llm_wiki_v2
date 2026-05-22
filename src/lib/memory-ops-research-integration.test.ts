@@ -49,6 +49,12 @@ describe("memory ops research integration", () => {
           insufficient: 0,
           unavailable: 0,
         },
+        quorumCounts: {
+          met: 0,
+          weak: 0,
+          conflict: 0,
+          unavailable: 1,
+        },
       },
       warnings: [],
       results: [{
@@ -66,12 +72,20 @@ describe("memory ops research integration", () => {
         confidence: 0.75,
         evidence: [],
         providerResults: [],
+        evidenceMatrix: {
+          quorumStatus: "unavailable",
+          supportProviderCount: 0,
+          contradictionProviderCount: 0,
+          independentEvidenceCount: 0,
+          providers: [],
+        },
         warnings: [],
       }],
     }
 
     const enriched = enrichMemoryOpsSuggestionsWithResearch([suggestion], report)
     expect(enriched[0]?.research?.verdict).toBe("contradicted")
+    expect(enriched[0]?.research?.quorumStatus).toBe("unavailable")
     expect(enriched[0]?.reasons).toContain("research verdict contradicted (0 evidence items)")
 
     const summary = summarizeMemoryOpsResearchIntegration(report, enriched)

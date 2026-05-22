@@ -129,10 +129,11 @@ async function runVariantComparisons(
       id: variant.id,
       title: variant.title,
       metrics,
+      scoreDelta: roundMetric(metrics.patrolScore - baseline.patrolScore),
       precisionDelta: roundMetric(metrics.precision - baseline.precision),
       recallDelta: roundMetric(metrics.recall - baseline.recall),
       f1Delta: roundMetric(metrics.f1 - baseline.f1),
-      decision: evaluateEvalGate(metrics, cases),
+      decision: evaluateEvalGate(metrics, cases, baseline),
     })
   }
   return results
@@ -146,6 +147,7 @@ export function summarizeEvalMetrics(
   const matchedSuggestionCount = sum(results, (item) => item.matchedCount)
   const falsePositiveCount = sum(results, (item) => item.falsePositiveCount)
   const falseNegativeCount = sum(results, (item) => item.falseNegativeCount)
+  const safePatchCount = sum(results, (item) => item.safePatchCount)
   const expectedCategoryCoverage = mergeCategoryCounts(
     results.map((item) => categoryCounts(item.missingSuggestionIds.concat(
       item.actualSuggestionIds.filter((id) => !item.unexpectedSuggestionIds.includes(id)),
@@ -157,6 +159,16 @@ export function summarizeEvalMetrics(
   const precision = ratio(matchedSuggestionCount, actualSuggestionCount)
   const recall = ratio(matchedSuggestionCount, expectedSuggestionCount)
   const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0
+  const exactPassRate = ratio(results.filter((item) => item.passed).length, results.length)
+  const safetyRate = actualSuggestionCount > 0
+    ? ratio(safePatchCount, actualSuggestionCount)
+    : 1
+  const patrolScore = roundMetric(
+    f1 * 0.6 +
+    exactPassRate * 0.25 +
+    safetyRate * 0.1 +
+    precision * 0.05,
+  )
 
   return {
     caseCount: results.length,
@@ -167,12 +179,13 @@ export function summarizeEvalMetrics(
     matchedSuggestionCount,
     falsePositiveCount,
     falseNegativeCount,
-    safePatchCount: sum(results, (item) => item.safePatchCount),
+    safePatchCount,
     expectedCategoryCoverage,
     actualCategoryCoverage,
     precision,
     recall,
     f1,
+    patrolScore,
     totalDurationMs: sum(results, (item) => item.durationMs),
   }
 }
@@ -245,6 +258,7 @@ function snapshotWithPolicy(
 function evaluateEvalGate(
   metrics: MemoryOpsEvalMetrics,
   cases: readonly MemoryOpsEvalCase[],
+  baseline?: MemoryOpsEvalMetrics,
 ): MemoryOpsEvalGateDecision {
   const policy = cases.find((evalCase) => evalCase.snapshot)?.snapshot?.policy
   const minPrecision = policy?.eval.minPrecision ?? 0.9
@@ -263,16 +277,23 @@ function evaluateEvalGate(
   if (metrics.failedCaseCount > 0) {
     reasons.push(`${metrics.failedCaseCount} failing eval case${metrics.failedCaseCount === 1 ? "" : "s"}`)
   }
+  if (baseline && metrics.patrolScore < baseline.patrolScore) {
+    reasons.push(`score ${formatMetric(metrics.patrolScore)} below baseline ${formatMetric(baseline.patrolScore)}`)
+  }
   if (reasons.length === 0) {
     return {
       status: "pass",
       decision: "keep",
+      baselineScore: baseline?.patrolScore,
+      candidateScore: metrics.patrolScore,
       reasons: ["eval metrics meet policy thresholds"],
     }
   }
   return {
     status: "fail",
     decision: "discard",
+    baselineScore: baseline?.patrolScore,
+    candidateScore: metrics.patrolScore,
     reasons,
   }
 }

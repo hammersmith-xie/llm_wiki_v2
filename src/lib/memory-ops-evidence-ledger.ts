@@ -49,6 +49,8 @@ export interface MemoryOpsEvidenceLedgerDecision {
   neutralScore: number
   evidenceCount: number
   providerCount: number
+  supportProviderCount: number
+  contradictionProviderCount: number
   recommendation: MemoryOpsEvidenceLedgerRecommendation
   reasons: string[]
 }
@@ -75,6 +77,8 @@ export function decideMemoryOpsEvidenceLedger(
   const supportScore = scoreFor(entries, "support")
   const contradictionScore = scoreFor(entries, "contradict")
   const neutralScore = scoreFor(entries, "neutral") + scoreFor(entries, "unknown") * 0.25
+  const supportProviderCount = providerCountForStance(entries, "support")
+  const contradictionProviderCount = providerCountForStance(entries, "contradict")
   const totalRelevant = supportScore + contradictionScore
   const confidence = totalRelevant > 0
     ? clamp01(0.35 + Math.min(0.55, totalRelevant / 4) + Math.abs(supportScore - contradictionScore) * 0.08)
@@ -92,6 +96,8 @@ export function decideMemoryOpsEvidenceLedger(
     neutralScore: roundScore(neutralScore),
     evidenceCount: entries.length,
     providerCount,
+    supportProviderCount,
+    contradictionProviderCount,
     recommendation,
     reasons: decisionReasons(verdict, supportScore, contradictionScore, neutralScore, entries),
   }
@@ -309,6 +315,13 @@ function scoreFromEvidence(evidence: MemoryOpsResearchEvidenceItem): number {
 
 function providerCountFromEntries(entries: readonly MemoryOpsEvidenceLedgerEntry[]): number {
   return new Set(entries.map((entry) => entry.source)).size
+}
+
+function providerCountForStance(
+  entries: readonly MemoryOpsEvidenceLedgerEntry[],
+  stance: MemoryOpsResearchEvidenceStance,
+): number {
+  return new Set(entries.filter((entry) => entry.stance === stance).map((entry) => entry.source)).size
 }
 
 function sourceFromProvider(provider: string): MemoryOpsEvidenceLedgerSource {

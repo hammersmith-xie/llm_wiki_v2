@@ -58,12 +58,37 @@ export interface MemoryOpsResearchProviderResult {
   durationMs: number
 }
 
+export type MemoryOpsResearchQuorumStatus =
+  | "met"
+  | "weak"
+  | "conflict"
+  | "unavailable"
+
+export interface MemoryOpsResearchEvidenceMatrixProvider {
+  provider: string
+  status: MemoryOpsResearchProviderResult["status"]
+  support: number
+  contradict: number
+  neutral: number
+  unknown: number
+  evidenceCount: number
+}
+
+export interface MemoryOpsResearchEvidenceMatrix {
+  quorumStatus: MemoryOpsResearchQuorumStatus
+  supportProviderCount: number
+  contradictionProviderCount: number
+  independentEvidenceCount: number
+  providers: MemoryOpsResearchEvidenceMatrixProvider[]
+}
+
 export interface MemoryOpsResearchCandidateResult {
   candidate: Omit<MemoryOpsResearchCandidate, "source">
   verdict: MemoryOpsResearchVerdict
   confidence: number
   evidence: MemoryOpsResearchEvidenceItem[]
   providerResults: MemoryOpsResearchProviderResult[]
+  evidenceMatrix: MemoryOpsResearchEvidenceMatrix
   warnings: string[]
 }
 
@@ -75,12 +100,20 @@ export interface MemoryOpsResearchVerdictCounts {
   unavailable: number
 }
 
+export interface MemoryOpsResearchQuorumCounts {
+  met: number
+  weak: number
+  conflict: number
+  unavailable: number
+}
+
 export interface MemoryOpsResearchReportSummary {
   candidateCount: number
   evidenceCount: number
   providerCount: number
   warningCount: number
   verdictCounts: MemoryOpsResearchVerdictCounts
+  quorumCounts: MemoryOpsResearchQuorumCounts
 }
 
 export interface MemoryOpsResearchEvidenceReport {
@@ -113,6 +146,10 @@ export interface MemoryOpsResearchSuggestionSummary {
   contradictionScore?: number
   neutralScore?: number
   recommendation?: "apply" | "review" | "defer" | "research" | "ignore"
+  quorumStatus?: MemoryOpsResearchQuorumStatus
+  supportProviderCount?: number
+  contradictionProviderCount?: number
+  independentEvidenceCount?: number
   reasons?: string[]
 }
 
@@ -126,16 +163,27 @@ export function emptyResearchVerdictCounts(): MemoryOpsResearchVerdictCounts {
   }
 }
 
+export function emptyResearchQuorumCounts(): MemoryOpsResearchQuorumCounts {
+  return {
+    met: 0,
+    weak: 0,
+    conflict: 0,
+    unavailable: 0,
+  }
+}
+
 export function summarizeResearchResults(
   results: readonly MemoryOpsResearchCandidateResult[],
 ): MemoryOpsResearchReportSummary {
   const verdictCounts = emptyResearchVerdictCounts()
+  const quorumCounts = emptyResearchQuorumCounts()
   const providers = new Set<string>()
   let evidenceCount = 0
   let warningCount = 0
 
   for (const result of results) {
     verdictCounts[result.verdict] += 1
+    quorumCounts[result.evidenceMatrix.quorumStatus] += 1
     evidenceCount += result.evidence.length
     warningCount += result.warnings.length
     for (const provider of result.providerResults) {
@@ -149,5 +197,6 @@ export function summarizeResearchResults(
     providerCount: providers.size,
     warningCount,
     verdictCounts,
+    quorumCounts,
   }
 }

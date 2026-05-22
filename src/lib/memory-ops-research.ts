@@ -10,9 +10,12 @@ import type {
   MemoryOpsResearchCandidate,
   MemoryOpsResearchCandidateResult,
   MemoryOpsResearchEvidenceItem,
+  MemoryOpsResearchEvidenceMatrix,
+  MemoryOpsResearchEvidenceMatrixProvider,
   MemoryOpsResearchEvidenceReport,
   MemoryOpsResearchProviderKind,
   MemoryOpsResearchProviderResult,
+  MemoryOpsResearchQuorumStatus,
   MemoryOpsResearchRunOptions,
 } from "@/lib/memory-ops-research-types"
 import { summarizeResearchResults } from "@/lib/memory-ops-research-types"
@@ -91,6 +94,7 @@ function buildCandidateResult(
       ...sanitizeEvidenceItem(candidate, item),
     })),
   }))
+  const evidenceMatrix = buildEvidenceMatrix(providerResultsForReport)
   const provisional: MemoryOpsResearchCandidateResult = {
     candidate: {
       ...auditSafeCandidate,
@@ -103,6 +107,7 @@ function buildCandidateResult(
     confidence: 0,
     evidence: sanitizedEvidence,
     providerResults: providerResultsForReport,
+    evidenceMatrix,
     warnings: providerResults.flatMap((result) => result.warnings),
   }
   const decision = providerResults.every((result) => result.status === "unavailable")
@@ -112,7 +117,53 @@ function buildCandidateResult(
     ...provisional,
     verdict: decision?.verdict ?? "unavailable",
     confidence: decision?.confidence ?? 0,
+    evidenceMatrix,
   }
+}
+
+function buildEvidenceMatrix(
+  providerResults: readonly MemoryOpsResearchProviderResult[],
+): MemoryOpsResearchEvidenceMatrix {
+  const providers = providerResults.map(providerMatrix)
+  const supportProviderCount = providers.filter((provider) => provider.support > 0).length
+  const contradictionProviderCount = providers.filter((provider) => provider.contradict > 0).length
+  const independentEvidenceCount = providers.filter((provider) => provider.evidenceCount > 0).length
+  return {
+    quorumStatus: quorumStatus(
+      supportProviderCount,
+      contradictionProviderCount,
+      independentEvidenceCount,
+    ),
+    supportProviderCount,
+    contradictionProviderCount,
+    independentEvidenceCount,
+    providers,
+  }
+}
+
+function providerMatrix(
+  result: MemoryOpsResearchProviderResult,
+): MemoryOpsResearchEvidenceMatrixProvider {
+  return {
+    provider: result.provider,
+    status: result.status,
+    support: result.evidence.filter((item) => item.stance === "support").length,
+    contradict: result.evidence.filter((item) => item.stance === "contradict").length,
+    neutral: result.evidence.filter((item) => item.stance === "neutral").length,
+    unknown: result.evidence.filter((item) => item.stance === "unknown").length,
+    evidenceCount: result.evidence.length,
+  }
+}
+
+function quorumStatus(
+  supportProviderCount: number,
+  contradictionProviderCount: number,
+  independentEvidenceCount: number,
+): MemoryOpsResearchQuorumStatus {
+  if (supportProviderCount > 0 && contradictionProviderCount > 0) return "conflict"
+  if (independentEvidenceCount === 0) return "unavailable"
+  if (supportProviderCount >= 2 || contradictionProviderCount >= 2) return "met"
+  return "weak"
 }
 
 function sanitizeEvidenceItem(

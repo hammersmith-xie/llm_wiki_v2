@@ -53,9 +53,11 @@ export async function loadLatestMemoryOpsEvalReport(
 }
 
 function normalizeEvalReport(report: MemoryOpsEvalReport): MemoryOpsEvalReport {
+  const metrics = normalizeMetrics(report.metrics)
   return {
     ...report,
-    gate: report.gate ?? legacyGateDecision(report.metrics),
+    metrics,
+    gate: report.gate ?? legacyGateDecision(metrics),
     variants: report.variants?.map(normalizeVariantResult),
   }
 }
@@ -63,17 +65,29 @@ function normalizeEvalReport(report: MemoryOpsEvalReport): MemoryOpsEvalReport {
 function normalizeVariantResult(
   variant: MemoryOpsEvalVariantResult,
 ): MemoryOpsEvalVariantResult {
+  const metrics = normalizeMetrics(variant.metrics)
   return {
     ...variant,
-    decision: variant.decision ?? legacyGateDecision(variant.metrics),
+    metrics,
+    scoreDelta: Number.isFinite(variant.scoreDelta) ? variant.scoreDelta : 0,
+    decision: variant.decision ?? legacyGateDecision(metrics),
+  }
+}
+
+function normalizeMetrics(metrics: MemoryOpsEvalMetrics): MemoryOpsEvalMetrics {
+  return {
+    ...metrics,
+    patrolScore: legacyPatrolScore(metrics),
   }
 }
 
 function legacyGateDecision(metrics: MemoryOpsEvalMetrics): MemoryOpsEvalGateDecision {
+  const patrolScore = legacyPatrolScore(metrics)
   if (metrics.failedCaseCount === 0) {
     return {
       status: "pass",
       decision: "keep",
+      candidateScore: patrolScore,
       reasons: ["legacy eval report passed all cases"],
     }
   }
@@ -81,8 +95,25 @@ function legacyGateDecision(metrics: MemoryOpsEvalMetrics): MemoryOpsEvalGateDec
   return {
     status: "fail",
     decision: "discard",
+    candidateScore: patrolScore,
     reasons: [`legacy eval report has ${metrics.failedCaseCount} failing case(s)`],
   }
+}
+
+function legacyPatrolScore(metrics: MemoryOpsEvalMetrics): number {
+  if (Number.isFinite(metrics.patrolScore)) return metrics.patrolScore
+  const exactPassRate = metrics.caseCount > 0
+    ? metrics.passedCaseCount / metrics.caseCount
+    : 1
+  const safetyRate = metrics.actualSuggestionCount > 0
+    ? metrics.safePatchCount / metrics.actualSuggestionCount
+    : 1
+  return Math.round((
+    metrics.f1 * 0.6 +
+    exactPassRate * 0.25 +
+    safetyRate * 0.1 +
+    metrics.precision * 0.05
+  ) * 1000) / 1000
 }
 
 async function appendEvalAuditSafely(

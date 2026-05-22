@@ -45,11 +45,13 @@ const report: MemoryOpsEvalReport = {
     precision: 1,
     recall: 1,
     f1: 1,
+    patrolScore: 1,
     totalDurationMs: 1,
   },
   gate: {
     status: "pass",
     decision: "keep",
+    candidateScore: 1,
     reasons: ["eval metrics meet policy thresholds"],
   },
   cases: [],
@@ -72,15 +74,17 @@ describe("memory ops eval store", () => {
 
   it("normalizes legacy reports without an experiment gate", async () => {
     const { gate: _gate, ...legacyReport } = report
+    const { patrolScore: _score, ...legacyMetrics } = report.metrics
     files.set(
       memoryOpsEvalLatestReportPath("/project"),
       JSON.stringify({
         ...legacyReport,
+        metrics: legacyMetrics,
         variants: [
           {
             id: "variant_legacy",
             title: "Legacy variant",
-            metrics: report.metrics,
+            metrics: legacyMetrics,
             precisionDelta: 0,
             recallDelta: 0,
             f1Delta: 0,
@@ -94,9 +98,11 @@ describe("memory ops eval store", () => {
       status: "pass",
       decision: "keep",
     })
+    expect(loaded?.metrics.patrolScore).toBe(1)
     expect(loaded?.variants?.[0]?.decision).toMatchObject({
       status: "pass",
       decision: "keep",
     })
+    expect(loaded?.variants?.[0]?.metrics.patrolScore).toBe(1)
   })
 })

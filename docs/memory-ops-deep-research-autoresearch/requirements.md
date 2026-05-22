@@ -198,6 +198,31 @@ Acceptance:
 - Built-in fixtures produce `pass` / `keep`.
 - Deliberately wrong runners produce `fail` / `discard`.
 
+### F10. Deep Research Evidence Quorum
+
+- Each candidate research result must include a provider-by-provider stance matrix.
+- The matrix must count support, contradiction, neutral, unknown, and total evidence per provider.
+- Candidate results must classify quorum as `met`, `weak`, `conflict`, or `unavailable`.
+- Warning-level metadata patches with only weak supporting quorum must remain visible but blocked from apply.
+
+Acceptance:
+
+- Local-only support is `weak`; independent local + web support is `met`.
+- Support and contradiction across providers is `conflict`.
+- Decision gate tests prove weak quorum blocks warning metadata patches.
+
+### F11. AutoResearch Scorecard
+
+- Eval metrics must include a single patrol score that combines F1, exact-case pass rate, safe patch rate, and precision.
+- Policy variants must report score delta against the baseline run.
+- Variant keep/discard decisions must fail when candidate score regresses below baseline.
+- UI summaries must expose patrol score and variant score deltas.
+
+Acceptance:
+
+- Built-in baseline reports a deterministic patrol score.
+- A deliberately regressing policy variant reports negative score delta and `discard`.
+
 ## Non-functional Requirements
 
 - Determinism: built-in eval fixtures must not require network, real LLM calls, timers, or local user data.
@@ -223,14 +248,17 @@ flowchart TD
   Candidates["Research Candidate Selector"] --> Plan["Research Plan"]
   Plan --> LocalEvidence["Local/wiki/graph/claim evidence"]
   Plan --> WebEvidence["Web/deep search evidence"]
-  LocalEvidence --> Ledger
-  WebEvidence --> Ledger
+  LocalEvidence --> Matrix["Evidence Provider Matrix"]
+  WebEvidence --> Matrix
+  Matrix --> Ledger
   Ledger --> ResearchReport["Research Evidence Report"]
 
   Fixtures["Built-in Eval Snapshots"] --> Engine
   PolicyVariants["Policy Variants"] --> Engine
-  Engine --> EvalMetrics["Precision / Recall / F1 / Safety"]
+  Engine --> EvalMetrics["Precision / Recall / F1 / Safety / Score"]
   EvalMetrics --> EvalGate["AutoResearch Gate"]
+  EvalMetrics --> Scorecard["Baseline-vs-Variant Scorecard"]
+  Scorecard --> EvalGate
   EvalGate --> EvalReport["AutoResearch Eval Report"]
   Ledger --> DecisionGate["Suggestion Decision Gate"]
   DecisionGate --> Suggestions
@@ -248,6 +276,8 @@ flowchart TD
 - Do not make patrol network-dependent.
 - Use `research-report` evidence as cached cross-validation during patrol.
 - Block apply when research contradicts a metadata patch; keep the suggestion visible as review work.
+- Treat single-provider support for warning patches as insufficient quorum, not as apply-ready evidence.
 - Treat AutoResearch as an experiment gate: good policies are kept, regressing policies are discarded.
+- Use one patrol score as the AutoResearch optimization signal so policy variants are comparable.
 - Make all new default evals deterministic and fast.
 - Add more fields as optional to avoid breaking old persisted reports.

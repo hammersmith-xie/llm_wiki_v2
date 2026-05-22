@@ -223,3 +223,41 @@ Each review writes `review-round-N.md` with findings and fixes.
     - `npm run typecheck` passed.
     - `npm run test:mocks` passed: 172 files, 1568 tests.
     - New/modified Memory Ops source files are under 400 lines after splitting decision/category UI helpers.
+
+## M11. Third Deepening Pass: Quorum + Scorecard
+
+- ✅ T49. Add provider evidence matrix and quorum classification.
+  - Depends: M4.
+  - Blocks: T50.
+  - Notes:
+    - Research results now carry per-provider support/contradict/neutral/unknown counts.
+    - Summary includes quorum counts: met, weak, conflict, unavailable.
+
+- ✅ T50. Wire quorum into suggestion decision gate.
+  - Depends: T49.
+  - Blocks: T53.
+  - Notes:
+    - Warning metadata patches with only weak supporting quorum are blocked as `needs-research`.
+
+- ✅ T51. Add AutoResearch patrol score.
+  - Depends: M5.
+  - Blocks: T52.
+  - Notes:
+    - Score combines F1, exact-case pass rate, safe patch rate, and precision.
+
+- ✅ T52. Add baseline-aware variant score deltas.
+  - Depends: T51.
+  - Blocks: T53.
+  - Notes:
+    - Variant gates now discard candidates whose patrol score regresses below baseline.
+
+- ✅ T53. Surface quorum and scorecard in UI/i18n.
+  - Depends: T49-T52.
+  - Blocks: T54.
+
+- ✅ T54. Run final validation, size scan, review round 12, and commit.
+  - Depends: T53.
+  - Notes:
+    - `npm run typecheck` passed.
+    - `npm run test:mocks` passed: 172 files, 1571 tests.
+    - New/modified Memory Ops source files remain under 400 lines.

@@ -62,6 +62,24 @@ export function decideMemoryOpsSuggestion(
     }
   }
 
+  if (
+    research &&
+    suggestion.severity === "warning" &&
+    research.verdict === "supported" &&
+    research.quorumStatus === "weak"
+  ) {
+    return {
+      kind: "needs-research",
+      applyAllowed: false,
+      batchAllowed: false,
+      confidence: research.confidence,
+      reasons: [
+        "supported research has only weak provider quorum",
+        `${research.supportProviderCount ?? 0} support provider(s), ${research.independentEvidenceCount ?? 0} evidence provider(s)`,
+      ],
+    }
+  }
+
   return {
     kind: "ready",
     applyAllowed: true,

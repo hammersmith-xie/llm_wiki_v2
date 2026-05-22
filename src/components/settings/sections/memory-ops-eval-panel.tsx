@@ -92,6 +92,14 @@ export function MemoryOpsEvalPanel({
                 <div key={variant.id} className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-border/60 pt-1 first:border-t-0 first:pt-0">
                   <span className="break-words">{variant.title}</span>
                   <span className="text-muted-foreground">
+                    {t("settings.sections.maintenance.eval.score", {
+                      n: formatPct(variant.metrics.patrolScore),
+                    })}
+                  </span>
+                  <span className="text-muted-foreground">
+                    Δ {formatSignedPct(variant.scoreDelta)}
+                  </span>
+                  <span className="text-muted-foreground">
                     {t("settings.sections.maintenance.eval.f1", {
                       n: formatPct(variant.metrics.f1),
                     })}
@@ -205,6 +213,7 @@ function EvalSummary({ report }: { report: MemoryOpsEvalReport }) {
         <span>{t("settings.sections.maintenance.eval.precision", { n: formatPct(report.metrics.precision) })}</span>
         <span>{t("settings.sections.maintenance.eval.recall", { n: formatPct(report.metrics.recall) })}</span>
         <span>{t("settings.sections.maintenance.eval.f1", { n: formatPct(report.metrics.f1) })}</span>
+        <span>{t("settings.sections.maintenance.eval.score", { n: formatPct(report.metrics.patrolScore) })}</span>
         <span>{t("settings.sections.maintenance.eval.safePatches", { n: report.metrics.safePatchCount })}</span>
         <span>{t(`settings.sections.maintenance.eval.decisions.${report.gate.decision}`)}</span>
       </div>

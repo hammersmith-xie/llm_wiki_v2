@@ -205,6 +205,9 @@ function ResearchSummary({ report }: { report: MemoryOpsResearchEvidenceReport }
         <span>{t("settings.sections.maintenance.research.mixed", { n: counts.mixed })}</span>
         <span>{t("settings.sections.maintenance.research.insufficient", { n: counts.insufficient })}</span>
         <span>{t("settings.sections.maintenance.research.unavailable", { n: counts.unavailable })}</span>
+        <span>{t("settings.sections.maintenance.research.quorumMet", { n: report.summary.quorumCounts.met })}</span>
+        <span>{t("settings.sections.maintenance.research.quorumWeak", { n: report.summary.quorumCounts.weak })}</span>
+        <span>{t("settings.sections.maintenance.research.quorumConflict", { n: report.summary.quorumCounts.conflict })}</span>
       </div>
     </div>
   )

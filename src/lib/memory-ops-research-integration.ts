@@ -95,6 +95,10 @@ export function enrichMemoryOpsSuggestionsWithResearch(
       contradictionScore: decision.contradictionScore,
       neutralScore: decision.neutralScore,
       recommendation: decision.recommendation,
+      quorumStatus: result.evidenceMatrix.quorumStatus,
+      supportProviderCount: result.evidenceMatrix.supportProviderCount,
+      contradictionProviderCount: result.evidenceMatrix.contradictionProviderCount,
+      independentEvidenceCount: result.evidenceMatrix.independentEvidenceCount,
       reasons: decision.reasons,
     }
     return {
