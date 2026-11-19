@@ -1,5 +1,5 @@
 import type { CustomApiMode } from "./llm-presets"
-import type { NetworkPolicyConfig, ReasoningConfig } from "@/stores/wiki-store"
+import type { NetworkPolicyConfig, ReasoningConfig, SourceWatchConfig } from "@/stores/wiki-store"
 
 /**
  * Shape of the draft state each section reads from and writes into.
@@ -9,7 +9,7 @@ import type { NetworkPolicyConfig, ReasoningConfig } from "@/stores/wiki-store"
  */
 export interface SettingsDraft {
   // LLM provider
-  provider: "openai" | "anthropic" | "google" | "ollama" | "custom" | "minimax" | "claude-code"
+  provider: "openai" | "anthropic" | "google" | "ollama" | "custom" | "minimax" | "claude-code" | "codex-cli"
   apiKey: string
   model: string
   ollamaUrl: string
@@ -27,11 +27,13 @@ export interface SettingsDraft {
   embeddingMaxChunkChars: number | undefined
   /** Overlap characters between adjacent chunks. Empty = default (200). */
   embeddingOverlapChunkChars: number | undefined
+  /** Optional output dimension for Gemini native embeddings. */
+  embeddingOutputDimensionality: number | undefined
 
   // Multimodal (image captioning at ingest time)
   multimodalEnabled: boolean
   multimodalUseMainLlm: boolean
-  multimodalProvider: "openai" | "anthropic" | "google" | "ollama" | "custom" | "minimax" | "claude-code"
+  multimodalProvider: "openai" | "anthropic" | "google" | "ollama" | "custom" | "minimax" | "claude-code" | "codex-cli"
   multimodalApiKey: string
   multimodalModel: string
   multimodalOllamaUrl: string
@@ -50,6 +52,19 @@ export interface SettingsDraft {
   proxyUrl: string
   proxyBypassLocal: boolean
   networkPolicyConfig: NetworkPolicyConfig
+
+  // Source folder auto watch
+  sourceWatchConfig: SourceWatchConfig
+
+  // Scheduled import
+  scheduledImportEnabled: boolean
+  scheduledImportPath: string
+  scheduledImportInterval: number
+
+  // Local API server
+  apiEnabled: boolean
+  apiAllowUnauthenticated: boolean
+  apiToken: string
 
   // UI
   uiLanguage: string

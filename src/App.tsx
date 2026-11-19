@@ -6,7 +6,25 @@ import { useReviewStore } from "@/stores/review-store"
 import { useChatStore } from "@/stores/chat-store"
 import { useActivityStore } from "@/stores/activity-store"
 import { listDirectory, openProject } from "@/commands/fs"
-import { getLastProject, getRecentProjects, saveLastProject, loadLlmConfig, loadLanguage, loadSearchApiConfig, loadEmbeddingConfig, loadMultimodalConfig, loadOutputLanguage, loadProviderConfigs, loadActivePresetId, loadProxyConfig, loadNetworkPolicyConfig } from "@/lib/project-store"
+import {
+  getLastProject,
+  getRecentProjects,
+  saveLastProject,
+  loadLlmConfig,
+  loadLanguage,
+  loadSearchApiConfig,
+  loadEmbeddingConfig,
+  loadMultimodalConfig,
+  loadOutputLanguage,
+  loadProviderConfigs,
+  loadActivePresetId,
+  loadProxyConfig,
+  loadNetworkPolicyConfig,
+  loadApiConfig,
+  loadScheduledImportConfig,
+  saveScheduledImportConfig,
+  loadSourceWatchConfig,
+} from "@/lib/project-store"
 import { hydrateStartupSettings } from "@/lib/startup-settings"
 import { loadReviewItems, loadChatHistory } from "@/lib/persist"
 import { setupAutoSave } from "@/lib/auto-save"
@@ -193,6 +211,7 @@ function App() {
             loadMultimodalConfig,
             loadProxyConfig,
             loadNetworkPolicyConfig,
+            loadApiConfig,
           },
           store: useWikiStore.getState(),
           resolveActivePreset: async (activePresetId, providerConfigs, fallback) => {
@@ -265,17 +284,68 @@ function App() {
     // Restore ingest queue (resume interrupted tasks). Keyed by the
     // project's stable UUID so the queue still finds the right project
     // even if the filesystem path changed since the task was enqueued.
-    import("@/lib/ingest-queue").then(({ restoreQueue }) => {
-      restoreQueue(proj.id, proj.path).catch((err) =>
-        console.error("Failed to restore ingest queue:", err)
-      )
-    })
+    // Await this before starting file sync: watcher events for raw/sources
+    // may enqueue ingest tasks and require an active project queue.
+    try {
+      const { restoreQueue } = await import("@/lib/ingest-queue")
+      await restoreQueue(proj.id, proj.path)
+    } catch (err) {
+      console.error("Failed to restore ingest queue:", err)
+    }
     // Same handshake for the dedup-merge queue.
     import("@/lib/dedup-queue").then(({ restoreQueue }) => {
       restoreQueue(proj.id, proj.path).catch((err) =>
         console.error("Failed to restore dedup queue:", err)
       )
     })
+    try {
+      const savedScheduledImport = await loadScheduledImportConfig(proj.path)
+      if (savedScheduledImport) {
+        let path = savedScheduledImport.path
+        if (path && !path.startsWith("/") && !path.match(/^[a-zA-Z]:[/\\]/)) {
+          path = `${proj.path}/${path}`
+        }
+        useWikiStore.getState().setScheduledImportConfig({
+          ...savedScheduledImport,
+          path,
+        })
+      } else {
+        useWikiStore.getState().setScheduledImportConfig({
+          enabled: false,
+          path: `${proj.path}/raw/sources`,
+          interval: 60,
+          lastScan: null,
+        })
+      }
+    } catch {
+      useWikiStore.getState().setScheduledImportConfig({
+        enabled: false,
+        path: `${proj.path}/raw/sources`,
+        interval: 60,
+        lastScan: null,
+      })
+    }
+    const scheduledImportConfig = useWikiStore.getState().scheduledImportConfig
+    if (scheduledImportConfig.enabled && scheduledImportConfig.path && scheduledImportConfig.interval > 0) {
+      import("@/lib/scheduled-import").then(({ startScheduledImport }) => {
+        startScheduledImport(proj, scheduledImportConfig)
+      }).catch((err) =>
+        console.error("Failed to start scheduled import:", err)
+      )
+    }
+    // Start project file watcher after the active project is set and
+    // ingest queues know their project id.
+    import("@/lib/project-file-sync").then(async ({ startProjectFileSync, stopProjectFileSync }) => {
+      const config = await loadSourceWatchConfig(proj.id)
+      useWikiStore.getState().setSourceWatchConfig(config)
+      if (config.enabled) {
+        await startProjectFileSync(proj, config)
+      } else {
+        await stopProjectFileSync()
+      }
+    }).catch((err) =>
+      console.error("Failed to configure project file sync:", err)
+    )
     // Notify local clip server of the current project + all recent projects
     fetch("http://127.0.0.1:19827/project", {
       method: "POST",
@@ -349,6 +419,16 @@ function App() {
   }
 
   async function handleSwitchProject() {
+    import("@/lib/scheduled-import").then(({ stopScheduledImport }) => {
+      stopScheduledImport()
+    }).catch(() => {})
+
+    const currentProject = useWikiStore.getState().project
+    if (currentProject) {
+      const currentConfig = useWikiStore.getState().scheduledImportConfig
+      saveScheduledImportConfig(currentProject.path, currentConfig).catch(() => {})
+    }
+
     // Clear all per-project state BEFORE flipping back to the welcome screen
     // so old data cannot leak in via any async render pass.
     const { resetProjectState } = await import("@/lib/reset-project-state")

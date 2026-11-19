@@ -1,0 +1,160 @@
+import { describe, expect, it, vi } from "vitest"
+import { runMemoryOpsResearchEvidence } from "./memory-ops-research"
+import type { MemoryOpsResearchCandidate } from "./memory-ops-research-types"
+import type { SearchApiConfig } from "@/stores/wiki-store"
+
+const candidate: MemoryOpsResearchCandidate = {
+  id: "suggestion:test",
+  kind: "suggestion",
+  targetPath: "wiki/test.md",
+  title: "Review stale API claim",
+  query: "API claim support",
+  summary: "The API claim may be stale.",
+  reasons: ["stale claim"],
+  suggestionId: "test",
+}
+
+describe("memory ops research evidence", () => {
+  it("runs local evidence without web configuration", async () => {
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["local"],
+      readFileImpl: vi.fn(async () => "---\ntitle: API Claim\n---\n\n# API Claim\n\nThe API claim has support."),
+      now: new Date("2026-05-21T00:00:00.000Z"),
+    })
+
+    expect(report.summary.candidateCount).toBe(1)
+    expect(report.summary.evidenceCount).toBe(1)
+    expect(report.summary.quorumCounts.weak).toBe(1)
+    expect(report.results[0]?.verdict).toBe("supported")
+    expect(report.results[0]?.evidenceMatrix.quorumStatus).toBe("weak")
+    expect(report.results[0]?.evidence[0]?.path).toBe("wiki/test.md")
+  })
+
+  it("marks web search unavailable when provider is not configured", async () => {
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["web-search"],
+      searchConfig: { provider: "none", apiKey: "" },
+    })
+
+    expect(report.results[0]?.verdict).toBe("unavailable")
+    expect(report.results[0]?.warnings[0]).toContain("not configured")
+  })
+
+  it("normalizes web search results into evidence", async () => {
+    const searchConfig: SearchApiConfig = { provider: "tavily", apiKey: "test-key" }
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["web-search"],
+      searchConfig,
+      webSearchImpl: vi.fn(async () => [{
+        title: "API claim support",
+        url: "https://example.com/api",
+        snippet: "API claim support remains valid.",
+        source: "example.com",
+      }]),
+    })
+
+    expect(report.results[0]?.verdict).toBe("supported")
+    expect(report.results[0]?.evidence[0]?.url).toBe("https://example.com/api")
+    expect(report.results[0]?.evidenceMatrix.supportProviderCount).toBe(1)
+  })
+
+  it("runs deep research as bounded multi-query web evidence", async () => {
+    const searchConfig: SearchApiConfig = { provider: "tavily", apiKey: "test-key" }
+    const search = vi.fn(async (query: string) => [{
+      title: query.includes("latest") ? "Latest API evidence" : "API claim support",
+      url: query.includes("latest")
+        ? "https://example.com/latest"
+        : "https://example.com/api",
+      snippet: "API claim support remains valid.",
+      source: "example.com",
+    }])
+
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["deep-research"],
+      searchConfig,
+      webSearchImpl: search,
+      maxResultsPerProvider: 2,
+    })
+
+    expect(search).toHaveBeenCalledTimes(3)
+    expect(search.mock.calls.map((call) => call[0]).join(" ")).toContain("contradiction")
+    expect(report.results[0]?.providerResults[0]?.provider).toBe("deep-research")
+    expect(report.results[0]?.evidence).toHaveLength(2)
+    expect(report.results[0]?.verdict).toBe("supported")
+  })
+
+  it("uses snapshot local evidence before reading files", async () => {
+    const read = vi.fn(async () => {
+      throw new Error("should not read")
+    })
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["local"],
+      readFileImpl: read,
+      snapshot: {
+        projectPath: "/project",
+        policy: {
+          research: { defaultProviders: ["local"] },
+        },
+        pages: [{
+          id: "test",
+          fileName: "test.md",
+          path: "/project/wiki/test.md",
+          content: "---\ntitle: API Claim\n---\n\n# API Claim\n\nAPI claim support remains valid.",
+          frontmatter: null,
+        }],
+        claims: [],
+        graph: { nodes: new Map(), edges: [], adjacency: new Map(), dataVersion: 0 },
+      } as never,
+    })
+
+    expect(read).not.toHaveBeenCalled()
+    expect(report.results[0]?.evidence[0]?.path).toBe("wiki/test.md")
+    expect(report.results[0]?.verdict).toBe("supported")
+  })
+
+  it("records provider quorum when independent providers support the same candidate", async () => {
+    const searchConfig: SearchApiConfig = { provider: "tavily", apiKey: "test-key" }
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["local", "web-search"],
+      searchConfig,
+      readFileImpl: vi.fn(async () => "# API Claim\n\nThe API claim support remains valid."),
+      webSearchImpl: vi.fn(async () => [{
+        title: "API claim support",
+        url: "https://example.com/api",
+        snippet: "API claim support remains valid.",
+        source: "example.com",
+      }]),
+    })
+
+    expect(report.results[0]?.evidenceMatrix).toMatchObject({
+      quorumStatus: "met",
+      supportProviderCount: 2,
+      independentEvidenceCount: 2,
+      uniqueSourceCount: 2,
+      sourceDiversityScore: 1,
+    })
+    expect(report.summary.uniqueSourceCount).toBe(2)
+    expect(report.summary.quorumCounts.met).toBe(1)
+  })
+
+  it("does not count two providers pointing at the same web host as diverse evidence", async () => {
+    const searchConfig: SearchApiConfig = { provider: "tavily", apiKey: "test-key" }
+    const report = await runMemoryOpsResearchEvidence("/project", [candidate], {
+      providers: ["web-search", "deep-research"],
+      searchConfig,
+      webSearchImpl: vi.fn(async () => [{
+        title: "API claim support",
+        url: "https://same.example.com/api",
+        snippet: "API claim support remains valid.",
+        source: "same.example.com",
+      }]),
+    })
+
+    expect(report.results[0]?.evidenceMatrix).toMatchObject({
+      quorumStatus: "weak",
+      supportProviderCount: 2,
+      uniqueSourceCount: 1,
+    })
+    expect(report.summary.quorumCounts.weak).toBe(1)
+  })
+})

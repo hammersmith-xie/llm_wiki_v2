@@ -20,6 +20,7 @@ import { getHtmlLang, getTextDirection } from "@/lib/language-metadata"
 import { MermaidDiagram, unwrapMermaidPre } from "@/components/mermaid-diagram"
 import { scoreCrystallizationCandidate } from "@/lib/crystallize-candidates"
 import { CrystallizationDigestPreview } from "@/components/crystallization-digest-preview"
+import { hasConfiguredSearchProvider } from "@/lib/web-search"
 
 export function ResearchPanel() {
   const tasks = useResearchStore((s) => s.tasks)
@@ -37,8 +38,8 @@ export function ResearchPanel() {
   function handleStartResearch() {
     const topic = inputValue.trim()
     if (!topic || !project) return
-    if (searchApiConfig.provider === "none" || !searchApiConfig.apiKey) {
-      window.alert("Web Search not configured. Go to Settings → Web Search to add a Tavily or SerpApi API key.")
+    if (!hasConfiguredSearchProvider(searchApiConfig)) {
+      window.alert("Web Search not configured. Go to Settings → Web Search to add a Tavily or SerpApi API key, or a SearXNG instance URL.")
       return
     }
     queueResearch(normalizePath(project.path), topic, llmConfig, searchApiConfig)

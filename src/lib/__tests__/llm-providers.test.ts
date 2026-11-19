@@ -212,6 +212,21 @@ describe("Claude Code CLI provider — not reachable via getProviderConfig", () 
   })
 })
 
+describe("Codex CLI provider — not reachable via getProviderConfig", () => {
+  it("throws, because the subprocess transport dispatches one layer up in streamChat", () => {
+    expect(() =>
+      getProviderConfig({
+        provider: "codex-cli",
+        apiKey: "",
+        model: "gpt-5.4-mini",
+        ollamaUrl: "",
+        customEndpoint: "",
+        maxContextSize: 200000,
+      } as RealLlmConfig),
+    ).toThrow(/subprocess transport/)
+  })
+})
+
 describe("Google provider URL — model path encoding", () => {
   const makeGoogleConfig = (model: string): RealLlmConfig => ({
     provider: "google",
@@ -324,6 +339,77 @@ describe("Sampling override translation across wires", () => {
     expect(body.networkProvider).toBeUndefined()
     expect(body.networkReason).toBeUndefined()
     expect(body.fetchImpl).toBeUndefined()
+  })
+
+  it("OpenAI GPT-5 models use max_completion_tokens and strip unsupported sampling knobs", () => {
+    const cfg = getProviderConfig({
+      provider: "openai",
+      apiKey: "k",
+      model: "gpt-5-nano",
+      ollamaUrl: "",
+      customEndpoint: "",
+      maxContextSize: 128000,
+    })
+    const body = cfg.buildBody(baseMessages, {
+      temperature: 0.1,
+      top_p: 0.8,
+      top_k: 40,
+      max_tokens: 4096,
+    }) as Record<string, unknown>
+
+    expect(body.max_completion_tokens).toBe(4096)
+    expect(body.max_tokens).toBeUndefined()
+    expect(body.temperature).toBeUndefined()
+    expect(body.top_p).toBeUndefined()
+    expect(body.top_k).toBeUndefined()
+  })
+
+  it("OpenAI o-series models use max_completion_tokens", () => {
+    const cfg = getProviderConfig({
+      provider: "openai",
+      apiKey: "k",
+      model: "o3-mini",
+      ollamaUrl: "",
+      customEndpoint: "",
+      maxContextSize: 128000,
+    })
+    const body = cfg.buildBody(baseMessages, { max_tokens: 8192 }) as Record<string, unknown>
+
+    expect(body.max_completion_tokens).toBe(8192)
+    expect(body.max_tokens).toBeUndefined()
+  })
+
+  it("custom OpenAI-compatible GPT-5 routes keep legacy overrides for router shims", () => {
+    const cfg = getProviderConfig({
+      provider: "custom",
+      apiKey: "k",
+      model: "gpt-5.5",
+      ollamaUrl: "",
+      customEndpoint: "https://openrouter.ai/api/v1",
+      apiMode: "chat_completions",
+      maxContextSize: 128000,
+    })
+    const body = cfg.buildBody(baseMessages, { temperature: 0.1, max_tokens: 500 }) as Record<string, unknown>
+
+    expect(body.temperature).toBe(0.1)
+    expect(body.max_tokens).toBe(500)
+    expect(body.max_completion_tokens).toBeUndefined()
+  })
+
+  it("custom Kimi routes strip unsupported temperature overrides", () => {
+    const cfg = getProviderConfig({
+      provider: "custom",
+      apiKey: "k",
+      model: "kimi-k2.6",
+      ollamaUrl: "",
+      customEndpoint: "https://api.moonshot.ai/v1",
+      apiMode: "chat_completions",
+      maxContextSize: 256000,
+    })
+    const body = cfg.buildBody(baseMessages, { temperature: 0.1, max_tokens: 4096 }) as Record<string, unknown>
+
+    expect(body.temperature).toBeUndefined()
+    expect(body.max_tokens).toBe(4096)
   })
 
   it("Anthropic maps stop → stop_sequences and respects max_tokens override", () => {

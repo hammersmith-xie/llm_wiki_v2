@@ -226,6 +226,70 @@ describe("reasoning controls", () => {
     expect(body.chat_template_kwargs).toEqual({ enable_thinking: false })
   })
 
+  it("OpenAI GPT-5 models use max_completion_tokens and strip unsupported sampling knobs", () => {
+    const cfg = mkConfig({
+      provider: "openai",
+      model: "gpt-5-nano",
+    })
+    const body = getProviderConfig(cfg).buildBody(
+      [{ role: "user", content: "hi" }],
+      { temperature: 0.1, top_p: 0.8, top_k: 40, max_tokens: 4096 },
+    ) as Record<string, unknown>
+
+    expect(body.max_completion_tokens).toBe(4096)
+    expect(body.max_tokens).toBeUndefined()
+    expect(body.temperature).toBeUndefined()
+    expect(body.top_p).toBeUndefined()
+    expect(body.top_k).toBeUndefined()
+  })
+
+  it("OpenAI o-series models use max_completion_tokens", () => {
+    const cfg = mkConfig({
+      provider: "openai",
+      model: "o3-mini",
+    })
+    const body = getProviderConfig(cfg).buildBody(
+      [{ role: "user", content: "hi" }],
+      { max_tokens: 8192 },
+    ) as Record<string, unknown>
+
+    expect(body.max_completion_tokens).toBe(8192)
+    expect(body.max_tokens).toBeUndefined()
+  })
+
+  it("custom OpenAI-compatible GPT-5 routes keep legacy overrides for router shims", () => {
+    const cfg = mkConfig({
+      provider: "custom",
+      model: "gpt-5.5",
+      customEndpoint: "https://openrouter.ai/api/v1",
+      apiMode: "chat_completions",
+    })
+    const body = getProviderConfig(cfg).buildBody(
+      [{ role: "user", content: "hi" }],
+      { temperature: 0.1, max_tokens: 500 },
+    ) as Record<string, unknown>
+
+    expect(body.temperature).toBe(0.1)
+    expect(body.max_tokens).toBe(500)
+    expect(body.max_completion_tokens).toBeUndefined()
+  })
+
+  it("strips temperature for Kimi/Moonshot OpenAI-compatible endpoints", () => {
+    const cfg = mkConfig({
+      provider: "custom",
+      model: "kimi-k2.6",
+      customEndpoint: "https://api.moonshot.ai/v1",
+      apiMode: "chat_completions",
+    })
+    const body = getProviderConfig(cfg).buildBody(
+      [{ role: "user", content: "hi" }],
+      { temperature: 0.1, max_tokens: 4096 },
+    ) as Record<string, unknown>
+
+    expect(body.temperature).toBeUndefined()
+    expect(body.max_tokens).toBe(4096)
+  })
+
   it("maps Anthropic reasoning budget to extended thinking and removes sampling knobs", () => {
     const cfg = mkConfig({ provider: "anthropic", model: "claude-sonnet-4-5-20250929" })
     const body = getProviderConfig(cfg).buildBody(

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_NETWORK_POLICY, type NetworkPolicyConfig } from "@/lib/network-policy"
-import { webSearch } from "./web-search"
+import { hasConfiguredSearchProvider, webSearch } from "./web-search"
 
 const fetchMock = vi.fn<typeof fetch>()
 const localOnlyPolicy: NetworkPolicyConfig = {
@@ -95,6 +95,69 @@ describe("webSearch", () => {
     ])
   })
 
+  it("calls SearXNG without an API key and normalizes JSON results", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      results: [
+        {
+          title: "SearXNG result",
+          url: "https://www.example.org/page",
+          content: "Snippet",
+          engine: "duckduckgo",
+        },
+        {
+          title: "No URL",
+          content: "Dropped",
+        },
+      ],
+    }))
+
+    const out = await webSearch(
+      "local search",
+      {
+        provider: "searxng",
+        apiKey: "",
+        providerConfigs: {
+          searxng: {
+            searXngUrl: "http://127.0.0.1:8888/meta",
+            searXngCategories: ["general", "science"],
+          },
+        },
+      },
+      5,
+      anyPolicy,
+    )
+    const [url, init] = fetchMock.mock.calls[0]
+    const parsed = new URL(String(url))
+
+    expect(parsed.origin + parsed.pathname).toBe("http://127.0.0.1:8888/meta/search")
+    expect(parsed.searchParams.get("q")).toBe("local search")
+    expect(parsed.searchParams.get("format")).toBe("json")
+    expect(parsed.searchParams.get("categories")).toBe("general,science")
+    expect(init).toEqual(expect.objectContaining({ method: "GET" }))
+    expect(out).toEqual([
+      {
+        title: "SearXNG result",
+        url: "https://www.example.org/page",
+        snippet: "Snippet",
+        source: "example.org",
+      },
+    ])
+  })
+
+  it("preserves a SearXNG /search subpath instead of appending it twice", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ results: [] }))
+
+    await webSearch(
+      "ai",
+      { provider: "searxng", apiKey: "", searXngUrl: "https://search.example.com/searxng/search" },
+      2,
+      anyPolicy,
+    )
+
+    const parsed = new URL(String(fetchMock.mock.calls[0][0]))
+    expect(parsed.origin + parsed.pathname).toBe("https://search.example.com/searxng/search")
+  })
+
   it("surfaces SerpApi JSON errors", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Invalid API key" }))
 
@@ -104,7 +167,22 @@ describe("webSearch", () => {
 
   it("requires a configured search provider and key", async () => {
     await expect(webSearch("x", { provider: "none", apiKey: "" }, 5))
+      .rejects.toThrow("Select a search provider")
+    await expect(webSearch("x", { provider: "serpapi", apiKey: "" }, 5, anyPolicy))
       .rejects.toThrow("Tavily or SerpApi API key")
+    await expect(webSearch("x", { provider: "searxng", apiKey: "" }, 5, anyPolicy))
+      .rejects.toThrow("SearXNG instance URL")
+  })
+
+  it("detects configured search providers by provider-specific requirements", () => {
+    expect(hasConfiguredSearchProvider({ provider: "none", apiKey: "" })).toBe(false)
+    expect(hasConfiguredSearchProvider({ provider: "tavily", apiKey: "tvly" })).toBe(true)
+    expect(hasConfiguredSearchProvider({ provider: "serpapi", apiKey: "" })).toBe(false)
+    expect(hasConfiguredSearchProvider({
+      provider: "searxng",
+      apiKey: "",
+      providerConfigs: { searxng: { searXngUrl: "http://localhost:8888" } },
+    })).toBe(true)
   })
 
   it("blocks Tavily in local-only mode before issuing a request", async () => {
@@ -119,5 +197,20 @@ describe("webSearch", () => {
       .rejects.toThrow("blocked by local-only network policy")
 
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("blocks public SearXNG in local-only mode before issuing a request", async () => {
+    await expect(webSearch("alpha", { provider: "searxng", apiKey: "", searXngUrl: "https://search.example.com" }, 3, localOnlyPolicy))
+      .rejects.toThrow("blocked by local-only network policy")
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("allows loopback SearXNG in local-only mode", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ results: [] }))
+
+    await webSearch("alpha", { provider: "searxng", apiKey: "", searXngUrl: "http://127.0.0.1:8888" }, 3, localOnlyPolicy)
+
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 })

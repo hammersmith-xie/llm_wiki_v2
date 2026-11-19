@@ -97,12 +97,15 @@ import {
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { selectRecentAuditEvents } from "@/lib/memory-ops-ui"
 import { AuditTimelinePanel } from "./audit-timeline-panel"
+import { MemoryOpsEvalPanel } from "./memory-ops-eval-panel"
 import { MemoryOpsPolicyPanel } from "./memory-ops-policy-panel"
 import { MemoryOpsPatrolBlock } from "./memory-ops-patrol-block"
+import { MemoryOpsResearchPanel } from "./memory-ops-research-panel"
 import { SchemaQualityPanel } from "./schema-quality-panel"
 import { SearchHealthPanel } from "./search-health-panel"
 import { CoordinationSummaryPanel } from "./coordination-summary-panel"
 import { ConsolidationQueuePanel } from "./consolidation-queue-panel"
+import { useMemoryOpsResearchEval } from "./use-memory-ops-research-eval"
 import {
   enqueueMerge,
   cancelTask,
@@ -127,6 +130,8 @@ type MaintenanceWorkbenchTab =
   | "schema"
   | "coordination"
   | "consolidation"
+  | "research"
+  | "eval"
   | "timeline"
   | "policy"
   | "search"
@@ -145,6 +150,7 @@ export function MaintenanceSection() {
   const llmConfig = useWikiStore((s) => s.llmConfig)
   const project = useWikiStore((s) => s.project)
   const dataVersion = useWikiStore((s) => s.dataVersion)
+  const searchApiConfig = useWikiStore((s) => s.searchApiConfig)
   const setFileTree = useWikiStore((s) => s.setFileTree)
   const setSelectedFile = useWikiStore((s) => s.setSelectedFile)
   const setFileContent = useWikiStore((s) => s.setFileContent)
@@ -300,6 +306,27 @@ export function MaintenanceSection() {
     void refreshMaintenanceStatus()
   }, [refreshMaintenanceStatus, dataVersion])
 
+  const {
+    researchRunning,
+    researchReport,
+    researchSaveResult,
+    researchError,
+    evalRunning,
+    evalReport,
+    evalSaveResult,
+    evalError,
+    handleRunResearchEvidence,
+    handleRunMemoryOpsEval,
+  } = useMemoryOpsResearchEval({
+    project,
+    dataVersion,
+    searchApiConfig,
+    patrolReport,
+    setPatrolReport,
+    refreshRecentAudit,
+    refreshMaintenanceStatus,
+  })
+
   const refreshMemoryOpsPolicy = useCallback(async () => {
     if (!project) {
       setPolicy(DEFAULT_MEMORY_OPS_POLICY)
@@ -336,11 +363,9 @@ export function MaintenanceSection() {
     void refreshCustomSearchScenarios()
   }, [refreshCustomSearchScenarios])
 
-  const handlePatrol = useCallback(async () => {
-    if (!project) return
-    setPatrolRunning(true)
+  const resetMemoryOpsPatrolState = useCallback((options: { clearReport?: boolean } = {}) => {
     setPatrolError(null)
-    setPatrolReport(null)
+    if (options.clearReport) setPatrolReport(null)
     setIgnoredSuggestionIds(new Set())
     setAppliedSuggestionIds(new Set())
     setDryRunPlans({})
@@ -351,43 +376,41 @@ export function MaintenanceSection() {
     setRollbackResults({})
     setRollbackErrors({})
     setWorkingRollbackId(null)
+  }, [])
+
+  const runMemoryOpsPatrolAndRefresh = useCallback(async (
+    options: { clearReport?: boolean } = {},
+  ) => {
+    if (!project) return
+    setPatrolRunning(true)
+    resetMemoryOpsPatrolState(options)
     try {
       const report = await runMemoryOpsPatrol(project.path, { dataVersion })
       setPatrolReport(report)
-      await refreshMaintenanceStatus()
-      await refreshRecentAudit()
+      await Promise.all([
+        refreshMaintenanceStatus(),
+        refreshRecentAudit(),
+      ])
     } catch (err) {
       setPatrolError(err instanceof Error ? err.message : String(err))
     } finally {
       setPatrolRunning(false)
     }
-  }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+  }, [
+    project,
+    dataVersion,
+    resetMemoryOpsPatrolState,
+    refreshMaintenanceStatus,
+    refreshRecentAudit,
+  ])
+
+  const handlePatrol = useCallback(async () => {
+    await runMemoryOpsPatrolAndRefresh({ clearReport: true })
+  }, [runMemoryOpsPatrolAndRefresh])
 
   const runPatrolAfterPolicyChange = useCallback(async () => {
-    if (!project) return
-    setPatrolRunning(true)
-    setPatrolError(null)
-    setIgnoredSuggestionIds(new Set())
-    setAppliedSuggestionIds(new Set())
-    setDryRunPlans({})
-    setSuggestionErrors({})
-    setSelectedSuggestionIds(new Set())
-    setLastBatchResult(null)
-    setRollbackPreviews({})
-    setRollbackResults({})
-    setRollbackErrors({})
-    setWorkingRollbackId(null)
-    try {
-      const report = await runMemoryOpsPatrol(project.path, { dataVersion })
-      setPatrolReport(report)
-      await refreshMaintenanceStatus()
-      await refreshRecentAudit()
-    } catch (err) {
-      setPatrolError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setPatrolRunning(false)
-    }
-  }, [project, dataVersion, refreshMaintenanceStatus, refreshRecentAudit])
+    await runMemoryOpsPatrolAndRefresh()
+  }, [runMemoryOpsPatrolAndRefresh])
 
   const handlePreviewClaimRepair = useCallback(async () => {
     if (!project) return
@@ -1178,7 +1201,7 @@ export function MaintenanceSection() {
           aria-label={t("settings.sections.maintenance.workbenchTabs.label")}
           className="flex flex-wrap gap-2 rounded-lg border border-border/60 bg-muted/20 p-2"
         >
-          {(["patrol", "schema", "coordination", "consolidation", "timeline", "policy", "search"] as const).map((tab) => (
+          {(["patrol", "research", "eval", "schema", "coordination", "consolidation", "timeline", "policy", "search"] as const).map((tab) => (
             <Button
               key={tab}
               role="tab"
@@ -1212,6 +1235,7 @@ export function MaintenanceSection() {
               claimBackfillError={claimBackfillError}
               claimBackfillResult={claimBackfillResult}
               maintenanceStatus={maintenanceStatus}
+              policy={policy}
               recentAuditEvents={recentAuditEvents}
               ignoredSuggestionIds={ignoredSuggestionIds}
               appliedSuggestionIds={appliedSuggestionIds}
@@ -1242,6 +1266,43 @@ export function MaintenanceSection() {
               onApply={(suggestion) => void handleApplySuggestion(suggestion)}
               onIgnore={(suggestion) => void handleIgnoreSuggestion(suggestion)}
               onOpen={(suggestion) => void handleOpenSuggestion(suggestion)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "research" && (
+          <div
+            id="maintenance-research-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-research-tab"
+          >
+            <MemoryOpsResearchPanel
+              projectReady={projectReady}
+              running={researchRunning}
+              report={researchReport}
+              saveResult={researchSaveResult}
+              error={researchError}
+              currentPatrolSuggestionCount={patrolReport?.suggestions.length ?? 0}
+              onRun={() => void handleRunResearchEvidence()}
+              onOpenReport={(path) => void handleOpenAuditPath(path)}
+            />
+          </div>
+        )}
+
+        {workbenchTab === "eval" && (
+          <div
+            id="maintenance-eval-panel"
+            role="tabpanel"
+            aria-labelledby="maintenance-eval-tab"
+          >
+            <MemoryOpsEvalPanel
+              projectReady={projectReady}
+              running={evalRunning}
+              report={evalReport}
+              saveResult={evalSaveResult}
+              error={evalError}
+              onRun={() => void handleRunMemoryOpsEval()}
+              onOpenReport={(path) => void handleOpenAuditPath(path)}
             />
           </div>
         )}

@@ -26,6 +26,20 @@ pub fn get_daemon_status() -> &'static str {
     }
 }
 
+pub fn current_project_path() -> String {
+    CURRENT_PROJECT
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default()
+}
+
+pub fn all_projects() -> Vec<(String, String)> {
+    ALL_PROJECTS
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default()
+}
+
 pub fn start_clip_server() {
     thread::spawn(|| {
         let mut restart_count: u32 = 0;

@@ -1,17 +1,12 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import {
-  AlertTriangle,
-  Archive,
-  CheckCircle2,
-  CircleDot,
-  ClipboardCheck,
-  GitBranch,
-  Loader2,
-  RefreshCcw,
-  SearchCheck,
-  XCircle,
-} from "lucide-react"
+import { Loader2, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { MemoryOpsCategoryIcon } from "@/components/settings/sections/memory-ops-category-icon"
+import {
+  MemoryOpsDecisionBadge,
+  MemoryOpsDecisionGate,
+} from "@/components/settings/sections/memory-ops-decision-gate"
 import type { MetadataPatchPlan } from "@/lib/memory-ops-executor"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import {
@@ -20,6 +15,8 @@ import {
   type MemoryOpsSuggestionGroup,
 } from "@/lib/memory-ops-ui"
 import { isBatchApplicableMemoryOpsSuggestion } from "@/lib/memory-ops-batch"
+
+const COLLAPSED_SUGGESTION_LIMIT = 4
 
 interface MemoryOpsSuggestionGroupsProps {
   groups: MemoryOpsSuggestionGroup[]
@@ -161,18 +158,30 @@ function SuggestionCategoryGroup({
   onOpen: (suggestion: MemoryOpsSuggestion) => void
 }) {
   const { t } = useTranslation()
-  const visibleSuggestions = suggestions.slice(0, 4)
-  const extraSuggestionCount = Math.max(0, suggestions.length - visibleSuggestions.length)
-  const selectableSuggestions = visibleSuggestions.filter(isBatchApplicableMemoryOpsSuggestion)
+  const [expanded, setExpanded] = useState(false)
+  const visibleSuggestions = expanded
+    ? suggestions
+    : suggestions.slice(0, COLLAPSED_SUGGESTION_LIMIT)
+  const hiddenSuggestionCount = Math.max(0, suggestions.length - visibleSuggestions.length)
+  const selectableSuggestions = suggestions.filter(isBatchApplicableMemoryOpsSuggestion)
+  const selectedInCategoryCount = suggestions.filter((suggestion) =>
+    selectedSuggestionIds.has(suggestion.id)
+  ).length
 
   return (
     <div className="space-y-1.5 border-t border-border/60 pt-2 first:border-t-0 first:pt-0">
       <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
-        <SuggestionCategoryIcon category={category} />
+        <MemoryOpsCategoryIcon category={category} />
         <span className="min-w-0 break-words">
           {t(`settings.sections.maintenance.memoryOps.categories.${category}`)}
         </span>
         <span className="text-muted-foreground">({suggestions.length})</span>
+        <span className="text-muted-foreground">
+          {t("settings.sections.maintenance.memoryOps.categorySelectionSummary", {
+            selected: selectedInCategoryCount,
+            selectable: selectableSuggestions.length,
+          })}
+        </span>
         {selectableSuggestions.length > 0 && (
           <Button
             size="xs"
@@ -181,7 +190,9 @@ function SuggestionCategoryGroup({
             onClick={() => onSelectCategory(selectableSuggestions)}
             disabled={batchWorking}
           >
-            {t("settings.sections.maintenance.memoryOps.selectCategory")}
+            {t("settings.sections.maintenance.memoryOps.selectCategory", {
+              n: selectableSuggestions.length,
+            })}
           </Button>
         )}
       </div>
@@ -201,27 +212,22 @@ function SuggestionCategoryGroup({
           onOpen={() => onOpen(suggestion)}
         />
       ))}
-      {extraSuggestionCount > 0 && (
-        <div className="text-xs text-muted-foreground">
-          {t("settings.sections.maintenance.memoryOps.moreInCategory", {
-            n: extraSuggestionCount,
-          })}
-        </div>
+      {suggestions.length > COLLAPSED_SUGGESTION_LIMIT && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-auto px-1 py-0.5 text-xs text-muted-foreground"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded
+            ? t("settings.sections.maintenance.memoryOps.showLessInCategory")
+            : t("settings.sections.maintenance.memoryOps.moreInCategory", {
+                n: hiddenSuggestionCount,
+              })}
+        </Button>
       )}
     </div>
   )
-}
-
-function SuggestionCategoryIcon({ category }: { category: MemoryOpsSuggestionCategory }) {
-  const className = "h-3.5 w-3.5 shrink-0 text-muted-foreground"
-  if (category === "lifecycle") return <RefreshCcw className={className} />
-  if (category === "relation") return <GitBranch className={className} />
-  if (category === "contradiction") return <AlertTriangle className={className} />
-  if (category === "retention") return <Archive className={className} />
-  if (category === "schema") return <ClipboardCheck className={className} />
-  if (category === "quality") return <CheckCircle2 className={className} />
-  if (category === "search-health") return <SearchCheck className={className} />
-  return <CircleDot className={className} />
 }
 
 function MemoryOpsSuggestionRow({
@@ -254,7 +260,7 @@ function MemoryOpsSuggestionRow({
     suggestion.severity === "warning"
       ? "text-amber-700 dark:text-amber-400"
       : "text-muted-foreground"
-  const canApply = !!suggestion.proposedOperation
+  const canApply = !!suggestion.proposedOperation && (suggestion.decision?.applyAllowed ?? true)
   const canBatch = isBatchApplicableMemoryOpsSuggestion(suggestion)
   const canConfirm = !!plan && canApply && !working
 
@@ -273,6 +279,7 @@ function MemoryOpsSuggestionRow({
         </label>
         <div className="min-w-0 break-words font-medium">{suggestion.title}</div>
         <span className={tone}>{suggestion.severity}</span>
+        <MemoryOpsDecisionBadge decision={suggestion.decision} />
         {!canBatch && (
           <span className="text-muted-foreground">
             {t("settings.sections.maintenance.memoryOps.notBatchApplicable")}
@@ -315,6 +322,8 @@ function MemoryOpsSuggestionRow({
           </ul>
         </div>
       )}
+
+      <MemoryOpsDecisionGate decision={suggestion.decision} />
 
       {plan && (
         <div className="space-y-1 rounded border border-border/60 bg-background/80 px-2 py-1.5">

@@ -81,6 +81,14 @@ function snapshot(): MemoryOpsProjectSnapshot {
     dataVersion: 1,
     policy: {} as never,
     policyWarnings: ["bad policy"],
+    scanTelemetry: {
+      totalMs: 0,
+      stages: [],
+      options: {
+        includeChatMessages: true,
+        includeSelfHealing: true,
+      },
+    },
     pages: [],
     graph: {
       nodes: new Map(),

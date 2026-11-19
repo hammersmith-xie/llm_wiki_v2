@@ -107,6 +107,10 @@ const localOnlyPolicy: NetworkPolicyConfig = {
   ...DEFAULT_NETWORK_POLICY,
   mode: "local-only",
 }
+const anyPolicy: NetworkPolicyConfig = {
+  ...DEFAULT_NETWORK_POLICY,
+  mode: "any",
+}
 
 /** Build an embedding-shaped JSON Response. */
 function okResponse(embedding: number[]): Response {
@@ -285,6 +289,91 @@ describe("searchByEmbedding — aggregation", () => {
 // ── fetchEmbedding auto-halve — via embedPage/searchByEmbedding ─────
 
 describe("fetchEmbedding (via searchByEmbedding) — auto-halve", () => {
+  it("uses Gemini native embedding wire shape when endpoint targets generativelanguage.googleapis.com", async () => {
+    mockHttpFetch.mockResolvedValueOnce(new Response(
+      JSON.stringify({ embedding: { values: [0.1, 0.2] } }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ))
+    mockInvoke.mockResolvedValueOnce([
+      { chunk_id: "P#0", page_id: "P", chunk_index: 0, chunk_text: "", heading_path: "", score: 0.7 },
+    ])
+
+    const out = await searchByEmbedding(
+      "/tmp/p",
+      "hello",
+      {
+        ...cfg,
+        endpoint: "https://generativelanguage.googleapis.com/v1beta",
+        apiKey: "gemini-key",
+        model: "gemini-embedding-001",
+        outputDimensionality: 768,
+      },
+      5,
+      anyPolicy,
+    )
+
+    expect(out.map((p) => p.id)).toEqual(["P"])
+    const [url, init] = mockHttpFetch.mock.calls[0]
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent")
+    const headers = (init as RequestInit).headers as Record<string, string>
+    expect(headers["x-goog-api-key"]).toBe("gemini-key")
+    expect(headers.Authorization).toBeUndefined()
+    const body = JSON.parse((init as RequestInit).body as string)
+    expect(body).toEqual({
+      model: "models/gemini-embedding-001",
+      content: { parts: [{ text: "hello" }] },
+      output_dimensionality: 768,
+    })
+  })
+
+  it("strips pasted Google key query params before sending Gemini embedding requests", async () => {
+    mockHttpFetch.mockResolvedValueOnce(new Response(
+      JSON.stringify({ embedding: { values: [0.1] } }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ))
+    mockInvoke.mockResolvedValueOnce([])
+
+    await searchByEmbedding(
+      "/tmp/p",
+      "hello",
+      {
+        ...cfg,
+        endpoint: "https://generativelanguage.googleapis.com/v1beta?key=leaked",
+        apiKey: "header-key",
+        model: "models/gemini-embedding-001",
+      },
+      5,
+      anyPolicy,
+    )
+
+    const requestUrl = String(mockHttpFetch.mock.calls[0][0])
+    expect(requestUrl).toContain("/v1beta/models/gemini-embedding-001:embedContent")
+    expect(requestUrl).not.toContain("key=leaked")
+  })
+
+  it("surfaces missing embedding.values for Gemini native responses", async () => {
+    mockHttpFetch.mockResolvedValueOnce(new Response(
+      JSON.stringify({ data: [{ embedding: [0.1] }] }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ))
+
+    const out = await searchByEmbedding(
+      "/tmp/p",
+      "hello",
+      {
+        ...cfg,
+        endpoint: "https://generativelanguage.googleapis.com/v1beta",
+        apiKey: "gemini-key",
+        model: "gemini-embedding-001",
+      },
+      5,
+      anyPolicy,
+    )
+
+    expect(out).toEqual([])
+    expect(getLastEmbeddingError()).toContain("missing embedding.values")
+  })
+
   it("blocks public embedding endpoints in local-only mode before fetch", async () => {
     const out = await searchByEmbedding(
       "/tmp/p",

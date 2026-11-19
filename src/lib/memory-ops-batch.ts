@@ -9,6 +9,7 @@ import {
   type MetadataPatchOperation,
   type MetadataPatchPlan,
 } from "@/lib/memory-ops-executor"
+import { canApplyMemoryOpsSuggestion } from "@/lib/memory-ops-decision"
 import type { MemoryOpsSuggestion } from "@/lib/memory-ops-rules"
 import { categorizeMemoryOpsSuggestion } from "@/lib/memory-ops-ui"
 
@@ -272,17 +273,19 @@ function batchAuditStatusForAction(
 function batchOperationForSuggestion(
   suggestion: MemoryOpsSuggestion,
 ): MetadataPatchOperation | undefined {
+  if (!canApplyMemoryOpsSuggestion(suggestion)) return undefined
   const operation = suggestion.proposedOperation
   return operation?.kind === "metadata-patch" ? operation : undefined
 }
 
 function ineligibleBatchItem(suggestion: MemoryOpsSuggestion): MemoryOpsBatchItem {
+  const decisionReason = suggestion.decision?.reasons[0]
   return {
     suggestionId: suggestion.id,
     suggestionTitle: suggestion.title,
     targetPath: suggestion.targetPath,
     status: "ineligible",
-    error: "Suggestion has no metadata patch operation.",
+    error: decisionReason ?? "Suggestion has no metadata patch operation.",
   }
 }
 

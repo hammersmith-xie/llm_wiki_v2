@@ -6,6 +6,7 @@ use std::path::Path;
 
 use calamine::{open_workbook_auto, Data, Reader};
 
+use crate::commands::file_sync;
 use crate::panic_guard::run_guarded;
 use crate::types::wiki::FileNode;
 
@@ -132,6 +133,7 @@ fn write_cache(original: &Path, text: &str) -> Result<(), String> {
     if let Some(parent) = cache_path.parent() {
         fs::create_dir_all(parent).ok();
     }
+    file_sync::mark_app_write_path(&cache_path);
     fs::write(&cache_path, text).map_err(|e| format!("Failed to write cache: {}", e))
 }
 
@@ -930,12 +932,59 @@ pub async fn write_file(path: String, contents: String) -> Result<(), String> {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dirs for '{}': {}", path, e))?;
             }
+            file_sync::mark_app_write_path(p);
             fs::write(&path, contents)
-                .map_err(|e| format!("Failed to write file '{}': {}", path, e))
+                .map_err(|e| format!("Failed to write file '{}': {}", path, e))?;
+            file_sync::mark_app_write_path(p);
+            Ok(())
         })
     })
     .await
     .map_err(|e| format!("write_file blocking task join error: {e}"))?
+}
+
+#[tauri::command]
+pub async fn write_file_atomic(path: String, contents: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_guarded("write_file_atomic", || {
+            let p = Path::new(&path);
+            if let Some(parent) = p.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create parent dirs for '{}': {}", path, e))?;
+            }
+
+            let file_name = p
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap_or_else(|| "llm-wiki-file".to_string());
+            let tmp_path = p.with_file_name(format!(
+                ".{file_name}.{}.tmp",
+                chrono::Utc::now()
+                    .timestamp_nanos_opt()
+                    .unwrap_or_else(|| chrono::Utc::now().timestamp_millis())
+            ));
+
+            file_sync::mark_app_write_path(&tmp_path);
+            file_sync::mark_app_write_path(p);
+            fs::write(&tmp_path, contents).map_err(|e| {
+                format!("Failed to write temp file '{}': {}", tmp_path.display(), e)
+            })?;
+
+            fs::rename(&tmp_path, p).map_err(|e| {
+                let _ = fs::remove_file(&tmp_path);
+                format!(
+                    "Failed to move temp file '{}' to '{}': {}",
+                    tmp_path.display(),
+                    path,
+                    e
+                )
+            })?;
+            file_sync::mark_app_write_path(p);
+            Ok(())
+        })
+    })
+    .await
+    .map_err(|e| format!("write_file_atomic blocking task join error: {e}"))?
 }
 
 #[tauri::command]
@@ -947,13 +996,16 @@ pub async fn append_file(path: String, contents: String) -> Result<(), String> {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dirs for '{}': {}", path, e))?;
             }
+            file_sync::mark_app_write_path(p);
             let mut file = OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(&path)
                 .map_err(|e| format!("Failed to open file for append '{}': {}", path, e))?;
             file.write_all(contents.as_bytes())
-                .map_err(|e| format!("Failed to append file '{}': {}", path, e))
+                .map_err(|e| format!("Failed to append file '{}': {}", path, e))?;
+            file_sync::mark_app_write_path(p);
+            Ok(())
         })
     })
     .await
@@ -1051,8 +1103,10 @@ pub async fn copy_file(source: String, destination: String) -> Result<(), String
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent dirs: {}", e))?;
             }
+            file_sync::mark_app_write_path(dest);
             fs::copy(&source, &destination)
                 .map_err(|e| format!("Failed to copy '{}' to '{}': {}", source, destination, e))?;
+            file_sync::mark_app_write_path(dest);
             Ok(())
         })
     })
@@ -1068,6 +1122,7 @@ pub async fn copy_directory(source: String, destination: String) -> Result<Vec<S
         run_guarded("copy_directory", || {
             let src = Path::new(&source);
             let dest = Path::new(&destination);
+            file_sync::mark_app_write_path(dest);
 
             if !src.is_dir() {
                 return Err(format!("'{}' is not a directory", source));
@@ -1099,8 +1154,10 @@ pub async fn copy_directory(source: String, destination: String) -> Result<Vec<S
                     if path.is_dir() {
                         copy_recursive(&path, &dest_path, files)?;
                     } else {
+                        file_sync::mark_app_write_path(&dest_path);
                         fs::copy(&path, &dest_path)
                             .map_err(|e| format!("Failed to copy '{}': {}", path.display(), e))?;
+                        file_sync::mark_app_write_path(&dest_path);
                         files.push(dest_path.to_string_lossy().replace('\\', "/"));
                     }
                 }
@@ -1120,13 +1177,16 @@ pub async fn delete_file(path: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         run_guarded("delete_file", || {
             let p = Path::new(&path);
+            file_sync::mark_app_write_path(p);
             if p.is_dir() {
                 fs::remove_dir_all(&path)
-                    .map_err(|e| format!("Failed to delete directory '{}': {}", path, e))
+                    .map_err(|e| format!("Failed to delete directory '{}': {}", path, e))?;
             } else {
                 fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file '{}': {}", path, e))
+                    .map_err(|e| format!("Failed to delete file '{}': {}", path, e))?;
             }
+            file_sync::mark_app_write_path(p);
+            Ok(())
         })
     })
     .await
@@ -1358,6 +1418,63 @@ pub async fn file_exists(path: String) -> Result<bool, String> {
     })
     .await
     .map_err(|e| format!("file_exists blocking task join error: {e}"))?
+}
+
+#[tauri::command]
+pub async fn get_file_modified_time(path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_guarded("get_file_modified_time", || {
+            let metadata = fs::metadata(&path)
+                .map_err(|e| format!("Failed to get metadata for '{}': {}", path, e))?;
+            let modified = metadata
+                .modified()
+                .map_err(|e| format!("Failed to get modified time for '{}': {}", path, e))?;
+            let duration = modified
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|e| format!("Time error for '{}': {}", path, e))?;
+            Ok(duration.as_millis() as u64)
+        })
+    })
+    .await
+    .map_err(|e| format!("get_file_modified_time blocking task join error: {e}"))?
+}
+
+#[tauri::command]
+pub async fn get_file_size(path: String) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_guarded("get_file_size", || {
+            let metadata = fs::metadata(&path)
+                .map_err(|e| format!("Failed to get metadata for '{}': {}", path, e))?;
+            Ok(metadata.len())
+        })
+    })
+    .await
+    .map_err(|e| format!("get_file_size blocking task join error: {e}"))?
+}
+
+#[tauri::command]
+pub async fn get_file_md5(path: String) -> Result<String, String> {
+    use md5::{Digest, Md5};
+    tauri::async_runtime::spawn_blocking(move || {
+        run_guarded("get_file_md5", || {
+            let mut file = fs::File::open(&path)
+                .map_err(|e| format!("Failed to open file '{}': {}", path, e))?;
+            let mut hasher = Md5::new();
+            let mut buffer = [0u8; 64 * 1024];
+            loop {
+                let read = file
+                    .read(&mut buffer)
+                    .map_err(|e| format!("Failed to read file '{}': {}", path, e))?;
+                if read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..read]);
+            }
+            Ok(format!("{:x}", hasher.finalize()))
+        })
+    })
+    .await
+    .map_err(|e| format!("get_file_md5 blocking task join error: {e}"))?
 }
 
 #[cfg(test)]

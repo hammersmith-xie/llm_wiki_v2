@@ -657,6 +657,14 @@ function snapshot(
     dataVersion: 0,
     policy: DEFAULT_MEMORY_OPS_POLICY,
     policyWarnings: [],
+    scanTelemetry: {
+      totalMs: 0,
+      stages: [],
+      options: {
+        includeChatMessages: true,
+        includeSelfHealing: true,
+      },
+    },
     pages,
     graph: extractTypedGraphFromPages(
       pages.map((page) => ({

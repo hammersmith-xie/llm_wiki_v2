@@ -1,23 +1,26 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { open } from "@tauri-apps/plugin-dialog"
-import { invoke } from "@tauri-apps/api/core"
 import { Plus, FileText, RefreshCw, BookOpen, Trash2, Folder, ChevronRight, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWikiStore } from "@/stores/wiki-store"
-import { copyFile, listDirectory, readFile, writeFile, deleteFile, findRelatedWikiPages, preprocessFile } from "@/commands/fs"
+import { listDirectory, readFile } from "@/commands/fs"
 import type { FileNode } from "@/types/wiki"
-import { enqueueIngest, enqueueBatch } from "@/lib/ingest-queue"
-import { hasUsableLlm } from "@/lib/has-usable-llm"
 import { useTranslation } from "react-i18next"
-import { normalizePath, getFileName } from "@/lib/path-utils"
-import { parseSources, writeSources } from "@/lib/sources-merge"
-import { decidePageFate } from "@/lib/source-delete-decision"
-import { removeFromIngestCache } from "@/lib/ingest-cache"
+import { normalizePath } from "@/lib/path-utils"
+import { decideDeleteClick } from "@/lib/sources-tree-delete"
+import { rescanProjectFileSync } from "@/lib/project-file-sync"
 import {
-  collectAllFilesIncludingDot,
-  decideDeleteClick,
-} from "@/lib/sources-tree-delete"
+  deleteSourceFile,
+  deleteSourceFolder,
+  enqueueSourceIngest,
+  importSourceFiles,
+  importSourceFolder,
+} from "@/lib/source-lifecycle"
+
+const SOURCE_TREE_INITIAL_ROWS = 160
+const SOURCE_TREE_LOAD_BATCH = 160
 
 export function SourcesView() {
   const { t } = useTranslation()
@@ -27,9 +30,12 @@ export function SourcesView() {
   const setFileContent = useWikiStore((s) => s.setFileContent)
   const setFileTree = useWikiStore((s) => s.setFileTree)
   const llmConfig = useWikiStore((s) => s.llmConfig)
+  const dataVersion = useWikiStore((s) => s.dataVersion)
   const [sources, setSources] = useState<FileNode[]>([])
   const [importing, setImporting] = useState(false)
   const [ingestingPath, setIngestingPath] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
   /**
    * Path of the source-tree node currently in "click again to
    * confirm delete" state. Lifted up here (rather than living
@@ -61,21 +67,38 @@ export function SourcesView() {
       // Filter out hidden files/dirs and cache
       const filtered = filterTree(tree)
       setSources(filtered)
-    } catch {
+      setRefreshError(null)
+    } catch (err) {
+      setRefreshError(String(err))
       setSources([])
     }
   }, [project])
 
   useEffect(() => {
     loadSources()
-  }, [loadSources])
+  }, [loadSources, dataVersion])
+
+  async function handleRefreshSources() {
+    if (!project || refreshing) return
+    setRefreshing(true)
+    try {
+      await rescanProjectFileSync(project, useWikiStore.getState().sourceWatchConfig)
+      setRefreshError(null)
+    } catch (err) {
+      console.warn("[sources] failed to rescan project files:", err)
+      setRefreshError(String(err))
+    } finally {
+      await loadSources()
+      setRefreshing(false)
+    }
+  }
 
   async function handleImport() {
     if (!project) return
 
     const selected = await open({
       multiple: true,
-      title: "Import Source Files",
+      title: t("sources.importSourceFiles"),
       filters: [
         {
           name: "Documents",
@@ -112,33 +135,12 @@ export function SourcesView() {
     if (!selected || selected.length === 0) return
 
     setImporting(true)
-    const pp = normalizePath(project.path)
     const paths = Array.isArray(selected) ? selected : [selected]
-
-    const importedPaths: string[] = []
-    for (const sourcePath of paths) {
-      const originalName = getFileName(sourcePath) || "unknown"
-      const destPath = await getUniqueDestPath(`${pp}/raw/sources`, originalName)
-      try {
-        await copyFile(sourcePath, destPath)
-        importedPaths.push(destPath)
-        // Pre-process file (extract text from PDF, etc.) for instant preview later
-        preprocessFile(destPath).catch(() => {})
-      } catch (err) {
-        console.error(`Failed to import ${originalName}:`, err)
-      }
-    }
-
-    setImporting(false)
-    await loadSources()
-
-    // Enqueue for serial ingest (runs in background via ingest queue)
-    if (hasUsableLlm(llmConfig)) {
-      for (const destPath of importedPaths) {
-        enqueueIngest(project.id, destPath).catch((err) =>
-          console.error(`Failed to enqueue ingest:`, err)
-        )
-      }
+    try {
+      await importSourceFiles(project, paths, llmConfig)
+      await loadSources()
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -147,65 +149,18 @@ export function SourcesView() {
 
     const selected = await open({
       directory: true,
-      title: "Import Source Folder",
+      title: t("sources.importSourceFolder"),
     })
 
     if (!selected || typeof selected !== "string") return
 
     setImporting(true)
-    const pp = normalizePath(project.path)
-    const folderName = getFileName(selected) || "imported"
-    const destDir = `${pp}/raw/sources/${folderName}`
-
     try {
-      // Recursively copy the folder
-      const copiedFiles: string[] = await invoke("copy_directory", {
-        source: selected,
-        destination: destDir,
-      })
-
-      console.log(`[Folder Import] Copied ${copiedFiles.length} files from ${folderName}`)
-
-      // Preprocess all files
-      for (const filePath of copiedFiles) {
-        preprocessFile(filePath).catch(() => {})
-      }
-
-      setImporting(false)
+      await importSourceFolder(project, selected, llmConfig)
       await loadSources()
-
-      // Build ingest tasks with folder context
-      if (hasUsableLlm(llmConfig)) {
-        const tasks = copiedFiles
-          .filter((fp) => {
-            const ext = fp.split(".").pop()?.toLowerCase() ?? ""
-            // Only ingest text-based files, skip images/media
-            return ["md", "mdx", "txt", "pdf", "docx", "pptx", "xlsx", "xls",
-                    "csv", "json", "html", "htm", "rtf", "xml", "yaml", "yml"].includes(ext)
-          })
-          .map((filePath) => {
-            // Build folder context from relative path. On Windows the
-            // Rust-returned filePath uses backslashes while destDir was
-            // composed with forward slashes — normalize both sides before
-            // the replace so this works on every platform.
-            const normFilePath = normalizePath(filePath)
-            const normDestDir = normalizePath(destDir)
-            const relPath = normFilePath.replace(normDestDir + "/", "")
-            const parts = relPath.split("/")
-            parts.pop() // remove filename
-            const context = parts.length > 0
-              ? `${folderName} > ${parts.join(" > ")}`
-              : folderName
-            return { sourcePath: filePath, folderContext: context }
-          })
-
-        if (tasks.length > 0) {
-          await enqueueBatch(project.id, tasks)
-          console.log(`[Folder Import] Enqueued ${tasks.length} files for ingest`)
-        }
-      }
     } catch (err) {
       console.error(`Failed to import folder:`, err)
+    } finally {
       setImporting(false)
     }
   }
@@ -228,7 +183,7 @@ export function SourcesView() {
     // delete). Reaching this handler means the user has already
     // confirmed via the inline UI, so we proceed unconditionally.
     try {
-      const result = await deleteSourceWithCascade(pp, node)
+      const result = await deleteSourceFile(pp, node.path)
       // Step 8: Refresh everything (UI side — must run with parent
       // context, hence kept here rather than inside the helper).
       await loadSources()
@@ -265,31 +220,14 @@ export function SourcesView() {
     if (!project) return
     const pp = normalizePath(project.path)
     try {
-      const allFiles = collectAllFilesIncludingDot(folder)
-      const allDeletedWikiPaths: string[] = []
-      for (const file of allFiles) {
-        try {
-          const r = await deleteSourceWithCascade(pp, file)
-          allDeletedWikiPaths.push(...r.deletedWikiPaths)
-        } catch (err) {
-          console.warn(`Failed to delete ${file.path} during folder delete:`, err)
-        }
-      }
-      // Now remove the folder (and any leftover empty subdirs / dot
-      // cache dirs) in one shot. Files we just deleted above are
-      // gone; this call mostly tears down empty directories.
-      try {
-        await deleteFile(folder.path)
-      } catch (err) {
-        console.warn(`Failed to remove folder ${folder.path}:`, err)
-      }
+      const result = await deleteSourceFolder(pp, folder)
       await loadSources()
       const tree = await listDirectory(pp)
       setFileTree(tree)
       useWikiStore.getState().bumpDataVersion()
       if (
         selectedFile?.startsWith(folder.path + "/") ||
-        allDeletedWikiPaths.includes(selectedFile ?? "")
+        result.deletedWikiPaths.includes(selectedFile ?? "")
       ) {
         setSelectedFile(null)
       }
@@ -297,125 +235,6 @@ export function SourcesView() {
       console.error("Failed to delete folder:", err)
       window.alert(`Failed to delete folder: ${err}`)
     }
-  }
-
-  /**
-   * Per-file deletion: the wiki cascade portion (steps 1-7 of the
-   * old handleDelete), without the confirmation dialog or the
-   * UI-state refresh (callers do those once at the end of a batch).
-   *
-   * Returns the wiki page paths we actually removed so the caller
-   * can reset selectedFile if one of them was open.
-   */
-  async function deleteSourceWithCascade(
-    pp: string,
-    node: FileNode,
-  ): Promise<{ deletedWikiPaths: string[] }> {
-    const fileName = node.name
-    // Step 1: Find related wiki pages before deleting
-    const relatedPages = await findRelatedWikiPages(pp, fileName)
-
-    // Step 2: Delete the source file
-    await deleteFile(node.path)
-
-    // Step 3: Delete preprocessed cache
-    try {
-      await deleteFile(`${pp}/raw/sources/.cache/${fileName}.txt`)
-    } catch {
-      // cache file may not exist
-    }
-
-      // Step 4: For each page that findRelatedWikiPages surfaced,
-      // consult decidePageFate to pick one of three actions:
-      //
-      //   keep   — page has OTHER sources too; just drop this one from
-      //            its sources[] list and rewrite.
-      //   delete — this was the page's sole source; remove the page
-      //            and record { slug, title } so downstream cleanup
-      //            can wipe every stale reference to it.
-      //   skip   — the page's sources[] doesn't actually include the
-      //            file being deleted. Must have been surfaced by the
-      //            Rust findRelatedWikiPages loose-match path (fs.rs
-      //            Strategy 3 — substring of title / description /
-      //            elsewhere in the frontmatter). Leaving the page
-      //            alone prevents silent data loss when a filename
-      //            happens to appear in an unrelated page's metadata.
-      // Pass 1: keep / skip — rewrite sources for shared pages, no
-      // deletion needed. The "delete" decisions are deferred to a
-      // single batch call after the loop so we can route them
-      // through the unified cascade helper.
-      const pagesToDelete: string[] = []
-      for (const pagePath of relatedPages) {
-        try {
-          const content = await readFile(pagePath)
-          const sourcesList = parseSources(content)
-          const decision = decidePageFate(sourcesList, fileName)
-
-          if (decision.action === "skip") {
-            // Nothing to do — page isn't really derived from this source.
-            continue
-          }
-
-          if (decision.action === "keep") {
-            // Multi-source page — rewrite sources with the deleted one
-            // filtered out. writeSources preserves every other
-            // frontmatter field and position.
-            const updated = writeSources(content, decision.updatedSources)
-            await writeFile(pagePath, updated)
-            continue
-          }
-
-          // action === "delete" → defer.
-          pagesToDelete.push(pagePath)
-        } catch (err) {
-          console.error(`Failed to process wiki page ${pagePath}:`, err)
-        }
-      }
-
-      // Pass 2: full cascade for every page whose sole source was
-      // this file. The helper deletes the file + drops embeddings
-      // + sweeps every other wiki .md to clean stale body
-      // wikilinks, index.md listings, and frontmatter reference
-      // arrays (`related` plus v2 typed relationships). The previous
-      // inline cleanup loop did 1 and 2 but left frontmatter slugs
-      // pointing at deleted pages, which FrontmatterPanel renders as
-      // a broken-ref warning icon.
-      const { cascadeDeleteWikiPagesWithRefs } = await import(
-        "@/lib/wiki-page-delete"
-      )
-      const cascadeResult =
-        pagesToDelete.length > 0
-          ? await cascadeDeleteWikiPagesWithRefs(pp, pagesToDelete)
-          : { deletedPaths: [], rewrittenFiles: 0 }
-      const actuallyDeleted = cascadeResult.deletedPaths
-
-    // Step 7: Append deletion record to log.md
-    try {
-      const logPath = `${pp}/wiki/log.md`
-      const logContent = await readFile(logPath).catch(() => "# Wiki Log\n")
-      const date = new Date().toISOString().slice(0, 10)
-      const keptCount = relatedPages.length - actuallyDeleted.length
-      const logEntry = `\n## [${date}] delete | ${fileName}\n\nDeleted source file and ${actuallyDeleted.length} wiki pages.${keptCount > 0 ? ` ${keptCount} shared pages kept (have other sources).` : ""}\n`
-      await writeFile(logPath, logContent.trimEnd() + logEntry)
-    } catch {
-      // non-critical
-    }
-
-    // Step 8: Drop the source's ingest-cache entry so a future
-    // re-import doesn't hit a stale "already ingested" record.
-    // The cache's existence-check fallback would have caught this
-    // anyway (it falls through to re-ingest when wiki/sources/<slug>.md
-    // is gone), but removing the entry up front keeps the cache
-    // file small and avoids confusing log lines like "cache miss
-    // for foo.pdf: wiki/sources/foo.md no longer on disk" on
-    // every search after a delete.
-    try {
-      await removeFromIngestCache(pp, fileName)
-    } catch {
-      // non-critical
-    }
-
-    return { deletedWikiPaths: actuallyDeleted }
   }
 
   async function handleIngest(node: FileNode) {
@@ -429,7 +248,7 @@ export function SourcesView() {
     // who expected a fresh-import re-run. One button, one path now.
     setIngestingPath(node.path)
     try {
-      await enqueueIngest(project.id, node.path)
+      await enqueueSourceIngest(project, [node.path], llmConfig)
     } catch (err) {
       console.error("Failed to enqueue ingest:", err)
     } finally {
@@ -438,13 +257,29 @@ export function SourcesView() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <TooltipProvider delay={300}>
+      <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h2 className="text-sm font-semibold">{t("sources.title")}</h2>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={loadSources} title="Refresh">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRefreshSources}
+                  disabled={refreshing}
+                  aria-label={t("sources.refreshFolder")}
+                />
+              }
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="end" className="max-w-80 whitespace-normal leading-relaxed">
+              {t("sources.refreshFolderTooltip")}
+            </TooltipContent>
+          </Tooltip>
           <Button size="sm" onClick={handleImport} disabled={importing}>
             <Plus className="mr-1 h-4 w-4" />
             {importing ? t("sources.importing") : t("sources.import")}
@@ -457,6 +292,14 @@ export function SourcesView() {
       </div>
 
       <ScrollArea className="flex-1">
+        {refreshError && (
+          <div className="mx-4 mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {t("sources.refreshFailed", {
+              defaultValue: "Failed to refresh sources: {{error}}",
+              error: refreshError,
+            })}
+          </div>
+        )}
         {sources.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
             <p>{t("sources.noSources")}</p>
@@ -468,7 +311,7 @@ export function SourcesView() {
               </Button>
               <Button variant="outline" size="sm" onClick={handleImportFolder}>
                 <Plus className="mr-1 h-4 w-4" />
-                Folder
+                {t("sources.importFolder")}
               </Button>
             </div>
           </div>
@@ -483,60 +326,41 @@ export function SourcesView() {
               pendingDeletePath={pendingDeletePath}
               setPendingDeletePath={setPendingDeletePath}
               ingestingPath={ingestingPath}
-              depth={0}
             />
           </div>
         )}
       </ScrollArea>
 
-      <div className="border-t px-4 py-2 text-xs text-muted-foreground">
-        {t("sources.sourceCount", { count: countFiles(sources) })}
+      <div className="flex items-center justify-between gap-2 border-t px-4 py-2 text-xs text-muted-foreground">
+        <span>{t("sources.sourceCount", { count: countFiles(sources) })}</span>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshSources}
+                disabled={!project || refreshing}
+                className="h-7 px-2 text-xs"
+              />
+            }
+          >
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? t("sources.refreshingFolder") : t("sources.refreshFolder")}
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end" className="max-w-80 whitespace-normal leading-relaxed">
+            {t("sources.refreshFolderTooltip")}
+          </TooltipContent>
+        </Tooltip>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
 
-/**
- * Generate a unique destination path. If file already exists, adds date/counter suffix.
- * "file.pdf" → "file.pdf" (first time)
- * "file.pdf" → "file-20260406.pdf" (conflict)
- * "file.pdf" → "file-20260406-2.pdf" (second conflict same day)
- */
-async function getUniqueDestPath(dir: string, fileName: string): Promise<string> {
-  const basePath = `${dir}/${fileName}`
-
-  // Check if file exists by trying to read it
-  try {
-    await readFile(basePath)
-  } catch {
-    // File doesn't exist — use original name
-    return basePath
-  }
-
-  // File exists — add date suffix
-  const ext = fileName.includes(".") ? fileName.slice(fileName.lastIndexOf(".")) : ""
-  const nameWithoutExt = ext ? fileName.slice(0, -ext.length) : fileName
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "")
-
-  const withDate = `${dir}/${nameWithoutExt}-${date}${ext}`
-  try {
-    await readFile(withDate)
-  } catch {
-    return withDate
-  }
-
-  // Date suffix also exists — add counter
-  for (let i = 2; i <= 99; i++) {
-    const withCounter = `${dir}/${nameWithoutExt}-${date}-${i}${ext}`
-    try {
-      await readFile(withCounter)
-    } catch {
-      return withCounter
-    }
-  }
-
-  // Shouldn't happen, but fallback
-  return `${dir}/${nameWithoutExt}-${date}-${Date.now()}${ext}`
+interface SourceTreeRow {
+  node: FileNode
+  depth: number
 }
 
 function filterTree(nodes: FileNode[]): FileNode[] {
@@ -563,6 +387,28 @@ function countFiles(nodes: FileNode[]): number {
   return count
 }
 
+function sortSourceNodes(nodes: readonly FileNode[]): FileNode[] {
+  return [...nodes].sort((a, b) => {
+    if (a.is_dir && !b.is_dir) return -1
+    if (!a.is_dir && b.is_dir) return 1
+    return a.name.localeCompare(b.name)
+  })
+}
+
+function flattenVisibleRows(
+  nodes: readonly FileNode[],
+  collapsed: Record<string, boolean>,
+  depth = 0,
+): SourceTreeRow[] {
+  const rows: SourceTreeRow[] = []
+  for (const node of sortSourceNodes(nodes)) {
+    rows.push({ node, depth })
+    if (node.is_dir && node.children && !(collapsed[node.path] ?? false)) {
+      rows.push(...flattenVisibleRows(node.children, collapsed, depth + 1))
+    }
+  }
+  return rows
+}
 
 function SourceTree({
   nodes,
@@ -573,7 +419,6 @@ function SourceTree({
   pendingDeletePath,
   setPendingDeletePath,
   ingestingPath,
-  depth,
 }: {
   nodes: FileNode[]
   onOpen: (node: FileNode) => void
@@ -587,9 +432,32 @@ function SourceTree({
   pendingDeletePath: string | null
   setPendingDeletePath: (path: string | null) => void
   ingestingPath: string | null
-  depth: number
 }) {
+  const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [visibleLimit, setVisibleLimit] = useState(SOURCE_TREE_INITIAL_ROWS)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const rows = useMemo(() => flattenVisibleRows(nodes, collapsed), [nodes, collapsed])
+  const visibleRows = rows.slice(0, visibleLimit)
+  const hasMore = visibleLimit < rows.length
+
+  useEffect(() => {
+    setVisibleLimit(SOURCE_TREE_INITIAL_ROWS)
+  }, [nodes])
+
+  useEffect(() => {
+    if (!hasMore) return
+    const target = loadMoreRef.current
+    if (!target) return
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      setVisibleLimit((current) => Math.min(current + SOURCE_TREE_LOAD_BATCH, rows.length))
+    }, { rootMargin: "240px 0px" })
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [hasMore, rows.length])
 
   const toggle = (path: string) => {
     setCollapsed((prev) => ({ ...prev, [path]: !prev[path] }))
@@ -618,16 +486,9 @@ function SourceTree({
     }
   }
 
-  // Sort: folders first, then files, alphabetical within each group
-  const sorted = [...nodes].sort((a, b) => {
-    if (a.is_dir && !b.is_dir) return -1
-    if (!a.is_dir && b.is_dir) return 1
-    return a.name.localeCompare(b.name)
-  })
-
   return (
     <>
-      {sorted.map((node) => {
+      {visibleRows.map(({ node, depth }) => {
         const isPendingDelete = pendingDeletePath === node.path
         if (node.is_dir && node.children) {
           const isCollapsed = collapsed[node.path] ?? false
@@ -657,24 +518,11 @@ function SourceTree({
                   onClick={() => handleDeleteClick(node)}
                   hint={
                     isPendingDelete
-                      ? `Click again to delete folder ${node.name} and ALL its contents`
-                      : `Delete folder ${node.name} (recursive)`
+                      ? t("sources.deleteFolderConfirm", { name: node.name })
+                      : t("sources.deleteFolder", { name: node.name })
                   }
                 />
               </div>
-              {!isCollapsed && (
-                <SourceTree
-                  nodes={node.children}
-                  onOpen={onOpen}
-                  onIngest={onIngest}
-                  onDelete={onDelete}
-                  onDeleteFolder={onDeleteFolder}
-                  pendingDeletePath={pendingDeletePath}
-                  setPendingDeletePath={setPendingDeletePath}
-                  ingestingPath={ingestingPath}
-                  depth={depth + 1}
-                />
-              )}
             </div>
           )
         }
@@ -696,7 +544,7 @@ function SourceTree({
               variant="ghost"
               size="icon"
               className="h-7 w-7 shrink-0"
-              title="Ingest"
+              title={t("sources.ingest")}
               disabled={ingestingPath === node.path}
               onClick={() => onIngest(node)}
             >
@@ -707,13 +555,21 @@ function SourceTree({
               onClick={() => handleDeleteClick(node)}
               hint={
                 isPendingDelete
-                  ? `Click again to delete ${node.name}`
-                  : `Delete ${node.name}`
+                  ? t("sources.deleteFileConfirm", { name: node.name })
+                  : t("sources.deleteFile", { name: node.name })
               }
             />
           </div>
         )
       })}
+      {hasMore && (
+        <div
+          ref={loadMoreRef}
+          className="px-3 py-2 text-center text-[11px] text-muted-foreground"
+        >
+          {t("sources.loadingMore")}
+        </div>
+      )}
     </>
   )
 }
@@ -737,6 +593,7 @@ function DeleteButton({
   onClick: () => void
   hint: string
 }) {
+  const { t } = useTranslation()
   if (isPending) {
     return (
       <Button
@@ -747,7 +604,7 @@ function DeleteButton({
         onClick={onClick}
       >
         <Trash2 className="mr-1 h-3.5 w-3.5" />
-        Confirm
+        {t("sources.confirm")}
       </Button>
     )
   }
